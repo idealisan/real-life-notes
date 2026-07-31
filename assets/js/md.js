@@ -57,6 +57,18 @@
         USE_PROFILES: { html: true }
       });
     }
+    if (global.hljs && global.document && global.document.createElement) {
+      var tmp = global.document.createElement('div');
+      tmp.innerHTML = html;
+      tmp.querySelectorAll('pre code').forEach(function (el) {
+        var m = (el.className || '').match(/language-([\w-]+)/);
+        if (!m) return;
+        try {
+          if (global.hljs.getLanguage(m[1])) global.hljs.highlightElement(el);
+        } catch (e) {}
+      });
+      html = tmp.innerHTML;
+    }
     math.math.forEach(function (m, i) {
       html = html.split('@@MATH-' + i + '@@').join(m);
     });
