@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>管理后台 · Real Life Notes</title>
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <!-- 连接页 -->
+  <section class="connect-view" id="connectView" hidden>
+    <div class="connect-card">
+      <div class="connect-logo">📝</div>
+      <h1>Real Life Notes · 管理后台</h1>
+      <p class="connect-tip">
+        填入一个仅授权本仓库的 GitHub fine-grained Personal Access Token。
+        Token 只在浏览器内存中使用，不会写入磁盘（不存 localStorage），
+        并会自动交给浏览器密码管理器保管。
+      </p>
+
+      <form id="connectForm" autocomplete="on">
+        <label for="adminToken">GitHub Token</label>
+        <input id="adminToken" name="adminToken" type="password"
+               autocomplete="current-password" placeholder="github_pat_…"
+               required spellcheck="false" autocapitalize="off">
+        <button type="submit" class="btn-primary" id="connectBtn">连接</button>
+      </form>
+
+      <p class="connect-error" id="connectError" hidden></p>
+      <p class="connect-meta" id="connectMeta" hidden></p>
+    </div>
+  </section>
+
+  <!-- 工作区 -->
+  <div id="workspace" hidden>
+    <header class="admin-topbar">
+      <div class="container admin-topbar-inner">
+        <a class="brand" href="../" title="返回站点">
+          <span class="brand-icon">📝</span>
+          <span>管理后台</span>
+        </a>
+        <div class="topbar-right">
+          <span class="repo-badge" id="repoBadge" hidden></span>
+          <button class="btn-ghost" id="disconnectBtn">断开</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="admin-body container">
+      <aside class="admin-side">
+        <nav class="side-nav" aria-label="后台导航">
+          <button data-view="posts" class="active">文章</button>
+          <button data-view="categories">分类</button>
+          <button data-view="settings">设置</button>
+        </nav>
+      </aside>
+      <main class="admin-main" id="mainContent" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="../assets/vendor/marked.min.js"></script>
+  <script src="../assets/vendor/purify.min.js"></script>
+  <script src="../assets/vendor/katex/katex.min.js"></script>
+  <script src="../assets/js/gh.js"></script>
+  <script src="../assets/js/md.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

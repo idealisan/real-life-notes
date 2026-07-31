@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="index, follow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>Real Life Notes</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#view">跳到正文</a>
+  <header class="site-header">
+    <div class="container site-header-inner">
+      <a class="brand" href="#/" aria-label="首页">
+        <span class="brand-icon">📝</span>
+        <span id="siteTitle">Real Life Notes</span>
+      </a>
+      <nav class="cat-nav" id="catNav" aria-label="分类导航"></nav>
+    </div>
+  </header>
+
+  <main class="container" id="view" tabindex="-1"></main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <span id="footerText"></span>
+      <span class="footer-sep">·</span>
+      <a href="admin/" rel="nofollow">管理</a>
+    </div>
+  </footer>
+
+  <noscript>本站点需要启用 JavaScript 才能浏览内容。</noscript>
+
+  <script src="assets/vendor/marked.min.js"></script>
+  <script src="assets/vendor/purify.min.js"></script>
+  <script src="assets/vendor/katex/katex.min.js"></script>
+  <script src="assets/js/md.js"></script>
+  <script src="assets/js/site.js"></script>
+</body>
+</html>

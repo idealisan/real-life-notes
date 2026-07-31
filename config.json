@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "site": {
+    "title": "Real Life Notes",
+    "subtitle": "记录生活中的各种事情",
+    "footer": "Powered by Real Life Notes"
+  },
+  "github": {
+    "owner": "idealisan",
+    "repo": "real-life-notes",
+    "branch": "main"
+  },
+  "categories": {
+    "notes": { "label": "笔记", "icon": "📝", "description": "技术、学习笔记" },
+    "life": { "label": "生活", "icon": "🌱", "description": "日常点滴" },
+    "work": { "label": "工作", "icon": "💼", "description": "工作相关" }
+  }
+}
