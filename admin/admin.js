@@ -49,7 +49,7 @@
         else if (k === 'html') node.innerHTML = attrs[k];
         else if (k.slice(0, 2) === 'on' && typeof attrs[k] === 'function') {
           node.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
-        } else node.setAttribute(k, attrs[k]);
+        } else if (attrs[k] != null) node.setAttribute(k, attrs[k]);
       });
     }
     (children || []).forEach(function (c) {

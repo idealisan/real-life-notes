@@ -43,7 +43,7 @@
         else if (k === 'html') node.innerHTML = attrs[k];
         else if (k.slice(0, 2) === 'on' && typeof attrs[k] === 'function') {
           node.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
-        } else node.setAttribute(k, attrs[k]);
+        } else if (attrs[k] != null) node.setAttribute(k, attrs[k]);
       });
     }
     (children || []).forEach(function (c) {
@@ -211,7 +211,8 @@
 
   function renderDetailBody(path, parsed) {
     var meta = parsed.meta;
-    var cat = (state.config.categories[meta.category] || {});
+    var catKey = (path.split('/')[1] || '') in (state.config.categories || {}) ? path.split('/')[1] : '';
+    var cat = state.config.categories[catKey] || {};
     var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(function (t) {
       return el('span', { class: 'tag', text: t });
     })) : null;
@@ -219,21 +220,51 @@
     var body = el('article', { class: 'detail-body', html: md.render(parsed.body) });
     externalizeLinks(body);
 
+    var sourceLink;
+    if (state.config.github && state.config.github.owner) {
+      sourceLink = el('a', {
+        href: 'https://github.com/' + encodeURIComponent(state.config.github.owner) + '/' +
+          encodeURIComponent(state.config.github.repo) + '/blob/' +
+          encodeURIComponent(state.config.github.branch || 'main') + '/' + path,
+        target: '_blank', rel: 'noopener', text: '源文件'
+      });
+    }
+
     els.view.textContent = '';
     els.view.appendChild(el('div', { class: 'detail-head' }, [
       el('h1', { class: 'detail-title', text: meta.title }),
       el('div', { class: 'detail-meta' }, [
-        el('span', { class: 'cat-badge', text: cat.label || meta.category || '未分类' }),
+        el('span', { class: 'cat-badge', text: cat.label || catKey || '未分类' }),
         el('time', { datetime: meta.date, text: md.formatDate(meta.date) }),
         meta.updated ? el('span', { text: '· 更新于 ' + md.fullDate(meta.updated) }) : null
       ]),
       tags
     ]));
     els.view.appendChild(body);
+    els.view.appendChild(renderDetailNav(path));
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
       el('a', { href: '#/', text: '← 返回列表' }),
-      el('a', { href: 'https://github.com' + (state.config.github ? '/' + md.esc(state.config.github.owner) : ''), target: '_blank', rel: 'noopener', text: '源文件' })
+      sourceLink
     ]));
+  }
+
+  function renderDetailNav(path) {
+    var published = state.posts.filter(function (p) { return !p.draft; })
+      .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var idx = -1;
+    published.forEach(function (p, i) { if (p.path === path) idx = i; });
+    var prev = idx > 0 ? published[idx - 1] : null;
+    var next = idx !== -1 && idx < published.length - 1 ? published[idx + 1] : null;
+    return el('nav', { class: 'detail-nav', 'aria-label': '文章导航' }, [
+      prev ? el('a', { class: 'nav-prev', href: '#/post/' + encodeURIComponent(prev.path) }, [
+        el('span', { class: 'nav-dir', text: '← 上一篇' }),
+        el('span', { class: 'nav-title', text: prev.title })
+      ]) : el('span', { class: 'nav-prev is-empty' }),
+      next ? el('a', { class: 'nav-next', href: '#/post/' + encodeURIComponent(next.path) }, [
+        el('span', { class: 'nav-dir', text: '下一篇 →' }),
+        el('span', { class: 'nav-title', text: next.title })
+      ]) : el('span', { class: 'nav-next is-empty' })
+    ]);
   }
 
   function externalizeLinks(root) {
