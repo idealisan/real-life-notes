@@ -103,6 +103,7 @@ rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 comm
 | `posts[].date` | string | ISO 8601，带时区 |
 | `posts[].updated` | string? | 可选，ISO 8601；更新帖子时写入 |
 | `posts[].excerpt` | string | 纯文本摘要，≤ 200 字符（服务端无关，由 admin 生成） |
+| `posts[].content` | string? | **可选**，帖子正文（不含 frontmatter）。由 admin 写入，用于：公开站点免请求直接渲染详情、RSS 全文输出；旧条目无此字段时两端自动回退（site 改为拉取 raw 文件，RSS 回退 excerpt） |
 | `posts[].draft` | boolean | **必填**。`true`=草稿（公开站点隐藏）；`false`=已发布 |
 
 > **排序约定**：index.json 中的顺序 = 展示顺序（按 date 降序）。公开站点不再自行排序，只渲染；同时**过滤 `draft: true`**。

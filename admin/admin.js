@@ -99,12 +99,18 @@
     var items = published.map(function (p) {
       var link = base + '#/post/' + encodeURIComponent(p.path);
       var pub = (function () { var d = new Date(p.date); return isNaN(d.getTime()) ? '' : d.toUTCString(); })();
+      var cats = [];
+      var catKey = p.category || '';
+      if (catKey && state.cfg.categories[catKey]) cats.push('<category>' + escXml(state.cfg.categories[catKey].label) + '</category>');
+      (p.tags || []).forEach(function (t) { cats.push('<category>' + escXml(t) + '</category>'); });
+      var desc = typeof p.content === 'string' && p.content.trim() ? md.render(p.content) : (p.excerpt || '');
       return '  <item>\n' +
         '    <title>' + escXml(p.title) + '</title>\n' +
         '    <link>' + escXml(link) + '</link>\n' +
         '    <guid isPermaLink="false">' + escXml(p.path + '@' + (p.updated || p.date)) + '</guid>\n' +
         '    <pubDate>' + pub + '</pubDate>\n' +
-        '    <description><![CDATA[' + (p.excerpt || '') + ']]></description>\n' +
+        cats.join('\n') + (cats.length ? '\n' : '') +
+        '    <description><![CDATA[' + desc + ']]></description>\n' +
         '  </item>';
     }).join('\n');
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -661,6 +667,7 @@
       date: dateIso,
       updated: meta.updated || null,
       excerpt: md.excerpt(content),
+      content: body,
       draft: draft
     };
 

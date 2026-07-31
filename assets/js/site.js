@@ -243,6 +243,17 @@
       return;
     }
     els.view.textContent = '';
+    if (inIndex && typeof inIndex.content === 'string') {
+      var idxMeta = {
+        title: inIndex.title || path.split('/').pop().replace(/\.md$/, ''),
+        date: inIndex.date || '',
+        updated: inIndex.updated || null,
+        tags: inIndex.tags || []
+      };
+      setPageMeta(idxMeta.title + ' · ' + state.config.site.title, '');
+      renderDetailBody(path, { meta: idxMeta, body: inIndex.content });
+      return;
+    }
     els.view.appendChild(skeletonDetail());
     fetch(path).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
