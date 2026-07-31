@@ -30,12 +30,14 @@
     connectView: document.getElementById('connectView'),
     workspace: document.getElementById('workspace'),
     connectForm: document.getElementById('connectForm'),
-    connectBtn: document.getElementById('connectBtn'),
     connectError: document.getElementById('connectError'),
     connectMeta: document.getElementById('connectMeta'),
+    connectTarget: document.getElementById('connectTarget'),
+    connectTargetText: document.getElementById('connectTargetText'),
+    mainContent: document.getElementById('mainContent'),
     repoBadge: document.getElementById('repoBadge'),
     disconnectBtn: document.getElementById('disconnectBtn'),
-    mainContent: document.getElementById('mainContent'),
+    busyOverlay: document.getElementById('busyOverlay'),
     toast: document.getElementById('toast')
   };
 
@@ -894,7 +896,13 @@
       if (cfg && cfg.github) {
         gh.config({ owner: cfg.github.owner, repo: cfg.github.repo, branch: cfg.github.branch || 'main' });
       }
-    }).catch(function () {});
+    }).catch(function () {}).then(function () {
+      var t = gh.snapshot();
+      if (t.owner && t.repo) {
+        els.connectTargetText.textContent = t.owner + '/' + t.repo + ' @' + (t.branch || 'main');
+        els.connectTarget.hidden = false;
+      }
+    });
     showConnect();
   }
 
