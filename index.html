@@ -19,10 +19,11 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/vendor/katex/katex.min.css">
-  <link rel="stylesheet" href="assets/vendor/hljs/github.min.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="assets/vendor/hljs/github-dark.min.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="assets/css/site.css">
   <link rel="alternate" type="application/rss+xml" title="RSS" href="rss.xml">
+  <script src="assets/js/theme.js"></script>
 </head>
 <body>
   <div id="readingProgress" class="reading-progress" aria-hidden="true"></div>
@@ -34,6 +35,7 @@
         <span id="siteTitle">Real Life Notes</span>
       </a>
       <nav class="cat-nav" id="catNav" aria-label="分类导航"></nav>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题">🌗</button>
     </div>
   </header>
 
@@ -50,6 +52,8 @@
   </footer>
 
   <noscript>本站点需要启用 JavaScript 才能浏览内容。</noscript>
+
+  <button id="backTop" class="back-top" type="button" aria-label="回到顶部" hidden>↑</button>
 
   <script src="assets/vendor/marked.min.js"></script>
   <script src="assets/vendor/purify.min.js"></script>

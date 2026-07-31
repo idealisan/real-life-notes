@@ -10,9 +10,10 @@
   <title>管理后台 · Real Life Notes</title>
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
-  <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" media="(prefers-color-scheme: light)">
-  <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" media="(prefers-color-scheme: dark)">
+  <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
+  <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="admin.css">
+  <script src="../assets/js/theme.js"></script>
 </head>
 <body>
 
@@ -53,6 +54,7 @@
           <span>管理后台</span>
         </a>
         <div class="topbar-right">
+          <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题">🌗</button>
           <span class="repo-badge" id="repoBadge" hidden></span>
           <button class="btn-ghost" id="disconnectBtn">断开</button>
         </div>

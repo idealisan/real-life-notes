@@ -638,6 +638,22 @@
     window.addEventListener('resize', scheduleProgress);
   }
 
+  /* ---------- 返回顶部 ---------- */
+  var backTop = document.getElementById('backTop');
+  if (backTop) {
+    var updateBackTop = function () {
+      backTop.hidden = (window.scrollY || document.documentElement.scrollTop || 0) < 600;
+    };
+    if (navigator.userAgent.indexOf('jsdom') === -1) {
+      document.addEventListener('scroll', updateBackTop, { passive: true });
+    }
+    updateBackTop();
+    backTop.addEventListener('click', function () {
+      if (window.scrollTo) window.scrollTo({ top: 0, behavior: 'smooth' });
+      else window.scrollTo(0, 0);
+    });
+  }
+
   /* ---------- 路由与渲染 ---------- */
   function parseHash() {
     var h = location.hash || '#/';
