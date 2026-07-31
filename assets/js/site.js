@@ -210,6 +210,14 @@
 
   /* ---------- 详情 ---------- */
   function renderDetail(path) {
+    var inIndex = null;
+    state.posts.forEach(function (p) { if (p.path === path) inIndex = p; });
+    if (inIndex && inIndex.draft) {
+      els.view.textContent = '';
+      els.view.appendChild(notFoundView());
+      document.title = state.config.site.title;
+      return;
+    }
     els.view.textContent = '';
     els.view.appendChild(skeletonDetail());
     fetch(path).then(function (res) {

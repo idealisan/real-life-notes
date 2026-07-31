@@ -10,6 +10,8 @@
 config.json          — 站点配置（站点元信息 + 分类元数据 + GitHub 源坐标）
 content/index.json   — 帖子索引（公开站点列表的唯一入口）
 content/<category>/<slug>.md  — 帖子正文（frontmatter + Markdown）
+assets/images/       — 编辑器上传的图片（<YYYYMMDD>-<rand>.<ext>）
+rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 commit 重建）
 ```
 
 三种文件全部是普通文本，可直接用 Git 版本控制；所有读写都通过 GitHub API 完成。
@@ -26,7 +28,8 @@ content/<category>/<slug>.md  — 帖子正文（frontmatter + Markdown）
   "site": {
     "title": "Real Life Notes",
     "subtitle": "记录生活中的各种事情",
-    "footer": "Powered by Real Life Notes"
+    "footer": "Powered by Real Life Notes",
+    "url": "https://idealisan.github.io/real-life-notes/"
   },
   "github": {
     "owner": "idealisan",
@@ -49,6 +52,7 @@ content/<category>/<slug>.md  — 帖子正文（frontmatter + Markdown）
 | `site.title` | string | 非空，≤ 60 字符 |
 | `site.subtitle` | string | ≤ 200 字符，可空 |
 | `site.footer` | string | 可空 |
+| `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；为空时按 `github.owner/repo` 推导 `https://<owner>.github.io/<repo>/` |
 | `github.owner` / `github.repo` | string | 非空；公开站点据此构造 raw 源 |
 | `github.branch` | string | 默认 `main` |
 | `categories` | object | key = 分类 id（即 content/ 下目录名），value 见下 |
@@ -180,6 +184,7 @@ updated: <ISO8601>\n  # 仅更新时
 - 一次发布 = **一个 commit**，其 tree 同时包含：
   - 帖子 md 文件（新增/更新/删除）
   - `content/index.json`（索引同步：新增/更新/删除条目、draft 翻转）
+  - `rss.xml`（按最新已发布列表重建；发布/删除/站点设置变更时都重建）
 - 保证公开站点与 raw 内容永远一致，不会出现"有索引无文件"或"有文件无索引"。
 
 ---

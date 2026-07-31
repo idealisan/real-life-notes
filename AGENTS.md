@@ -26,6 +26,6 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 ## 验证
 - 语法检查与集成测试用 node（本机未装，可临时下载到 `/tmp/opencode/node`）：
   - `node --check <file>` 语法。
-  - jsdom 集成测试在 `/tmp/opencode/jstest/`：`test-site`（列表/路由）、`test-site2`（过滤/搜索/详情/公式/404）、`test-admin`（连接/发布）、`test-admin2`（草稿/编辑/删除/409 重试）、`test-img`（图片上传）。
-- 本地预览：`python3 -m http.server 8080 --directory .`。
+  - jsdom 集成测试在 `/tmp/opencode/jstest/`：`test-site`（列表/路由）、`test-site2`（过滤/搜索/详情/公式/404）、`test-welcome`（种子帖渲染+灯箱）、`test-draft`（草稿直链拦截）、`test-admin`（连接/发布）、`test-admin2`（草稿/编辑/删除/409 重试）、`test-img`（图片上传）。
+- 本地预览：`python3 -m http.server 8080 --directory .`（可后台常驻：`nohup ... &`），站点在 `http://127.0.0.1:8080/`。
 - 端到端验收：真实 token 发布一次 → raw 即时可见 → Pages 自动构建。
