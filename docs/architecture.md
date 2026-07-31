@@ -209,3 +209,7 @@ admin 填表 → 组装 post 内容（frontmatter + body）
   4. 非空仓库不支持此功能（避免误覆盖已有内容）。
   5. **实现要点（gh.js）**：空仓库无分支，首次提交与常规提交不同——建 tree **不带 `base_tree`**、建 commit **不带 `parents`**、更新引用用 **`POST /git/refs`**（而非 `PATCH`）。`commitFiles` 需增加该分支；`GET refs/heads/{branch}` 404 即判定空仓库。
 
+- **公开站点 SPA(hash 路由) → 多页面重构（规划中，重要）**：
+  - 背景：站点当前为哈希路由单页应用（`#/`、`#/post/…`）。对文档类网站（博客/笔记），页内锚点至关重要（目录、章节跳转、分享到某节），hash 路由会与锚点冲突。
+  - 目标：改为传统多 HTML 页面。列表 `index.html`（`?cat=`/`?q=` 参数）；详情独立页（模板读 `content/index.json`，索引已内嵌 `content` 正文，纯静态即可渲染）；页内锚点走原生 `<a href="… #heading">`；全部内部链接与 RSS/sitemap 链接同步更新；draft 404 逻辑保留。
+  - 触发时机：常规功能迭代稳定后再实施，作为一次专门的重构提交（含全量测试更新）。

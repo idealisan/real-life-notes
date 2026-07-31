@@ -6,6 +6,15 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - 这是**长任务、需反复迭代**。每次调用 bash 命令，都必须在命令前用 `echo "== $(date '+%H:%M:%S') =="` 打印当前时间（便于核对进度与耗时）。
 - **持续推进原则**：本项目是持续迭代型，完成一批功能后不要停下，继续补齐细节功能、优化体验、补测试，直到用户明确叫停。空闲时可参考博客站常见功能（评论、分页、标签页、搜索、阅读进度、RSS 等）规划下一批迭代。单条 bash 循环里不要重复运行同一测试（避免超时）。
 
+## 已规划/待办（重要）
+- **公开站点 SPA(hash 路由) → 传统多页面重构（待做，重要）**：当前 `index.html` 用 `#/`、`#/post/…` 哈希路由，已与锚点/TOC 冲突（TOC 只能靠 `scrollIntoView` 绕开）。对博客/笔记类文档站，锚点至关重要（目录、页内跳转），应改为多 HTML 页面：
+  - 列表：`index.html`；分类/搜索：`index.html?cat=…`/`?q=…`（query 参数，不用 hash）。
+  - 详情：独立页面（如 `post.html?p=content/notes/x.md` 或 `p/<slug>.html` 模板，读 `content/index.json` 渲染——索引已内嵌正文，无需后端）。
+  - 页内锚点直接用原生 `<a href="….#heading">`；内部链接（上一篇/下一篇、相关文章、标签、列表、RSS、sitemap）全部改；draft 404 逻辑保留。
+  - 收益：锚点原生可用、利于 SEO/分享、每次跳转即浏览器导航（博客站正常）。代价仅页面跳转。
+- **空仓库一键初始化**（远期，见 architecture.md §10）：token+仓库地址输入、初始化模块、Pages 开启引导。
+- 持续迭代原则见「工作纪律」。
+
 ## 当前状态与约定
 - 已实现（`5763381` 起）：公共站点（`index.html` + `assets/js/site.js`）、管理后台（`admin/`）、GitHub 客户端（`assets/js/gh.js`）、Markdown/公式渲染（`assets/js/md.js`）。
 - 纯原生 JS（IIFE + 全局 `gh`/`md`/`Site`/`Admin`），无构建步骤，`python3 -m http.server 8080` 即可本地运行。

@@ -125,6 +125,23 @@
       '</channel>\n</rss>\n';
   }
 
+  function buildSitemap(list) {
+    var base = siteBaseUrl();
+    var published = (list || state.index.posts || []).filter(function (p) { return !p.draft; });
+    var urls = published.map(function (p) {
+      var lastmod = (p.updated || p.date || '').slice(0, 10);
+      return '  <url>\n' +
+        '    <loc>' + escXml(base + '#/post/' + encodeURIComponent(p.path)) + '</loc>\n' +
+        (lastmod ? '    <lastmod>' + escXml(lastmod) + '</lastmod>\n' : '') +
+        '  </url>';
+    }).join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      '  <url>\n    <loc>' + escXml(base + '/') + '</loc>\n  </url>\n' +
+      (urls ? urls + '\n' : '') +
+      '</urlset>\n';
+  }
+
   function errMsg(err) {
     if (!err) return '未知错误';
     if (err.status === 401) return 'Token 无效或已被撤销';
@@ -667,9 +684,9 @@
       date: dateIso,
       updated: meta.updated || null,
       excerpt: md.excerpt(content),
-      content: body,
       draft: draft
     };
+    if (!draft) entry.content = body;
 
     var deletes = [];
     if (ed.mode === 'edit' && ed.path !== contentPath) {
@@ -691,7 +708,8 @@
       files: [
         { path: contentPath, content: content },
         { path: 'content/index.json', content: newIndex },
-        { path: 'rss.xml', content: buildRss(posts) }
+        { path: 'rss.xml', content: buildRss(posts) },
+        { path: 'sitemap.xml', content: buildSitemap(posts) }
       ],
       deletes: deletes
     }).then(function (commit) {
@@ -719,7 +737,8 @@
       message: '[删除] ' + (title || path),
       files: [
         { path: 'content/index.json', content: newIndex },
-        { path: 'rss.xml', content: buildRss(posts) }
+        { path: 'rss.xml', content: buildRss(posts) },
+        { path: 'sitemap.xml', content: buildSitemap(posts) }
       ],
       deletes: [path]
     }).then(function () {
@@ -836,7 +855,8 @@
       message: message,
       files: [
         { path: 'config.json', content: content },
-        { path: 'rss.xml', content: buildRss() }
+        { path: 'rss.xml', content: buildRss() },
+        { path: 'sitemap.xml', content: buildSitemap() }
       ]
     }).then(function () {
       setBusy(false);

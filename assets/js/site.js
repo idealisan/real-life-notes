@@ -41,6 +41,51 @@
     setMetaProperty('url', location.href);
   }
 
+  function setStructuredData(data) {
+    var node = document.getElementById('jsonld');
+    if (!data) {
+      if (node) node.remove();
+      return;
+    }
+    if (!node) {
+      node = document.createElement('script');
+      node.type = 'application/ld+json';
+      node.id = 'jsonld';
+      document.head.appendChild(node);
+    }
+    node.textContent = JSON.stringify(data);
+  }
+
+  function sharePost() {
+    var url = location.href;
+    var title = document.title || '分享';
+    function fallback() {
+      return copyText(url).then(function () {
+        toast('链接已复制，可粘贴分享 ✓');
+      });
+    }
+    if (navigator.share && navigator.canShare && navigator.canShare({ url: url })) {
+      return navigator.share({ title: title, url: url }).catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        return fallback();
+      });
+    }
+    return fallback();
+  }
+
+  var toastTimer = null;
+  function toast(text) {
+    var node = document.getElementById('toast') || (function () {
+      var t = el('div', { id: 'toast', class: 'toast', role: 'status' });
+      document.body.appendChild(t);
+      return t;
+    })();
+    node.textContent = text;
+    node.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { node.classList.remove('show'); }, 2600);
+  }
+
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(text);
@@ -292,6 +337,17 @@
       setMetaDescription(plain.slice(0, 150));
       setMetaProperty('description', plain.slice(0, 150));
     }
+    setStructuredData({
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      mainEntityOfPage: { '@type': 'WebPage', '@id': location.href },
+      headline: meta.title,
+      datePublished: meta.date || undefined,
+      dateModified: meta.updated || meta.date || undefined,
+      description: plain.slice(0, 200),
+      author: { '@type': 'Person', name: state.config.site.author || state.config.site.title },
+      publisher: { '@type': 'Organization', name: state.config.site.title }
+    });
     var toc = buildToc(body);
     if (toc) {
       body.insertBefore(toc, body.firstChild);
@@ -324,15 +380,21 @@
     if (related) els.view.appendChild(related);
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
       el('a', { href: '#/', text: '← 返回列表' }),
-      el('a', { href: '#/', text: '复制链接', class: 'link-copy', onClick: function (e) {
-        e.preventDefault();
-        copyText(location.href).then(function () {
-          var self = e.currentTarget;
-          self.textContent = '已复制 ✓';
-          setTimeout(function () { self.textContent = '复制链接'; }, 2000);
-        }).catch(function () {});
-      } }),
-      sourceLink
+      el('span', { class: 'detail-foot-actions' }, [
+        el('button', { type: 'button', class: 'link-copy', text: '分享', onClick: function (e) {
+          e.preventDefault();
+          sharePost();
+        } }),
+        el('a', { href: '#/', text: '复制链接', class: 'link-copy', onClick: function (e) {
+          e.preventDefault();
+          copyText(location.href).then(function () {
+            var self = e.currentTarget;
+            self.textContent = '已复制 ✓';
+            setTimeout(function () { self.textContent = '复制链接'; }, 2000);
+          }).catch(function () {});
+        } }),
+        sourceLink
+      ])
     ]));
   }
 
@@ -547,6 +609,7 @@
     if (navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     updateReadingProgress();
     var r = parseHash();
+    if (r.route !== 'post') setStructuredData(null);
     setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
     if (r.route === 'post') {
       renderDetail(r.path);
