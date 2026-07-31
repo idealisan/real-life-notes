@@ -236,6 +236,31 @@
   flex-wrap: wrap;
 }
 
+.detail-body img {
+  max-width: 100%;
+  border-radius: var(--radius-m);
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 24px;
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-2);
+  cursor: zoom-out;
+}
+
 @media (max-width: 640px) {
   .detail-nav { grid-template-columns: 1fr; }
   .detail-nav .nav-next { text-align: left; }

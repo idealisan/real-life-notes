@@ -20,8 +20,32 @@
     view: document.getElementById('view'),
     catNav: document.getElementById('catNav'),
     siteTitle: document.getElementById('siteTitle'),
-    footerText: document.getElementById('footerText')
+    footerText: document.getElementById('footerText'),
+    metaDesc: document.querySelector('meta[name="description"]')
   };
+
+  function setMetaDescription(text) {
+    if (els.metaDesc) els.metaDesc.setAttribute('content', text || '');
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        resolve();
+      } catch (e) { reject(e); }
+    });
+  }
 
   function fetchJSON(url, fallback) {
     return fetch(url).then(function (res) {
@@ -219,6 +243,9 @@
 
     var body = el('article', { class: 'detail-body', html: md.render(parsed.body) });
     externalizeLinks(body);
+    attachLightbox(body);
+    var plain = body.textContent.replace(/\s+/g, ' ').trim();
+    if (plain) setMetaDescription(plain.slice(0, 150));
 
     var sourceLink;
     if (state.config.github && state.config.github.owner) {
@@ -244,8 +271,39 @@
     els.view.appendChild(renderDetailNav(path));
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
       el('a', { href: '#/', text: '← 返回列表' }),
+      el('a', { href: '#/', text: '复制链接', class: 'link-copy', onClick: function (e) {
+        e.preventDefault();
+        copyText(location.href).then(function () {
+          var self = e.currentTarget;
+          self.textContent = '已复制 ✓';
+          setTimeout(function () { self.textContent = '复制链接'; }, 2000);
+        }).catch(function () {});
+      } }),
       sourceLink
     ]));
+  }
+
+  function attachLightbox(root) {
+    var overlay = null;
+    Array.prototype.forEach.call(root.querySelectorAll('img'), function (img) {
+      img.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (overlay) overlay.remove();
+        var big = el('img', { src: img.getAttribute('src'), alt: img.getAttribute('alt') || '' });
+        overlay = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true' }, [big]);
+        document.body.appendChild(overlay);
+        function close() {
+          if (overlay) { overlay.remove(); overlay = null; }
+          document.removeEventListener('keydown', onKey, true);
+        }
+        function onKey(e) { if (e.key === 'Escape') close(); }
+        document.addEventListener('keydown', onKey, true);
+        overlay.addEventListener('click', function (ev) {
+          if (ev.target === overlay || ev.target === big) close();
+        });
+      });
+    });
   }
 
   function renderDetailNav(path) {
@@ -307,6 +365,7 @@
   function render() {
     var r = parseHash();
     document.title = state.config.site.title;
+    setMetaDescription(state.config.site.subtitle || state.config.site.title);
     if (r.route === 'post') {
       renderDetail(r.path);
     } else {
