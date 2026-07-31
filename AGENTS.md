@@ -13,14 +13,19 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **空仓库一键初始化**（远期，见 architecture.md §10）：token+仓库地址输入、初始化模块、Pages 开启引导。
 - 持续迭代原则见「工作纪律」。
 
-## 高优先级：MPA 重构（已完成）
-- **公开站点 SPA(hash 路由) → 传统多页面 + query 参数路由（已完成，勿回退）**：
+## 高优先级：MPA 重构（已完成）- **公开站点 SPA(hash 路由) → 传统多页面 + query 参数路由（已完成，勿回退）**：
   - 列表：`index.html`；分类/搜索/翻页/归档：`index.html?cat=…&q=…&page=2&view=archive`（全部查询参数，不用 hash）。
   - 详情：`post.html?p=content/notes/slug.md`（读 `content/index.json`，索引内嵌 `content` 正文，旧索引回退 fetch raw）；无 `p` 参数/未知路径/草稿 → 404 提示；`404.html` 兜底。
   - 页内锚点原生可用：`post.html?p=…&#heading`；TOC 用 `href="#id"` 原生跳转（不再 `scrollIntoView`）。
   - `site.js` 按页面路径自动检测模式（`MODE = location.pathname…==='post.html'`）；列表页筛选变化用 `history.replaceState(null,'',buildListUrl())` 同步 URL、监听 `popstate` 重渲染；详情页内标签链接 `index.html?q=…`、列表页标签点击 `preventDefault` + 原地渲染。
   - 全部内部链接（卡片、上一篇/下一篇、相关文章、标签、归档、TOC）与 RSS/sitemap 链接均为 `post.html?p=` / `index.html?…` 形式。
   - 测试：`test-post.js`（详情/404/草稿/无参）、`test-site2.js`（列表/搜索/IME/归档/popstate）、`test-index-content.js`（索引内嵌/raw 回退）等。
+
+## 评论系统（已完成，路线 B）
+- **实现方式**：基于 GitHub Issues 的原生评论，**零第三方服务、零外部脚本**。`post.html` 详情页底部渲染评论区：`GET api.github.com/repos/{owner}/{repo}/issues?labels=评论&state=all` → 按 `title === 文章路径` 匹配对应 Issue → 展示 Issue 正文+全部回复（头像/作者/日期/Markdown 渲染）；未建 Issue 时显示「写第一条评论」链接（预填标题+标签跳转 GitHub 创建）。
+- **门控**：`config.comments = { enabled, label }`，**默认关闭**；管理后台站点设置可开关并配置标签。
+- **CSP**：公共站点 `connect-src` 放行 `https://api.github.com`（仅为评论读取，仍无第三方脚本）。
+- 测试：`test-comments.js`（启用/未建 Issue 引导/禁用不渲染）。
 
 ## 高优先级：搜索框中文/日文输入法兼容缺陷修复（已完成）
 ### 问题描述

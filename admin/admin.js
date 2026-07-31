@@ -548,13 +548,13 @@
 
     var tagsField = el('div', { class: 'field' }, [
       el('label', { for: 'edTags', text: '标签' }),
-      el('input', { id: 'edTags', type: 'text', value: (ed.tags || []).join(', '), placeholder: '用逗号分隔' }),
+      el('input', { id: 'edTags', type: 'text', value: (ed.tags || []).join(', '), placeholder: '用逗号分隔', oninput: markDirty }),
       el('div', { class: 'hint', text: '多个标签用逗号分隔' })
     ]);
 
     var draftField = el('div', { class: 'field' }, [
       el('label', { for: 'edDraft', style: 'display:inline-flex;align-items:center;gap:8px;font-weight:550;color:var(--text)' }, [
-        el('input', { id: 'edDraft', type: 'checkbox', checked: ed.draft ? 'checked' : null }),
+        el('input', { id: 'edDraft', type: 'checkbox', checked: ed.draft ? 'checked' : null, onChange: markDirty }),
         '草稿（仅自己可见，不公开显示）'
       ])
     ]);
@@ -635,6 +635,10 @@
     updateSlug();
     updatePreview();
     editor.dirty = false;
+  }
+
+  function markDirty() {
+    if (editor) editor.dirty = true;
   }
 
   function updateSlug() {
@@ -725,7 +729,7 @@
         }
       })
     ]);
-    return el('div', {}, [toolbar, emojiPanel, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点按钮即可包裹格式 · Ctrl+Enter 保存' })]);
+    return el('div', {}, [toolbar, emojiPanel, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点按钮即可包裹格式 · Ctrl+Enter 或 Ctrl+S 保存' })]);
   }
 
   function attachEditorKeys(ta) {
@@ -737,6 +741,7 @@
       else if (mod && e.key === 'e' && !e.shiftKey) { e.preventDefault(); wrapSelection(ta, '`', '`', '代码'); }
       else if (mod && e.key === 'e' && e.shiftKey) { e.preventDefault(); wrapSelection(ta, '\n```\n', '\n```\n', '代码'); }
       else if (mod && e.key === 'Enter') { e.preventDefault(); savePost(editor.draft && editor.draft.checked); }
+      else if (mod && e.key === 's') { e.preventDefault(); savePost(editor.draft && editor.draft.checked); }
       else if (e.key === 'Tab') {
         e.preventDefault();
         wrapSelection(ta, '  ', '', '');
@@ -1100,6 +1105,13 @@
   }
 
   /* ---------- 启动 ---------- */
+  window.addEventListener('beforeunload', function (e) {
+    if (editor && editor.dirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
   function boot() {
     fetch('../config.json').then(function (res) {
       if (!res.ok) throw new Error();
