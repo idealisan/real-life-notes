@@ -229,9 +229,20 @@
 
   Array.prototype.forEach.call(document.querySelectorAll('.side-nav button'), function (btn) {
     btn.addEventListener('click', function () {
+      if (state.view === 'editor' && editor && editor.dirty) {
+        if (!confirm('有未保存的修改，确定离开吗？')) return;
+      }
       state.view = btn.getAttribute('data-view');
+      editor = null;
       render();
     });
+  });
+
+  window.addEventListener('beforeunload', function (e) {
+    if (state.view === 'editor' && editor && editor.dirty) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
   });
 
   /* ---------- 渲染分发 ---------- */
@@ -385,6 +396,9 @@
     var catOptions = Object.keys(state.cfg.categories).map(function (c) {
       return el('option', { value: c, text: state.cfg.categories[c].label, selected: ed.category === c ? '' : null });
     });
+    if (!catOptions.length) {
+      catOptions.push(el('option', { value: '', text: '（暂无分类，请先到「分类管理」添加）' }));
+    }
 
     var fieldRow = el('div', { class: 'field-row' }, [
       el('div', { class: 'field' }, [
@@ -448,7 +462,12 @@
     editor.slug = slugField.querySelector('#edSlug');
 
     var footer = el('div', { class: 'editor-footer' }, [
-      el('button', { text: '← 返回列表', onClick: function () { state.view = 'posts'; render(); } }),
+      el('button', { text: '← 返回列表', onClick: function () {
+        if (editor.dirty && !confirm('有未保存的修改，确定离开吗？')) return;
+        state.view = 'posts';
+        editor = null;
+        render();
+      } }),
       el('div', { class: 'spacer' }),
       ed.mode === 'edit' ? el('button', { class: 'btn-danger', text: '删除文章', onClick: function () { deletePostByPath(ed.path, ed.title); } }) : null,
       el('button', { text: '保存草稿', onClick: function () { savePost(true); } }),
@@ -466,6 +485,7 @@
     ]));
 
     editor.body.value = ed.body;
+    editor.dirty = false;
     editor.body.addEventListener('paste', function (e) {
       var items = e.clipboardData && e.clipboardData.items;
       for (var i = 0; items && i < items.length; i++) {
@@ -486,10 +506,12 @@
     editor.body.focus();
     updateSlug();
     updatePreview();
+    editor.dirty = false;
   }
 
   function updateSlug() {
     if (!editor) return;
+    editor.dirty = true;
     var ed = state.editing;
     var dateVal = editor.date.value || md.isoNow().slice(0, 10);
     var slug = md.slugify(editor.title.value) || 'post';
@@ -499,6 +521,7 @@
 
   function updatePreview() {
     if (!editor || !editor.preview) return;
+    editor.dirty = true;
     var meta = {
       title: editor.title.value || '（无标题）',
       tags: editor.tags.value.split(/[,，\s]+/).filter(Boolean),
