@@ -179,7 +179,12 @@
         state.cfg = Object.assign(DEFAULT_CONFIG(), JSON.parse(text));
         if (!state.cfg.categories) state.cfg.categories = {};
         if (!state.cfg.site) state.cfg.site = {};
-        state.cfg.github = Object.assign(state.cfg.github, gh.snapshot());
+        var snap = gh.snapshot();
+        state.cfg.github = Object.assign(state.cfg.github, {
+          owner: snap.owner,
+          repo: snap.repo,
+          branch: snap.branch
+        });
         gh.config({ branch: state.cfg.github.branch });
       } catch (e) {
         state.cfg = DEFAULT_CONFIG();
