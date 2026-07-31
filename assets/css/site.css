@@ -148,6 +148,8 @@
   padding: 1px 8px;
   font-size: 0.82em;
 }
+a.tag { text-decoration: none; cursor: pointer; }
+a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 
 .empty-state {
   text-align: center;
@@ -290,4 +292,11 @@
   .detail-title { font-size: 1.5em; }
   .site-header-inner { flex-wrap: wrap; padding-bottom: 6px; gap: var(--space-2); }
   .cat-nav { order: 3; flex-basis: 100%; }
+}
+
+@media print {
+  .site-header, .site-footer, .detail-nav, .detail-foot, .search-box, .lightbox { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .container { max-width: none !important; }
+  a { text-decoration: none !important; }
 }

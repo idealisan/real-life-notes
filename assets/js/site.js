@@ -173,10 +173,21 @@
       ]),
       el('h2', { class: 'post-card-title', text: p.title }),
       p.excerpt ? el('p', { class: 'post-card-excerpt', text: p.excerpt }) : null,
-      (p.tags && p.tags.length) ? el('div', { class: 'post-card-tags' }, p.tags.map(function (t) {
-        return el('span', { class: 'tag', text: t });
-      })) : null
+      (p.tags && p.tags.length) ? el('div', { class: 'post-card-tags' }, p.tags.map(tagLink)) : null
     ]);
+  }
+
+  function tagLink(t) {
+    return el('a', {
+      class: 'tag', href: '#/', text: t,
+      onClick: function (e) {
+        e.preventDefault();
+        state.q = t;
+        state.cat = null;
+        state.page = 1;
+        location.hash = '#/';
+      }
+    });
   }
 
   function searchIcon() {
@@ -245,9 +256,7 @@
     var meta = parsed.meta;
     var catKey = (path.split('/')[1] || '') in (state.config.categories || {}) ? path.split('/')[1] : '';
     var cat = state.config.categories[catKey] || {};
-    var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(function (t) {
-      return el('span', { class: 'tag', text: t });
-    })) : null;
+    var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(tagLink)) : null;
 
     var body = el('article', { class: 'detail-body', html: md.render(parsed.body) });
     externalizeLinks(body);
@@ -371,6 +380,7 @@
   }
 
   function render() {
+    if (navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     var r = parseHash();
     document.title = state.config.site.title;
     setMetaDescription(state.config.site.subtitle || state.config.site.title);
