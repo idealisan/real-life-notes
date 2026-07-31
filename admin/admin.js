@@ -5,7 +5,7 @@
     var snap = gh.snapshot();
     return {
       schema: 1,
-      site: { title: 'Real Life Notes', subtitle: '', footer: 'Powered by Real Life Notes' },
+      site: { title: 'Real Life Notes', subtitle: '', footer: 'Powered by Real Life Notes', url: '' },
       github: { owner: snap.owner, repo: snap.repo, branch: snap.branch || 'main' },
       categories: {
         notes: { label: '笔记', icon: '📝', description: '' },
@@ -72,6 +72,48 @@
     Array.prototype.forEach.call(document.querySelectorAll('button'), function (btn) {
       btn.disabled = b;
     });
+  }
+
+  function escXml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c];
+    });
+  }
+
+  function siteBaseUrl() {
+    var site = state.cfg.site || {};
+    if (site.url) return site.url.replace(/\/+$/, '');
+    var g = state.cfg.github || {};
+    return 'https://' + g.owner + '.github.io/' + g.repo;
+  }
+
+  function buildRss(list) {
+    var site = state.cfg.site || {};
+    var base = siteBaseUrl();
+    var published = (list || state.index.posts || []).filter(function (p) { return !p.draft; })
+      .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); })
+      .slice(0, 20);
+    var items = published.map(function (p) {
+      var link = base + '#/post/' + encodeURIComponent(p.path);
+      var pub = (function () { var d = new Date(p.date); return isNaN(d.getTime()) ? '' : d.toUTCString(); })();
+      return '  <item>\n' +
+        '    <title>' + escXml(p.title) + '</title>\n' +
+        '    <link>' + escXml(link) + '</link>\n' +
+        '    <guid isPermaLink="false">' + escXml(p.path + '@' + (p.updated || p.date)) + '</guid>\n' +
+        '    <pubDate>' + pub + '</pubDate>\n' +
+        '    <description><![CDATA[' + (p.excerpt || '') + ']]></description>\n' +
+        '  </item>';
+    }).join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n' +
+      '<channel>\n' +
+      '  <title>' + escXml(site.title || '') + '</title>\n' +
+      '  <link>' + escXml(base + '/') + '</link>\n' +
+      '  <description>' + escXml(site.subtitle || '') + '</description>\n' +
+      '  <atom:link href="' + escXml(base + '/rss.xml') + '" rel="self" type="application/rss+xml"/>\n' +
+      '  <lastBuildDate>' + new Date().toUTCString() + '</lastBuildDate>\n' +
+      items + '\n' +
+      '</channel>\n</rss>\n';
   }
 
   function errMsg(err) {
@@ -508,7 +550,11 @@
     setBusy(true);
     gh.commitFiles({
       message: '[' + action + '] ' + title,
-      files: [{ path: contentPath, content: content }, { path: 'content/index.json', content: newIndex }],
+      files: [
+        { path: contentPath, content: content },
+        { path: 'content/index.json', content: newIndex },
+        { path: 'rss.xml', content: buildRss(posts) }
+      ],
       deletes: deletes
     }).then(function (commit) {
       setBusy(false);
@@ -533,7 +579,10 @@
     setBusy(true);
     gh.commitFiles({
       message: '[删除] ' + (title || path),
-      files: [{ path: 'content/index.json', content: newIndex }],
+      files: [
+        { path: 'content/index.json', content: newIndex },
+        { path: 'rss.xml', content: buildRss(posts) }
+      ],
       deletes: [path]
     }).then(function () {
       setBusy(false);
@@ -647,7 +696,10 @@
     setBusy(true);
     gh.commitFiles({
       message: message,
-      files: [{ path: 'config.json', content: content }]
+      files: [
+        { path: 'config.json', content: content },
+        { path: 'rss.xml', content: buildRss() }
+      ]
     }).then(function () {
       setBusy(false);
       toast('已保存 ✓', 'ok');
@@ -666,12 +718,17 @@
     var titleInput = el('input', { type: 'text', value: site.title || '', id: 'setTitle', maxlength: 60 });
     var subtitleInput = el('input', { type: 'text', value: site.subtitle || '', id: 'setSubtitle', maxlength: 200 });
     var footerInput = el('input', { type: 'text', value: site.footer || '', id: 'setFooter', maxlength: 200 });
+    var urlInput = el('input', {
+      type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
+      placeholder: 'https://<用户名>.github.io/<仓库>/（默认自动推导）'
+    });
 
     var saveBtn = el('button', { class: 'btn-primary', text: '保存设置', onClick: function () {
       if (!titleInput.value.trim()) { toast('站点标题不能为空', 'error'); return; }
       site.title = titleInput.value.trim();
       site.subtitle = subtitleInput.value.trim();
       site.footer = footerInput.value.trim();
+      site.url = urlInput.value.trim();
       saveConfig('更新站点设置', function () {
         renderSettings();
       });
@@ -681,6 +738,7 @@
       el('h2', { class: 'panel-title', text: '站点设置' }),
       el('div', { class: 'field' }, [el('label', { for: 'setTitle', text: '站点标题' }), titleInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setSubtitle', text: '副标题' }), subtitleInput]),
+      el('div', { class: 'field' }, [el('label', { for: 'setUrl', text: '站点地址（RSS 链接用）' }), urlInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setFooter', text: '页脚文字' }), footerInput]),
       saveBtn
     ]));

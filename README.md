@@ -1,34 +1,82 @@
 # Real Life Notes
 
-一个部署在 GitHub Pages 上的个人记录类项目，用于按类别记录生活中的各种事情（笔记/博客型内容）。
+一个纯静态的 GitHub Pages 记录类项目：把 GitHub 仓库当笔记/博客后端，管理员在浏览器里直接通过 GitHub API 提交 commit，GitHub Pages 自动构建发布。
 
-## 核心理念
+## 功能特性
 
-**全链路浏览器更新**：把 GitHub Pages 的仓库真正当作一个笔记/博客项目来用，管理员无需在本地克隆仓库、做 commit、再 push，而是全部在浏览器中完成内容更新。
+- **纯静态、零后端**：无服务器、无构建步骤，浏览器直调 `api.github.com`（开放 CORS）。
+- **身份 = 管理员自己的 fine-grained PAT**：无登录页、无 OAuth。
+- **Token 存浏览器密码管理器**：标准 `type="password"` + `autocomplete="current-password"` 表单，浏览器负责保存与自动填充；前端只读输入框、不落盘（不写 localStorage/IndexedDB）。
+- **公共站点**：文章列表（分类过滤、关键词搜索、分页）、详情页（上一篇/下一篇）、暗色模式、移动端适配。
+- **Markdown + LaTeX 公式**：`marked` 渲染 + `DOMPurify` 消毒 + `KaTeX` 公式（行内 `$...$` 与块级 `$$...$$`）。
+- **管理后台**：文章新建/编辑/草稿/发布/删除、分类管理、站点设置，编辑器实时预览（含公式），一次保存 = 一个 commit（文件 + 索引原子更新）。
+- **Git 即版本历史**：所有内容变更都可追溯、可回滚。
 
-## 设计要点（2026-07 更新：纯静态优先）
+## 目录结构
 
-- **纯静态、零后端**：整个项目是静态页面，可部署在 GitHub Pages、Cloudflare Pages 或任意静态托管。
-- **身份 = 管理员自己的 fine-grained PAT**：无需登录页、无需 OAuth。
-- **token 存放在浏览器密码管理器**：页面提供标准的 `type="password"` + `autocomplete="current-password"` 表单，浏览器负责保存与自动填充；前端只读取输入框，不写 localStorage。
-- **前端直调 GitHub API 提交 commit**：用 Octokit 在浏览器中调用 Contents / Git Database API 把 Markdown 写入仓库（`api.github.com` 开放 CORS）。
-- 一旦仓库有新的 commit，GitHub Pages 自动触发 build，完成整个生命周期。
-- **备选形态**：Cloudflare Workers 集中管理 secret（多管理员场景），实现可复用同一套提交逻辑。
+```
+index.html              公共站点入口（单页，hash 路由）
+admin/index.html        管理后台入口
+assets/css|js/          共享样式与脚本（原生 JS，无构建）
+assets/vendor/          本地托管的第三方库（marked / DOMPurify / KaTeX）
+config.json             站点配置（标题、分类、GitHub 坐标）
+content/index.json      帖子索引（公开站点列表的唯一入口）
+content/<分类>/<slug>.md  帖子正文
+docs/                   设计文档
+```
 
-## 部署形态
+## 快速开始
 
-- GitHub Pages（主）：Pages → Deploy from a branch → 选 `main`，push 即自动构建。
-- Cloudflare Pages / 任意静态托管（备选）：与托管平台无关，admin 仍走浏览器直调。
+### 1. 部署到 GitHub Pages
+
+1. 把本项目推送到 GitHub 仓库。
+2. 仓库 Settings → Pages → **Deploy from a branch** → 选 `main` / root。
+3. 之后每次 push，Pages 自动构建，站点地址为 `https://<用户名>.github.io/<仓库名>/`。
+
+### 2. 创建管理 Token（fine-grained PAT）
+
+1. GitHub → Settings → **Developer settings** → **Fine-grained personal access tokens** → **Generate new token**。
+2. **Repository access**：Only select repositories → 选择本项目仓库。
+3. **Permissions** → Repository permissions：
+   - **Contents: Read and write**（必须）
+   - Metadata: Read（自动附带）
+4. 生成并复制 token（`github_pat_…`）。
+
+> 建议同时开启分支保护（Settings → Branches → Add rule，要求 PR）以防误删；token 只授权单仓库，泄露面最小。
+
+### 3. 使用管理后台
+
+1. 打开站点 → 页脚「管理」进入 `/admin/`。
+2. 粘贴 token，浏览器会提示保存到密码管理器（下次自动填充）。
+3. 新建文章 → 填写标题/分类/标签/正文 → **发布**（或存为草稿）。
+4. 发布成功即写入 GitHub；raw 内容立即可见，Pages 构建完成后全站更新。
+
+### 4. 本地预览
+
+```bash
+python3 -m http.server 8080 --directory .   # 需在仓库根目录
+# 访问 http://localhost:8080/
+```
+
+## 安全说明
+
+- Token 仅存内存；页面 CSP 收紧（`script-src 'self'`、零外部脚本）。
+- Markdown 正文经 DOMPurify 消毒后再入 DOM；动态文本一律转义。
+- 所有写操作依赖 `Authorization` 头的 token，无 cookie 会话，无 CSRF 面。
+- 推荐 token 权限最小化（单仓库 + Contents 读写）。
 
 ## 文档
 
-- [resource-analysis.md](resource-analysis.md) — 资源分析报告（API、权限、CORS、密码管理器长度调研）
-- [system-design.md](system-design.md) — 系统设计报告（架构、token 管理、提交流程、实施计划）
+- [docs/architecture.md](docs/architecture.md) — 功能架构设计
+- [docs/data-model.md](docs/data-model.md) — 数据结构规范（config.json / 索引 / 帖子 frontmatter）
+- [resource-analysis.md](resource-analysis.md) — 资源分析报告（API、CORS、密码管理器长度）
+- [system-design.md](system-design.md) — 系统设计（纯静态主方案 + Workers 备选）
 
 ## 状态
 
-- [x] 记录项目描述
-- [x] 搜索 API 与相关资源，写资源分析报告
-- [x] 写系统设计报告
-- [x] 更新为纯静态优先方案（密码管理器存 token + 浏览器直调）
-- [ ] 正式开发（暂缓）
+- [x] 设计：功能架构 + 数据结构
+- [x] 实现：公共站点 + 管理后台 + gh.js 提交管线
+- [x] jsdom 集成测试（站点渲染、后台草稿/发布/编辑/删除、409 重试）
+- [x] 本地 8080 预览
+- [ ] 真实 token 端到端验收（提交→Pages 构建）
+- [ ] 图片上传 / RSS / 代码高亮（见架构文档 §10 演进路线）
