@@ -7,14 +7,17 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **持续推进原则**：本项目是持续迭代型，完成一批功能后不要停下，继续补齐细节功能、优化体验、补测试，直到用户明确叫停。空闲时可参考博客站常见功能（评论、分页、标签页、搜索、阅读进度、RSS 等）规划下一批迭代。单条 bash 循环里不要重复运行同一测试（避免超时）。
 
 ## 已规划/待办（重要）
-- **公开站点 SPA(hash 路由) → 传统多页面 + 查询参数（待做，重要）**：当前 `index.html` 用 `#/`、`#/post/…` 哈希路由，已与锚点/TOC 冲突（TOC 只能靠 `scrollIntoView` 绕开）。对博客/笔记类文档站，锚点至关重要（目录、页内跳转），应改为**传统多 HTML 页面 + query 参数路由**：
-  - 列表：`index.html`；分类/搜索/翻页：`index.html?cat=…&q=…&page=2`（全部用查询参数，不用 hash）。
-  - 详情：`post.html?p=content/notes/slug.md`（模板读 `content/index.json` 渲染，索引已内嵌正文，无需后端）；未知路径/草稿 → 404 提示；`404.html` 兜底。
-  - 页内锚点原生可用：`post.html?p=…&#heading`（fragment 在 query 之后）。
-  - 全部内部链接（列表、上一篇/下一篇、相关文章、标签点击、TOC）与 RSS/sitemap 链接同步改成 query 形式。
-  - 收益：锚点原生可用、利于 SEO/分享、跳转即浏览器导航（博客站正常）。代价仅页面跳转。
 - **空仓库一键初始化**（远期，见 architecture.md §10）：token+仓库地址输入、初始化模块、Pages 开启引导。
 - 持续迭代原则见「工作纪律」。
+
+## 高优先级：MPA 重构（已完成）
+- **公开站点 SPA(hash 路由) → 传统多页面 + query 参数路由（已完成，勿回退）**：
+  - 列表：`index.html`；分类/搜索/翻页/归档：`index.html?cat=…&q=…&page=2&view=archive`（全部查询参数，不用 hash）。
+  - 详情：`post.html?p=content/notes/slug.md`（读 `content/index.json`，索引内嵌 `content` 正文，旧索引回退 fetch raw）；无 `p` 参数/未知路径/草稿 → 404 提示；`404.html` 兜底。
+  - 页内锚点原生可用：`post.html?p=…&#heading`；TOC 用 `href="#id"` 原生跳转（不再 `scrollIntoView`）。
+  - `site.js` 按页面路径自动检测模式（`MODE = location.pathname…==='post.html'`）；列表页筛选变化用 `history.replaceState(null,'',buildListUrl())` 同步 URL、监听 `popstate` 重渲染；详情页内标签链接 `index.html?q=…`、列表页标签点击 `preventDefault` + 原地渲染。
+  - 全部内部链接（卡片、上一篇/下一篇、相关文章、标签、归档、TOC）与 RSS/sitemap 链接均为 `post.html?p=` / `index.html?…` 形式。
+  - 测试：`test-post.js`（详情/404/草稿/无参）、`test-site2.js`（列表/搜索/IME/归档/popstate）、`test-index-content.js`（索引内嵌/raw 回退）等。
 
 ## 高优先级：搜索框中文/日文输入法兼容缺陷修复（已完成）
 ### 问题描述

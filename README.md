@@ -7,7 +7,7 @@
 - **纯静态、零后端**：无服务器、无构建步骤，浏览器直调 `api.github.com`（开放 CORS）。
 - **身份 = 管理员自己的 fine-grained PAT**：无登录页、无 OAuth。
 - **Token 存浏览器密码管理器**：标准 `type="password"` + `autocomplete="current-password"` 表单，浏览器负责保存与自动填充；前端只读输入框、不落盘（不写 localStorage/IndexedDB）。
-- **公共站点**：文章列表（分类过滤、关键词搜索、分页）、详情页（上一篇/下一篇）、暗色模式、移动端适配。
+- **公共站点**：多页面结构——列表（分类过滤、关键词搜索、分页、归档）、详情 `post.html?p=…`（原生页内锚点）、全文搜索高亮、相关文章、上一篇/下一篇、暗色模式、移动端适配。
 - **Markdown + LaTeX 公式**：`marked` 渲染 + `DOMPurify` 消毒 + `KaTeX` 公式（行内 `$...$` 与块级 `$$...$$`）。
 - **管理后台**：文章新建/编辑/草稿/发布/删除、分类管理、站点设置，编辑器实时预览（含公式），一次保存 = 一个 commit（文件 + 索引原子更新）。
 - **Git 即版本历史**：所有内容变更都可追溯、可回滚。
@@ -15,12 +15,14 @@
 ## 目录结构
 
 ```
-index.html              公共站点入口（单页，hash 路由）
+index.html              公共站点列表页（分类/搜索/翻页/归档，query 路由）
+post.html               公共站点详情页（post.html?p=<文章路径>，锚点原生可用）
+404.html                未找到兜底页
 admin/index.html        管理后台入口
 assets/css|js/          共享样式与脚本（原生 JS，无构建）
 assets/vendor/          本地托管的第三方库（marked / DOMPurify / KaTeX）
 config.json             站点配置（标题、分类、GitHub 坐标）
-content/index.json      帖子索引（公开站点列表的唯一入口）
+content/index.json      帖子索引（公开站点列表的唯一入口，内嵌正文摘要与 content）
 content/<分类>/<slug>.md  帖子正文
 docs/                   设计文档
 ```

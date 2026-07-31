@@ -7,14 +7,36 @@
   };
   var PAGE_SIZE = 8;
 
+  var MODE = location.pathname.split('/').pop() === 'post.html' ? 'post' : 'list';
+
   var state = {
     config: DEFAULT_CONFIG,
     posts: [],
-    route: 'list',
+    view: null,
     cat: null,
     q: '',
-    page: 1
+    page: 1,
+    p: null
   };
+
+  function parseParams() {
+    var sp = new URLSearchParams(location.search);
+    state.view = sp.get('view') || null;
+    state.cat = sp.get('cat') || null;
+    state.q = sp.get('q') || '';
+    state.page = parseInt(sp.get('page'), 10);
+    if (!state.page || state.page < 1) state.page = 1;
+    state.p = sp.get('p');
+  }
+
+  function buildListUrl() {
+    var parts = [];
+    if (state.view === 'archive') parts.push('view=archive');
+    if (state.cat) parts.push('cat=' + encodeURIComponent(state.cat));
+    if (state.q) parts.push('q=' + encodeURIComponent(state.q));
+    if (state.page > 1) parts.push('page=' + state.page);
+    return 'index.html' + (parts.length ? '?' + parts.join('&') : '');
+  }
 
   var els = {
     view: document.getElementById('view'),
@@ -148,7 +170,7 @@
   function notFoundView() {
     return el('div', { class: 'notice notice-error' }, [
       '找不到该页面。',
-      el('a', { href: '#/', text: ' 返回首页' })
+      el('a', { href: 'index.html', text: ' 返回首页' })
     ]);
   }
 
@@ -158,14 +180,14 @@
     els.catNav.appendChild(el('button', {
       class: state.cat === null ? 'active' : '',
       text: '全部',
-      onClick: function () { state.cat = null; state.page = 1; render(); }
+      onClick: function () { state.cat = null; state.page = 1; state.view = null; render(); }
     }));
     Object.keys(state.config.categories).forEach(function (key) {
       var c = state.config.categories[key];
       els.catNav.appendChild(el('button', {
         class: state.cat === key ? 'active' : '',
         text: (c.icon ? c.icon + ' ' : '') + c.label,
-        onClick: function () { state.cat = key; state.page = 1; render(); }
+        onClick: function () { state.cat = key; state.page = 1; state.view = null; render(); }
       }));
     });
   }
@@ -271,7 +293,7 @@
 
     var head = el('div', { class: 'list-head' }, [
       el('div', {}, [
-        el('h1', { class: 'list-title', text: state.cat ? (state.config.categories[state.cat].icon ? state.config.categories[state.cat].icon + ' ' : '') + state.config.categories[state.cat].label : '全部文章' }),
+        el('h1', { class: 'list-title', text: (state.cat && state.config.categories[state.cat]) ? (state.config.categories[state.cat].icon ? state.config.categories[state.cat].icon + ' ' : '') + state.config.categories[state.cat].label : '全部文章' }),
         state.q ? el('p', { class: 'list-subtitle', text: '搜索「' + state.q + '」· ' + total + ' 篇' })
           : el('p', { class: 'list-subtitle', text: total + ' 篇记录' })
       ]),
@@ -301,7 +323,7 @@
   }
 
   function postCard(p) {
-    return el('a', { class: 'post-card', href: '#/post/' + encodeURIComponent(p.path) }, [
+    return el('a', { class: 'post-card', href: 'post.html?p=' + encodeURIComponent(p.path) }, [
       el('div', { class: 'post-card-meta' }, [
         el('span', { class: 'cat-badge', text: (state.config.categories[p.category] || {}).label || p.category }),
         el('time', { datetime: p.date, text: md.formatDate(p.date) }),
@@ -314,14 +336,18 @@
   }
 
   function tagLink(t) {
+    if (MODE === 'post') {
+      return el('a', { class: 'tag', href: 'index.html?q=' + encodeURIComponent(t), text: t });
+    }
     return el('a', {
-      class: 'tag', href: '#/', text: t,
+      class: 'tag', href: 'index.html?q=' + encodeURIComponent(t), text: t,
       onClick: function (e) {
         e.preventDefault();
         state.q = t;
         state.cat = null;
         state.page = 1;
-        location.hash = '#/';
+        state.view = null;
+        render();
       }
     });
   }
@@ -457,13 +483,13 @@
     var related = relatedPosts(path);
     if (related) els.view.appendChild(related);
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
-      el('a', { href: '#/', text: '← 返回列表' }),
+      el('a', { href: 'index.html', text: '← 返回列表' }),
       el('span', { class: 'detail-foot-actions' }, [
         el('button', { type: 'button', class: 'link-copy', text: '分享', onClick: function (e) {
           e.preventDefault();
           sharePost();
         } }),
-        el('a', { href: '#/', text: '复制链接', class: 'link-copy', onClick: function (e) {
+        el('a', { href: location.href, text: '复制链接', class: 'link-copy', onClick: function (e) {
           e.preventDefault();
           copyText(location.href).then(function () {
             var self = e.currentTarget;
@@ -509,11 +535,11 @@
     var prev = idx > 0 ? published[idx - 1] : null;
     var next = idx !== -1 && idx < published.length - 1 ? published[idx + 1] : null;
     return el('nav', { class: 'detail-nav', 'aria-label': '文章导航' }, [
-      prev ? el('a', { class: 'nav-prev', href: '#/post/' + encodeURIComponent(prev.path) }, [
+      prev ? el('a', { class: 'nav-prev', href: 'post.html?p=' + encodeURIComponent(prev.path) }, [
         el('span', { class: 'nav-dir', text: '← 上一篇' }),
         el('span', { class: 'nav-title', text: prev.title })
       ]) : el('span', { class: 'nav-prev is-empty' }),
-      next ? el('a', { class: 'nav-next', href: '#/post/' + encodeURIComponent(next.path) }, [
+      next ? el('a', { class: 'nav-next', href: 'post.html?p=' + encodeURIComponent(next.path) }, [
         el('span', { class: 'nav-dir', text: '下一篇 →' }),
         el('span', { class: 'nav-title', text: next.title })
       ]) : el('span', { class: 'nav-next is-empty' })
@@ -571,17 +597,7 @@
       var id = h.id || 'toc-' + i;
       h.id = id;
       items.push(el('li', { class: 'toc-' + h.tagName.toLowerCase() }, [
-        el('a', {
-          href: '#' + id, text: h.textContent,
-          onClick: function (e) {
-            e.preventDefault();
-            var t = document.getElementById(id);
-            if (t) {
-              if (typeof t.scrollIntoView === 'function') t.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              scheduleProgress();
-            }
-          }
-        })
+        el('a', { href: '#' + id, text: h.textContent })
       ]));
     });
     return el('details', { class: 'toc' }, [
@@ -625,7 +641,7 @@
     return el('div', { class: 'related-posts' }, [
       el('h3', { class: 'related-title', text: '相关文章' }),
       el('ul', {}, rel.map(function (r) {
-        return el('li', {}, [el('a', { href: '#/post/' + encodeURIComponent(r.p.path), text: r.p.title })]);
+        return el('li', {}, [el('a', { href: 'post.html?p=' + encodeURIComponent(r.p.path), text: r.p.title })]);
       }))
     ]);
   }
@@ -691,14 +707,7 @@
     });
   }
 
-  /* ---------- 路由与渲染 ---------- */
-  function parseHash() {
-    var h = location.hash || '#/';
-    if (h.indexOf('#/post/') === 0) return { route: 'post', path: decodeURIComponent(h.slice(7)) };
-    if (h.indexOf('#/archive') === 0) return { route: 'archive' };
-    return { route: 'list' };
-  }
-
+  /* ---------- 路由与渲染（MPA：index.html?cat&q&page&view / post.html?p） ---------- */
   function renderArchive() {
     var posts = state.posts.filter(function (p) { return !p.draft; })
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
@@ -731,7 +740,7 @@
         el('ul', { class: 'archive-list' }, group.map(function (p) {
           return el('li', {}, [
             el('time', { datetime: p.date, text: (p.date || '').slice(0, 10) }),
-            el('a', { href: '#/post/' + encodeURIComponent(p.path), text: p.title })
+            el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title })
           ]);
         }))
       ]));
@@ -740,13 +749,20 @@
 
   function render() {
     if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
-    if (navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
+    if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     updateReadingProgress();
-    var r = parseHash();
-    if (r.route !== 'post') setStructuredData(null);
-    if (r.route === 'post') {
-      renderDetail(r.path);
-    } else if (r.route === 'archive') {
+    if (MODE === 'post') {
+      setStructuredData(null);
+      if (!state.p) {
+        els.view.textContent = '';
+        els.view.appendChild(notFoundView());
+        setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
+        return;
+      }
+      renderDetail(state.p);
+      return;
+    }
+    if (state.view === 'archive') {
       setPageMeta('归档 · ' + state.config.site.title, state.config.site.subtitle || state.config.site.title);
       renderArchive();
     } else {
@@ -755,11 +771,18 @@
       els.view.appendChild(skeletonList());
       renderList();
     }
+    try { history.replaceState(null, '', buildListUrl()); } catch (e) {}
   }
 
-  window.addEventListener('hashchange', render);
+  window.addEventListener('popstate', function () {
+    if (MODE !== 'list') return;
+    parseParams();
+    renderCats();
+    render();
+  });
 
   function boot() {
+    parseParams();
     fetchJSON('config.json', null).then(function (cfg) {
       if (cfg) state.config = Object.assign({}, DEFAULT_CONFIG, cfg);
       if (!state.config.site) state.config.site = DEFAULT_CONFIG.site;

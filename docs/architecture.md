@@ -15,7 +15,9 @@
 
 ```
 real-life-notes/
-├── index.html              # 公共站点入口（单页，hash 路由）
+├── index.html              # 公共站点列表页（query 路由：?cat/?q/?page/?view=archive）
+├── post.html               # 公共站点详情页（?p=<文章路径>，原生锚点）
+├── 404.html                # 未找到兜底页
 ├── admin/
 │   └── index.html          # 管理后台入口（单页）
 ├── assets/
@@ -73,12 +75,12 @@ real-life-notes/
 ### 3.3 site.js — 公共站点控制器
 
 职责：
-- 启动流程：读取 `/config.json`（同源，失败则回退内嵌默认值）→ 读 `config.github` 确定 raw 源 → 拉取 `content/index.json` → 渲染首页列表。
-- 路由（hash）：
-  - `#/` 或空：文章列表视图（分类过滤 `?cat=`、关键词搜索）
-  - `#/post/<path>`：文章详情视图
-- 渲染：分类导航、文章卡片、文章正文、上一篇/下一篇（可选）、空态。
-- 交互：分类切换、搜索防抖、点击进入详情、返回列表。
+- 启动流程：读取 `/config.json`（同源，失败则回退内嵌默认值）→ 读 `config.github` 确定 raw 源 → 拉取 `content/index.json` → 渲染页面。
+- 路由（MPA + query，无 hash）：`site.js` 按当前页面（`index.html` / `post.html`）自动进入列表或详情模式：
+  - `index.html`：列表视图，`?cat=` 分类、`?q=` 关键词搜索、`?page=` 翻页、`?view=archive` 归档；筛选变化用 `history.replaceState` 同步 URL，监听 `popstate` 支持前进/后退。
+  - `post.html?p=content/<分类>/<slug>.md`：文章详情（优先读 index.json 内嵌 `content`，旧索引回退 fetch raw）；页内锚点 `#heading` 原生可用；无 `p`/未知路径/草稿 → 404 提示。
+- 渲染：分类导航、文章卡片、文章正文、上一篇/下一篇（可选）、空态、归档。
+- 交互：分类切换、搜索防抖（IME 兼容）、点击进入详情（真实导航 `post.html?p=`）、返回列表。
 - 对服务端无任何写操作；全部是读取 GitHub raw / same-origin 静态文件。
 
 ### 3.4 admin.js — 管理后台控制器
@@ -122,9 +124,11 @@ real-life-notes/
 
 ### 5.2 查看一篇文章
 ```
-点击卡片 → hash = #/post/<path>
-       → GET <raw>/<path>  (raw.githubusercontent.com，即时最新)
-       → 解析 frontmatter → md.render(body) → 渲染详情
+浏览器 → GET post.html?p=content/notes/<slug>.md
+       → GET content/index.json（同源静态文件）
+       → 命中索引：直接用内嵌 content 渲染详情（无 fetch 正文）
+       → 旧索引（无 content 字段）：GET <raw>/<path> 回退渲染
+       → 草稿/未知路径/无 p 参数：404 提示
 ```
 
 ### 5.3 管理员发布（新建/更新/删除）
@@ -196,11 +200,11 @@ admin 填表 → 组装 post 内容（frontmatter + body）
 
 ## 10. 演进路线
 
-**已实现**（见 README 状态）：图片上传（`assets/images/`，Base64 经 Git tree 提交）、代码高亮（highlight.js 本地托管 + 深浅主题）、深色模式、RSS（发布时随 commit 重建）、详情页灯箱/复制链接/元描述、标签点击搜索、草稿直链拦截。
+**已实现**（见 README 状态）：图片上传（`assets/images/`，Base64 经 Git tree 提交）、代码高亮（highlight.js 本地托管 + 深浅主题）、深色模式、RSS（发布时随 commit 重建）、sitemap、详情页灯箱/复制链接/元描述、标签点击搜索、草稿直链拦截、全文搜索（索引内嵌 `content` + 命中高亮 `mark.hl`）、归档视图（`index.html?view=archive`）、**MPA 重构**（`index.html`/`post.html?p=`/`404.html`，query 路由 + 原生锚点 + `replaceState` URL 同步）。
 
 **未做/可演进**：
 - 多作者（服务端 Workers 集中 secret，见 system-design 形态 B）。
-- 评论系统、全文检索索引、站点 sitemap。
+- 评论系统、全文检索索引（已实现标题/标签/正文搜索，独立检索文件索引未做）。
 - 图片压缩/缩略图（上传时前端 canvas 压缩）。
 - **空仓库一键初始化（记录中，未实施）**：
   1. 连接表单增加"GitHub 仓库地址"输入（token + 仓库地址 ≈ 用户名/密码的体验），浏览器密码管理器也能更清楚地对应用户/仓库。
@@ -209,7 +213,3 @@ admin 填表 → 组装 post 内容（frontmatter + body）
   4. 非空仓库不支持此功能（避免误覆盖已有内容）。
   5. **实现要点（gh.js）**：空仓库无分支，首次提交与常规提交不同——建 tree **不带 `base_tree`**、建 commit **不带 `parents`**、更新引用用 **`POST /git/refs`**（而非 `PATCH`）。`commitFiles` 需增加该分支；`GET refs/heads/{branch}` 404 即判定空仓库。
 
-- **公开站点 SPA(hash 路由) → 多页面 + 查询参数（规划中，重要）**：
-  - 背景：站点当前为哈希路由单页应用（`#/`、`#/post/…`）。对文档类网站（博客/笔记），页内锚点至关重要（目录、章节跳转、分享到某节），hash 路由会与锚点冲突。
-  - 目标：改为**传统多 HTML 页面 + query 参数路由**。列表 `index.html`（`?cat=`/`?q=`/`?page=`）；详情独立页 `post.html?p=content/notes/x.md`（模板读 `content/index.json`，索引已内嵌 `content` 正文，纯静态即可渲染）；页内锚点 `post.html?p=…&#heading` 原生可用；`404.html` 兜底；全部内部链接与 RSS/sitemap 链接同步更新；draft 404 逻辑保留。
-  - 触发时机：常规功能迭代稳定后再实施，作为一次专门的重构提交（含全量测试更新）。

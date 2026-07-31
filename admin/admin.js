@@ -107,7 +107,7 @@
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); })
       .slice(0, 20);
     var items = published.map(function (p) {
-      var link = base + '#/post/' + encodeURIComponent(p.path);
+      var link = base + '/post.html?p=' + encodeURIComponent(p.path);
       var pub = (function () { var d = new Date(p.date); return isNaN(d.getTime()) ? '' : d.toUTCString(); })();
       var cats = [];
       var catKey = p.category || '';
@@ -141,7 +141,7 @@
     var urls = published.map(function (p) {
       var lastmod = (p.updated || p.date || '').slice(0, 10);
       return '  <url>\n' +
-        '    <loc>' + escXml(base + '#/post/' + encodeURIComponent(p.path)) + '</loc>\n' +
+        '    <loc>' + escXml(base + '/post.html?p=' + encodeURIComponent(p.path)) + '</loc>\n' +
         (lastmod ? '    <lastmod>' + escXml(lastmod) + '</lastmod>\n' : '') +
         '  </url>';
     }).join('\n');
