@@ -416,8 +416,21 @@
       ])
     ]);
 
+    var imageInput = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
+    imageInput.addEventListener('change', function () {
+      if (imageInput.files && imageInput.files[0]) uploadImage(imageInput.files[0]);
+      imageInput.value = '';
+    });
+
     var bodyField = el('div', { class: 'field' }, [
       el('label', { for: 'edBody', text: '正文（Markdown，支持 $LaTeX$ 公式）' }),
+      el('div', { class: 'editor-toolbar' }, [
+        el('button', { type: 'button', text: '📷 插入图片', onClick: function () {
+          if (!state.user) { toast('请先连接 GitHub Token', 'error'); return; }
+          imageInput.click();
+        } }),
+        el('span', { class: 'hint', text: '也可直接粘贴或拖拽图片到正文框' })
+      ]),
       el('textarea', { id: 'edBody', 'aria-label': '正文', oninput: updatePreview })
     ]);
 
@@ -453,6 +466,23 @@
     ]));
 
     editor.body.value = ed.body;
+    editor.body.addEventListener('paste', function (e) {
+      var items = e.clipboardData && e.clipboardData.items;
+      for (var i = 0; items && i < items.length; i++) {
+        if (items[i].kind === 'file' && ALLOWED_IMAGE[items[i].type]) {
+          e.preventDefault();
+          uploadImage(items[i].getAsFile());
+          return;
+        }
+      }
+    });
+    editor.body.addEventListener('drop', function (e) {
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files[0]) {
+        e.preventDefault();
+        uploadImage(files[0]);
+      }
+    });
     editor.body.focus();
     updateSlug();
     updatePreview();
@@ -481,6 +511,49 @@
     var head = editor.preview.querySelector('.preview-head');
     head.appendChild(el('h3', { style: 'margin:0 0 8px', text: meta.title }));
     head.appendChild(el('div', { style: 'color:var(--text-faint);font-size:0.85em', text: md.formatDate(meta.date) + (meta.draft ? ' · 草稿' : '') }));
+  }
+
+  var ALLOWED_IMAGE = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg' };
+  var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+  function uploadImage(file, at) {
+    if (!state.user) { toast('请先连接 GitHub Token 后再插入图片', 'error'); return; }
+    var ext = ALLOWED_IMAGE[file.type];
+    if (!ext) { toast('不支持的图片格式：' + (file.type || '未知'), 'error'); return; }
+    if (file.size > MAX_IMAGE_BYTES) { toast('图片超过 5MB，请压缩后重试', 'error'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = String(reader.result);
+      var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      var now = new Date();
+      var p = String(now.getFullYear()) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2);
+      var path = 'assets/images/' + p + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      var markdown = '![' + (file.name || path.split('/').pop()).replace(/[[\]()]/g, '') + '](' + path + ')';
+      setBusy(true);
+      toast('正在上传图片…', 'ok');
+      gh.commitFiles({
+        message: '[图片] ' + path.split('/').pop(),
+        files: [{ path: path, content: base64 }]
+      }).then(function (commit) {
+        setBusy(false);
+        if (editor && editor.body) {
+          var pos = (typeof at === 'number' ? at : editor.body.selectionStart);
+          var v = editor.body.value;
+          var before = v.slice(0, pos);
+          var after = v.slice(pos);
+          var prefix = before && !/\n$/.test(before) ? '\n' : '';
+          var suffix = after && !/^\n/.test(after) ? '\n' : '';
+          editor.body.value = before + prefix + markdown + '\n' + suffix + after;
+          editor.body.focus();
+          updatePreview();
+        }
+        toast('图片已上传并插入 ✓' + (commit.sha ? '（' + commit.sha.slice(0, 7) + '）' : ''), 'ok');
+      }).catch(function (err) {
+        setBusy(false);
+        toast('图片上传失败：' + errMsg(err), 'error');
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
   function fmtToIso(dt) {

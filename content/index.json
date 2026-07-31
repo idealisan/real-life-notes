@@ -1,4 +1,16 @@
 {
   "schema": 1,
-  "posts": []
+  "posts": [
+    {
+      "path": "content/notes/2026-07-31-welcome.md",
+      "slug": "2026-07-31-welcome",
+      "title": "欢迎来到 Real Life Notes",
+      "category": "notes",
+      "tags": ["说明", "Markdown", "示例"],
+      "date": "2026-07-31T14:00:00.000Z",
+      "updated": null,
+      "excerpt": "这是一篇**示例文章**，用来展示本站的渲染能力。点右上角「管理」登录后即可写自己的内容。",
+      "draft": false
+    }
+  ]
 }
