@@ -249,6 +249,7 @@
 .notice { padding: var(--space-4); border-radius: var(--radius-m); margin-bottom: var(--space-4); }
 .notice-error { background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
 .notice-info { background: var(--bg-soft); color: var(--text-soft); border: 1px solid var(--border-soft); }
+.integrity-item { font-family: var(--font-mono); font-size: 0.9em; margin-top: 4px; }
 
 .spinner {
   display: inline-block;

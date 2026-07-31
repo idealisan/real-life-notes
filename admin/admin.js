@@ -22,7 +22,8 @@
     user: null,
     view: 'posts',
     editing: null,
-    busy: false
+    busy: false,
+    integrity: null
   };
 
   var els = {
@@ -272,6 +273,7 @@
   var listFilter = { cat: '', q: '' };
 
   function renderPosts() {
+    els.mainContent.textContent = '';
     var posts = sortedPosts().filter(function (p) {
       if (listFilter.cat && p.category !== listFilter.cat) return false;
       if (listFilter.q) {
@@ -299,10 +301,17 @@
         oninput: function (e) { listFilter.q = e.target.value; renderPosts(); }
       }),
       el('div', { class: 'spacer' }),
+      el('button', { text: '完整性检查', onClick: checkIntegrity }),
       el('span', { class: 'repo-badge', style: 'font-size:0.85em', text: '共 ' + posts.length + ' 篇' })
     ]);
 
     var body;
+    if (state.integrity && state.integrity.length) {
+      els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
+        el('strong', { text: '以下索引中的文件缺失：' }),
+        state.integrity.map(function (p) { return el('div', { class: 'integrity-item', text: p }); })
+      ]));
+    }
     if (!posts.length) {
       body = el('div', { class: 'notice notice-info', text: '还没有文章。点击「新建文章」开始记录。' });
     } else {
@@ -340,6 +349,25 @@
       el('h2', { class: 'panel-title', text: '文章管理' }),
       toolbar, body
     ]));
+  }
+
+  function checkIntegrity() {
+    if (!state.index.posts.length) { toast('暂无文章，无需检查', 'ok'); return; }
+    setBusy(true);
+    toast('正在检查文件一致性…', 'ok');
+    Promise.all(state.index.posts.map(function (p) {
+      return gh.getContent(p.path).then(function () { return null; }).catch(function () { return p.path; });
+    })).then(function (missing) {
+      setBusy(false);
+      missing = missing.filter(Boolean);
+      state.integrity = missing;
+      if (!missing.length) {
+        toast('全部 ' + state.index.posts.length + ' 篇索引文件完整 ✓', 'ok');
+      } else {
+        toast('发现 ' + missing.length + ' 个缺失文件', 'error');
+      }
+      renderPosts();
+    });
   }
 
   function startNewPost() {
