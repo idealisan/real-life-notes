@@ -205,6 +205,7 @@
   /* ---------- 搜索输入（IME 组合输入安全 + 防抖） ---------- */
   var searchEl = null;
   var composing = false;
+  var imeSettleTimer = null;
   function doSearch() {
     if (!searchEl) return;
     if (composing) return;
@@ -213,6 +214,15 @@
     render();
   }
   var debouncedSearch = debounce(doSearch, 300);
+  function imeSettle() {
+    composing = false;
+    if (searchEl && searchEl.value !== state.q) doSearch();
+  }
+  function onImeKeydown() {
+    composing = true;
+    if (imeSettleTimer) clearTimeout(imeSettleTimer);
+    imeSettleTimer = setTimeout(imeSettle, 400);
+  }
   function searchInputElement() {
     if (searchEl) return searchEl;
     searchEl = el('input', {
@@ -221,13 +231,22 @@
       value: state.q,
       'aria-label': '搜索文章'
     });
-    searchEl.addEventListener('compositionstart', function () { composing = true; });
-    searchEl.addEventListener('compositionend', function () { composing = false; debouncedSearch(); });
+    searchEl.addEventListener('compositionstart', function () {
+      composing = true;
+      if (imeSettleTimer) clearTimeout(imeSettleTimer);
+    });
+    searchEl.addEventListener('compositionend', function () {
+      composing = false;
+      if (imeSettleTimer) clearTimeout(imeSettleTimer);
+      debouncedSearch();
+    });
     searchEl.addEventListener('input', function (e) {
       if (composing || e.isComposing) return;
       debouncedSearch();
     });
     searchEl.addEventListener('keydown', function (e) {
+      if (e.keyCode === 229 || e.key === 'Process') { onImeKeydown(); return; }
+      if (composing || e.isComposing) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         debouncedSearch.cancel();

@@ -308,23 +308,45 @@
   var listFilter = { cat: '', q: '' };
   var filterInputEl = null;
   var filterComposing = false;
+  var filterSettleTimer = null;
   var debouncedFilter = debounce(function () {
     if (filterComposing) return;
     listFilter.q = filterInputEl ? filterInputEl.value : '';
     renderPosts();
   }, 300);
+  function filterImeSettle() {
+    filterComposing = false;
+    if (filterInputEl && filterInputEl.value !== listFilter.q) {
+      listFilter.q = filterInputEl.value;
+      renderPosts();
+    }
+  }
+  function onFilterImeKeydown() {
+    filterComposing = true;
+    if (filterSettleTimer) clearTimeout(filterSettleTimer);
+    filterSettleTimer = setTimeout(filterImeSettle, 400);
+  }
   function filterInputElement() {
     if (filterInputEl) return filterInputEl;
     filterInputEl = el('input', {
       type: 'search', placeholder: '搜索标题…', value: listFilter.q, 'aria-label': '搜索文章'
     });
-    filterInputEl.addEventListener('compositionstart', function () { filterComposing = true; });
-    filterInputEl.addEventListener('compositionend', function () { filterComposing = false; debouncedFilter(); });
+    filterInputEl.addEventListener('compositionstart', function () {
+      filterComposing = true;
+      if (filterSettleTimer) clearTimeout(filterSettleTimer);
+    });
+    filterInputEl.addEventListener('compositionend', function () {
+      filterComposing = false;
+      if (filterSettleTimer) clearTimeout(filterSettleTimer);
+      debouncedFilter();
+    });
     filterInputEl.addEventListener('input', function (e) {
       if (filterComposing || e.isComposing) return;
       debouncedFilter();
     });
     filterInputEl.addEventListener('keydown', function (e) {
+      if (e.keyCode === 229 || e.key === 'Process') { onFilterImeKeydown(); return; }
+      if (filterComposing || e.isComposing) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         debouncedFilter.cancel();
