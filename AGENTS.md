@@ -7,13 +7,31 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **持续推进原则**：本项目是持续迭代型，完成一批功能后不要停下，继续补齐细节功能、优化体验、补测试，直到用户明确叫停。空闲时可参考博客站常见功能（评论、分页、标签页、搜索、阅读进度、RSS 等）规划下一批迭代。单条 bash 循环里不要重复运行同一测试（避免超时）。
 
 ## 已规划/待办（重要）
-- **公开站点 SPA(hash 路由) → 传统多页面重构（待做，重要）**：当前 `index.html` 用 `#/`、`#/post/…` 哈希路由，已与锚点/TOC 冲突（TOC 只能靠 `scrollIntoView` 绕开）。对博客/笔记类文档站，锚点至关重要（目录、页内跳转），应改为多 HTML 页面：
-  - 列表：`index.html`；分类/搜索：`index.html?cat=…`/`?q=…`（query 参数，不用 hash）。
-  - 详情：独立页面（如 `post.html?p=content/notes/x.md` 或 `p/<slug>.html` 模板，读 `content/index.json` 渲染——索引已内嵌正文，无需后端）。
-  - 页内锚点直接用原生 `<a href="….#heading">`；内部链接（上一篇/下一篇、相关文章、标签、列表、RSS、sitemap）全部改；draft 404 逻辑保留。
-  - 收益：锚点原生可用、利于 SEO/分享、每次跳转即浏览器导航（博客站正常）。代价仅页面跳转。
+- **公开站点 SPA(hash 路由) → 传统多页面 + 查询参数（待做，重要）**：当前 `index.html` 用 `#/`、`#/post/…` 哈希路由，已与锚点/TOC 冲突（TOC 只能靠 `scrollIntoView` 绕开）。对博客/笔记类文档站，锚点至关重要（目录、页内跳转），应改为**传统多 HTML 页面 + query 参数路由**：
+  - 列表：`index.html`；分类/搜索/翻页：`index.html?cat=…&q=…&page=2`（全部用查询参数，不用 hash）。
+  - 详情：`post.html?p=content/notes/slug.md`（模板读 `content/index.json` 渲染，索引已内嵌正文，无需后端）；未知路径/草稿 → 404 提示；`404.html` 兜底。
+  - 页内锚点原生可用：`post.html?p=…&#heading`（fragment 在 query 之后）。
+  - 全部内部链接（列表、上一篇/下一篇、相关文章、标签点击、TOC）与 RSS/sitemap 链接同步改成 query 形式。
+  - 收益：锚点原生可用、利于 SEO/分享、跳转即浏览器导航（博客站正常）。代价仅页面跳转。
 - **空仓库一键初始化**（远期，见 architecture.md §10）：token+仓库地址输入、初始化模块、Pages 开启引导。
 - 持续迭代原则见「工作纪律」。
+
+## 高优先级：搜索框中文/日文输入法兼容缺陷修复（已完成）
+### 问题描述
+现有实现仅监听 `input` 事件；使用拼音等输入法拼字过程中，未确认的拼音会持续触发搜索，造成搜索列表频繁闪烁、无效查询。用户期望仅在确认汉字后执行检索。
+### 修复方案（浏览器原生 CompositionEvent 标准方案，已落地）
+1. 利用 `compositionstart` / `compositionend` 区分「输入法拼字阶段」与「输入确认完成」；
+2. 拼字阶段设置标记 `composing=true`，屏蔽 `input` 事件触发搜索；
+3. 输入确认完成后（`compositionend`）主动执行一次搜索（防止浏览器 dispatch 顺序导致最后一次检索丢失）；
+4. 叠加 `debounce(fn, 300)` 防抖函数，减少频繁检索开销；`Escape`/`Enter` 时 `debounced.cancel()` 后立即搜索；
+5. 边界：防抖回调执行时若已进入拼字阶段则跳过（清空后 300ms 内开始打拼音的场景）；
+6. 搜索输入框单例复用（避免每次重渲染重建导致失焦/IME 状态丢失）。
+实现位置：`site.js` 的 `searchInputElement`/`doSearch`、`admin.js` 的 `filterInputElement`/`debouncedFilter`（后台过滤器同一套方案）。
+### 固定开发规范
+- 不引入第三方输入组件，原生 JS 实现；
+- 采用方案A：拼字过程不执行搜索，文字确认后检索；
+- 兼容中文、日文、韩文等全部需要输入法合成的语言；
+- 同时保证英文、数字、粘贴、回车搜索功能不受影响。
 
 ## 当前状态与约定
 - 已实现（`5763381` 起）：公共站点（`index.html` + `assets/js/site.js`）、管理后台（`admin/`）、GitHub 客户端（`assets/js/gh.js`）、Markdown/公式渲染（`assets/js/md.js`）。

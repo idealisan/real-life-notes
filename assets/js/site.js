@@ -115,6 +115,16 @@
     });
   }
 
+  function debounce(fn, delay) {
+    var timer = null;
+    var wrapped = function () {
+      clearTimeout(timer);
+      timer = setTimeout(fn, delay);
+    };
+    wrapped.cancel = function () { clearTimeout(timer); timer = null; };
+    return wrapped;
+  }
+
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
     if (attrs) {
@@ -174,12 +184,53 @@
     return posts;
   }
 
+  /* ---------- 搜索输入（IME 组合输入安全 + 防抖） ---------- */
+  var searchEl = null;
+  var composing = false;
+  function doSearch() {
+    if (!searchEl) return;
+    if (composing) return;
+    state.q = searchEl.value;
+    state.page = 1;
+    render();
+  }
+  var debouncedSearch = debounce(doSearch, 300);
+  function searchInputElement() {
+    if (searchEl) return searchEl;
+    searchEl = el('input', {
+      type: 'search',
+      placeholder: '搜索标题、标签…',
+      value: state.q,
+      'aria-label': '搜索文章'
+    });
+    searchEl.addEventListener('compositionstart', function () { composing = true; });
+    searchEl.addEventListener('compositionend', function () { composing = false; debouncedSearch(); });
+    searchEl.addEventListener('input', function (e) {
+      if (composing || e.isComposing) return;
+      debouncedSearch();
+    });
+    searchEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        debouncedSearch.cancel();
+        searchEl.value = '';
+        doSearch();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        debouncedSearch.cancel();
+        doSearch();
+      }
+    });
+    return searchEl;
+  }
+
   function renderList() {
     var posts = filteredPosts();
     var total = posts.length;
     var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (state.page > pages) state.page = pages;
     var slice = posts.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+    if (searchEl && document.activeElement !== searchEl && searchEl.value !== state.q) searchEl.value = state.q;
 
     var head = el('div', { class: 'list-head' }, [
       el('div', {}, [
@@ -189,17 +240,7 @@
       ]),
       el('label', { class: 'search-box', 'aria-label': '搜索文章' }, [
         searchIcon(),
-        el('input', {
-          type: 'search',
-          placeholder: '搜索标题、标签…',
-          value: state.q,
-          'aria-label': '搜索文章',
-          oninput: function (e) {
-            state.q = e.target.value;
-            state.page = 1;
-            render();
-          }
-        })
+        searchInputElement()
       ])
     ]);
 

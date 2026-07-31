@@ -77,6 +77,16 @@
     });
   }
 
+  function debounce(fn, delay) {
+    var timer = null;
+    var wrapped = function () {
+      clearTimeout(timer);
+      timer = setTimeout(fn, delay);
+    };
+    wrapped.cancel = function () { clearTimeout(timer); timer = null; };
+    return wrapped;
+  }
+
   function escXml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c];
@@ -296,6 +306,40 @@
 
   /* ---------- 文章列表 ---------- */
   var listFilter = { cat: '', q: '' };
+  var filterInputEl = null;
+  var filterComposing = false;
+  var debouncedFilter = debounce(function () {
+    if (filterComposing) return;
+    listFilter.q = filterInputEl ? filterInputEl.value : '';
+    renderPosts();
+  }, 300);
+  function filterInputElement() {
+    if (filterInputEl) return filterInputEl;
+    filterInputEl = el('input', {
+      type: 'search', placeholder: '搜索标题…', value: listFilter.q, 'aria-label': '搜索文章'
+    });
+    filterInputEl.addEventListener('compositionstart', function () { filterComposing = true; });
+    filterInputEl.addEventListener('compositionend', function () { filterComposing = false; debouncedFilter(); });
+    filterInputEl.addEventListener('input', function (e) {
+      if (filterComposing || e.isComposing) return;
+      debouncedFilter();
+    });
+    filterInputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        debouncedFilter.cancel();
+        filterInputEl.value = '';
+        listFilter.q = '';
+        renderPosts();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        debouncedFilter.cancel();
+        listFilter.q = filterInputEl.value;
+        renderPosts();
+      }
+    });
+    return filterInputEl;
+  }
 
   function renderPosts() {
     els.mainContent.textContent = '';
@@ -310,6 +354,8 @@
 
     var cats = Object.keys(state.cfg.categories);
 
+    if (filterInputEl && document.activeElement !== filterInputEl && filterInputEl.value !== listFilter.q) filterInputEl.value = listFilter.q;
+
     var toolbar = el('div', { class: 'panel-toolbar' }, [
       el('button', { class: 'btn-primary', text: '＋ 新建文章', onClick: startNewPost }),
       el('select', {
@@ -320,11 +366,7 @@
       ].concat(cats.map(function (c) {
         return el('option', { value: c, text: state.cfg.categories[c].label, selected: listFilter.cat === c ? '' : null });
       }))),
-      el('input', {
-        type: 'search', placeholder: '搜索标题…', value: listFilter.q,
-        'aria-label': '搜索文章',
-        oninput: function (e) { listFilter.q = e.target.value; renderPosts(); }
-      }),
+      filterInputElement(),
       el('div', { class: 'spacer' }),
       el('button', { text: '完整性检查', onClick: checkIntegrity }),
       el('span', { class: 'repo-badge', style: 'font-size:0.85em', text: '共 ' + posts.length + ' 篇' })
@@ -496,14 +538,12 @@
 
     var bodyField = el('div', { class: 'field' }, [
       el('label', { for: 'edBody', text: '正文（Markdown，支持 $LaTeX$ 公式）' }),
-      el('div', { class: 'editor-toolbar' }, [
-        el('button', { type: 'button', text: '📷 插入图片', onClick: function () {
-          if (!state.user) { toast('请先连接 GitHub Token', 'error'); return; }
-          imageInput.click();
-        } }),
-        el('span', { class: 'hint', text: '也可直接粘贴或拖拽图片到正文框' })
-      ]),
-      el('textarea', { id: 'edBody', 'aria-label': '正文', oninput: updatePreview })
+      buildEditorToolbar(imageInput),
+      el('textarea', { id: 'edBody', 'aria-label': '正文', oninput: updatePreview }),
+      el('div', { class: 'editor-status' }, [
+        el('span', { id: 'edStats', text: '0 字' }),
+        el('span', { class: 'hint', text: '快捷键：Ctrl+B 加粗 · Ctrl+I 斜体 · Ctrl+K 链接 · Ctrl+E 代码 · Ctrl+Shift+E 代码块 · Tab 缩进' })
+      ])
     ]);
 
     var preview = el('div', { class: 'preview-pane', 'aria-label': '预览' }, [
@@ -562,6 +602,7 @@
       }
     });
     editor.body.focus();
+    attachEditorKeys(editor.body);
     updateSlug();
     updatePreview();
     editor.dirty = false;
@@ -575,6 +616,104 @@
     var slug = md.slugify(editor.title.value) || 'post';
     editor.slug.value = dateVal.slice(0, 10) + '-' + slug;
     ed._catForSlug = editor.category.value;
+  }
+
+  function wrapSelection(ta, before, after, placeholder) {
+    var s = ta.selectionStart;
+    var e = ta.selectionEnd;
+    var sel = ta.value.slice(s, e);
+    var ins = sel ? before + sel + after : before + placeholder + after;
+    ta.value = ta.value.slice(0, s) + ins + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + (sel ? before.length : before.length + placeholder.length);
+    ta.focus();
+    updatePreview();
+  }
+
+  function lineAction(ta, prefix) {
+    var s = ta.selectionStart;
+    var start = ta.value.lastIndexOf('\n', s - 1) + 1;
+    var end = ta.value.indexOf('\n', s);
+    if (end === -1) end = ta.value.length;
+    var line = ta.value.slice(start, end);
+    if (line.indexOf(prefix) === 0) {
+      ta.value = ta.value.slice(0, start) + line.slice(prefix.length) + ta.value.slice(end);
+    } else {
+      ta.value = ta.value.slice(0, start) + prefix + line + ta.value.slice(end);
+    }
+    ta.selectionStart = ta.selectionEnd = Math.min(start + prefix.length + line.length, ta.value.length);
+    ta.focus();
+    updatePreview();
+  }
+
+  var EMOJIS = ['😀', '😂', '🤣', '😊', '😍', '😎', '🤔', '🥳', '😤', '😴', '🤗', '😇', '👍', '👎', '👏', '🙏', '💪', '🔥', '✨', '🎉', '💡', '📌', '🚀', '❤️', '🌟', '🍀', '🎯', '💯'];
+
+  function buildEditorToolbar(imageInput) {
+    var emojiPanel = el('div', { class: 'emoji-panel', hidden: '' }, EMOJIS.map(function (em) {
+      return el('button', {
+        type: 'button', class: 'emoji-btn', 'aria-label': em, text: em,
+        onClick: function () {
+          wrapSelection(editor.body, '', '', em);
+        }
+      });
+    }));
+    function wrap(before, after, placeholder, title, label) {
+      return el('button', {
+        type: 'button', title: title, text: label,
+        onClick: function () { wrapSelection(editor.body, before, after, placeholder); }
+      });
+    }
+    function line(prefix, title, label) {
+      return el('button', {
+        type: 'button', title: title, text: label,
+        onClick: function () { lineAction(editor.body, prefix); }
+      });
+    }
+    var toolbar = el('div', { class: 'editor-toolbar' }, [
+      wrap('**', '**', '加粗文字', '加粗（Ctrl+B）', 'B'),
+      wrap('*', '*', '斜体文字', '斜体（Ctrl+I）', 'I'),
+      line('> ', '引用（>）', '❝ 引用'),
+      line('- ', '无序列表（-）', '• 列表'),
+      line('1. ', '有序列表（1.）', '1. 列表'),
+      line('- [ ] ', '任务列表（- [ ]）', '☑ 任务'),
+      wrap('`', '`', '代码', '行内代码（Ctrl+E）', '`代码`'),
+      wrap('\n```\n', '\n```\n', '代码', '代码块（Ctrl+Shift+E）', '◧ 代码块'),
+      wrap('[', '](https://example.com)', '链接文字', '链接（Ctrl+K）', '🔗 链接'),
+      wrap('![', '](https://example.com/image.png)', '图片描述', '图片地址', '🖼 图片'),
+      line('---', '分隔线', '— 分隔线'),
+      wrap('\n\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '', '', '表格', '▦ 表格'),
+      el('span', { class: 'toolbar-sep' }),
+      el('button', {
+        type: 'button', title: '插入 Emoji', text: '😀 Emoji',
+        onClick: function () {
+          emojiPanel.hidden = !emojiPanel.hidden;
+        }
+      }),
+      el('button', {
+        type: 'button', title: '插入图片（上传到仓库）', text: '📷 上传图片',
+        onClick: function () {
+          if (!state.user) { toast('请先连接 GitHub Token', 'error'); return; }
+          imageInput.click();
+        }
+      })
+    ]);
+    return el('div', {}, [toolbar, emojiPanel, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点按钮即可包裹格式 · Ctrl+Enter 保存' })]);
+  }
+
+  function attachEditorKeys(ta) {
+    ta.addEventListener('keydown', function (e) {
+      var mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'b') { e.preventDefault(); wrapSelection(ta, '**', '**', '加粗文字'); }
+      else if (mod && e.key === 'i') { e.preventDefault(); wrapSelection(ta, '*', '*', '斜体文字'); }
+      else if (mod && e.key === 'k') { e.preventDefault(); wrapSelection(ta, '[', '](https://example.com)', '链接文字'); }
+      else if (mod && e.key === 'e' && !e.shiftKey) { e.preventDefault(); wrapSelection(ta, '`', '`', '代码'); }
+      else if (mod && e.key === 'e' && e.shiftKey) { e.preventDefault(); wrapSelection(ta, '\n```\n', '\n```\n', '代码'); }
+      else if (mod && e.key === 'Enter') { e.preventDefault(); savePost(editor.draft && editor.draft.checked); }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        wrapSelection(ta, '  ', '', '');
+        ta.selectionStart = ta.selectionEnd;
+      }
+    });
   }
 
   function updatePreview() {
@@ -592,6 +731,13 @@
     var head = editor.preview.querySelector('.preview-head');
     head.appendChild(el('h3', { style: 'margin:0 0 8px', text: meta.title }));
     head.appendChild(el('div', { style: 'color:var(--text-faint);font-size:0.85em', text: md.formatDate(meta.date) + (meta.draft ? ' · 草稿' : '') }));
+    var stats = document.getElementById('edStats');
+    if (stats) {
+      var raw = editor.body.value;
+      var cjk = (raw.match(/[\u4e00-\u9fff]/g) || []).length;
+      var latin = (raw.replace(/[\u4e00-\u9fff]/g, ' ').trim().match(/\S+/g) || []).length;
+      stats.textContent = (cjk + latin) + ' 字 · ' + raw.length + ' 字符';
+    }
   }
 
   var ALLOWED_IMAGE = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg' };
