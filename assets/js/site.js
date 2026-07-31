@@ -28,6 +28,19 @@
     if (els.metaDesc) els.metaDesc.setAttribute('content', text || '');
   }
 
+  function setMetaProperty(prop, content) {
+    var node = document.querySelector('meta[property="og:' + prop + '"]');
+    if (node) node.setAttribute('content', content == null ? '' : content);
+  }
+
+  function setPageMeta(title, desc) {
+    document.title = title;
+    setMetaDescription(desc || '');
+    setMetaProperty('title', title);
+    setMetaProperty('description', desc || '');
+    setMetaProperty('url', location.href);
+  }
+
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(text);
@@ -226,7 +239,7 @@
     if (inIndex && inIndex.draft) {
       els.view.textContent = '';
       els.view.appendChild(notFoundView());
-      document.title = state.config.site.title;
+      setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
       return;
     }
     els.view.textContent = '';
@@ -238,7 +251,7 @@
       var parsed = md.parseFrontmatter(text);
       var meta = parsed.meta;
       if (!meta.title) meta.title = path.split('/').pop().replace(/\.md$/, '');
-      document.title = meta.title + ' · ' + state.config.site.title;
+      setPageMeta(meta.title + ' · ' + state.config.site.title, '');
       renderDetailBody(path, parsed);
     }).catch(function (err) {
       els.view.textContent = '';
@@ -262,8 +275,10 @@
     externalizeLinks(body);
     attachLightbox(body);
     var plain = body.textContent.replace(/\s+/g, ' ').trim();
-    if (plain) setMetaDescription(plain.slice(0, 150));
-
+    if (plain) {
+      setMetaDescription(plain.slice(0, 150));
+      setMetaProperty('description', plain.slice(0, 150));
+    }
     var sourceLink;
     if (state.config.github && state.config.github.owner) {
       sourceLink = el('a', {
@@ -382,8 +397,7 @@
   function render() {
     if (navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     var r = parseHash();
-    document.title = state.config.site.title;
-    setMetaDescription(state.config.site.subtitle || state.config.site.title);
+    setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
     if (r.route === 'post') {
       renderDetail(r.path);
     } else {
