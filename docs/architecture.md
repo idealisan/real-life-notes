@@ -194,9 +194,12 @@ admin 填表 → 组装 post 内容（frontmatter + body）
   3. 更新/删除/草稿/分类/设置各流程走查。
 - 提交前后在 `git status` 确认无误。
 
-## 10. 演进路线（超出本期范围）
+## 10. 演进路线
 
-- 图片上传（经 API 提交到 `assets/img/`，Base64；或外部图床）。
-- 代码高亮（highlight.js 按需 vendored）。
-- 深色模式、RSS、sitemap。
-- 多作者（服务端 Workers 集中 secret）。
+**已实现**（见 README 状态）：图片上传（`assets/images/`，Base64 经 Git tree 提交）、代码高亮（highlight.js 本地托管 + 深浅主题）、深色模式、RSS（发布时随 commit 重建）、详情页灯箱/复制链接/元描述、标签点击搜索、草稿直链拦截。
+
+**未做/可演进**：
+- 多作者（服务端 Workers 集中 secret，见 system-design 形态 B）。
+- 评论系统、全文检索索引、站点 sitemap。
+- 图片压缩/缩略图（上传时前端 canvas 压缩）。
+
