@@ -82,4 +82,5 @@ python3 -m http.server 8080 --directory .   # 需在仓库根目录
 - [x] jsdom 集成测试（站点渲染、草稿/发布/编辑/删除/409 重试、图片上传、草稿拦截）
 - [x] 本地 8080 预览（`python3 -m http.server 8080`）
 - [ ] 真实 token 端到端验收（提交→Pages 构建）
+- [ ] 空仓库一键初始化（token + 仓库地址输入、初始化模块、Pages 开启引导，见 `docs/architecture.md` §10）
 - [ ] 多管理员 / Workers 备选形态

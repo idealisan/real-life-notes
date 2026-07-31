@@ -207,4 +207,5 @@ admin 填表 → 组装 post 内容（frontmatter + body）
   2. 新增"初始化"模块：检测到连接的是**空仓库**时，通过 Git API 把本站"工作代码文件"（除 content 内容数据外的一切）一次性 commit 交付到新仓库，新用户无需手动 fork。
   3. 初始化后引导配置 GitHub Pages：需调研是否存在 CNAME 文件 / 配置文件 / API 方式自动开启 Pages 与自定义域名。
   4. 非空仓库不支持此功能（避免误覆盖已有内容）。
+  5. **实现要点（gh.js）**：空仓库无分支，首次提交与常规提交不同——建 tree **不带 `base_tree`**、建 commit **不带 `parents`**、更新引用用 **`POST /git/refs`**（而非 `PATCH`）。`commitFiles` 需增加该分支；`GET refs/heads/{branch}` 404 即判定空仓库。
 
