@@ -226,6 +226,9 @@ mark.hl, .hl {
 a.tag { text-decoration: none; cursor: pointer; }
 a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 
+.tags-cloud { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) 0; }
+.tags-cloud a.tag { padding: 5px 12px; font-size: 0.9em; border: 1px solid var(--border-soft); }
+
 .empty-state {
   text-align: center;
   padding: var(--space-7) var(--space-5);
@@ -333,6 +336,14 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-5);
   font-size: 0.95em;
+}
+@media (min-width: 960px) {
+  .detail-body .toc {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
 }
 .toc summary { cursor: pointer; font-weight: 600; color: var(--text); }
 .toc ol { margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--text-soft); list-style: decimal; }

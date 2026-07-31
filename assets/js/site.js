@@ -33,6 +33,7 @@
   function buildListUrl() {
     var parts = [];
     if (state.view === 'archive') parts.push('view=archive');
+    if (state.view === 'tags') parts.push('view=tags');
     if (state.cat) parts.push('cat=' + encodeURIComponent(state.cat));
     if (state.q) parts.push('q=' + encodeURIComponent(state.q));
     if (state.page > 1) parts.push('page=' + state.page);
@@ -864,6 +865,45 @@
     });
   }
 
+  function renderTags() {
+    var counts = {};
+    state.posts.forEach(function (p) {
+      if (p.draft) return;
+      (p.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; });
+    });
+    var keys = Object.keys(counts).sort(function (a, b) {
+      return counts[b] - counts[a] || a.localeCompare(b, 'zh-CN');
+    });
+    els.view.textContent = '';
+    els.view.appendChild(el('div', { class: 'list-head' }, [
+      el('div', {}, [
+        el('h1', { class: 'list-title', text: '标签' }),
+        el('p', { class: 'list-subtitle', text: keys.length ? keys.length + ' 个标签' : '还没有标签' })
+      ])
+    ]));
+    if (!keys.length) {
+      els.view.appendChild(el('div', { class: 'empty-state' }, [
+        el('div', { class: 'big', text: '🏷️' }),
+        el('p', { text: '还没有标签' })
+      ]));
+      return;
+    }
+    els.view.appendChild(el('div', { class: 'tags-cloud' }, keys.map(function (t) {
+      return el('a', {
+        class: 'tag', href: 'index.html?q=' + encodeURIComponent(t),
+        text: t + ' · ' + counts[t],
+        onClick: function (e) {
+          e.preventDefault();
+          state.q = t;
+          state.cat = null;
+          state.page = 1;
+          state.view = null;
+          render();
+        }
+      });
+    })));
+  }
+
   function render() {
     if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
     if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
@@ -882,6 +922,9 @@
     if (state.view === 'archive') {
       setPageMeta('归档 · ' + state.config.site.title, state.config.site.subtitle || state.config.site.title);
       renderArchive();
+    } else if (state.view === 'tags') {
+      setPageMeta('标签 · ' + state.config.site.title, state.config.site.subtitle || state.config.site.title);
+      renderTags();
     } else {
       setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
       els.view.textContent = '';
