@@ -3,7 +3,8 @@
 
   var DEFAULT_CONFIG = {
     site: { title: 'Real Life Notes', subtitle: '', footer: '' },
-    categories: {}
+    categories: {},
+    comments: { enabled: false, label: '评论' }
   };
   var PAGE_SIZE = 8;
 
@@ -530,6 +531,92 @@
         sourceLink
       ])
     ]));
+    renderComments();
+  }
+
+  /* ---------- 评论（GitHub Issues，config 门控，默认关闭） ---------- */
+  function commentsApi(path, query) {
+    var g = state.config.github || {};
+    return 'https://api.github.com/repos/' + encodeURIComponent(g.owner) + '/' +
+      encodeURIComponent(g.repo) + path + (query || '');
+  }
+
+  function commentDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function renderCommentItem(c) {
+    return el('div', { class: 'comment' }, [
+      el('div', { class: 'comment-head' }, [
+        el('img', {
+          class: 'comment-avatar', src: c.user && c.user.avatar_url, alt: '',
+          loading: 'lazy', decoding: 'async'
+        }),
+        el('span', { class: 'comment-author', text: (c.user && (c.user.login || c.user.name)) || '匿名' }),
+        el('time', { class: 'comment-date', datetime: c.created_at, text: commentDate(c.created_at) })
+      ]),
+      el('div', { class: 'comment-body', html: md.render(c.body || '') })
+    ]);
+  }
+
+  function renderComments() {
+    var cfg = state.config.comments || {};
+    var g = state.config.github || {};
+    if (!cfg.enabled || !g.owner || !g.repo || !state.p) return;
+    var path = state.p;
+    var label = cfg.label || '评论';
+    var wrap = el('section', { class: 'post-comments', 'aria-label': '评论' }, [
+      el('h2', { class: 'comments-title', text: '评论' }),
+      el('div', { class: 'comments-status', text: '加载评论…' })
+    ]);
+    els.view.appendChild(wrap);
+    var status = wrap.querySelector('.comments-status');
+    function setStatus(text) { status.textContent = text; }
+    fetch(commentsApi('/issues', '?state=all&labels=' + encodeURIComponent(label) + '&per_page=100'), {
+      headers: { Accept: 'application/vnd.github+json' }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (issues) {
+      var issue = (Array.isArray(issues) ? issues : []).filter(function (i) {
+        return i.title === path && i.pull_request === undefined;
+      })[0];
+      if (issue) {
+        var commentLink = el('a', {
+          class: 'comments-new', target: '_blank', rel: 'noopener',
+          href: 'https://github.com/' + g.owner + '/' + g.repo + '/issues/' + issue.number,
+          text: '在 GitHub 参与评论'
+        });
+        wrap.appendChild(commentLink);
+        if (issue.body) {
+          wrap.appendChild(renderCommentItem({
+            user: issue.user, created_at: issue.created_at, body: issue.body
+          }));
+        }
+        return fetch(commentsApi('/issues/' + issue.number + '/comments', '?per_page=100'), {
+          headers: { Accept: 'application/vnd.github+json' }
+        }).then(function (res) { return res.ok ? res.json() : []; });
+      }
+      wrap.appendChild(el('a', {
+        class: 'comments-new', target: '_blank', rel: 'noopener',
+        href: 'https://github.com/' + g.owner + '/' + g.repo + '/issues/new?title=' + encodeURIComponent(path) +
+          '&labels=' + encodeURIComponent(label),
+        text: '写第一条评论'
+      }));
+      return [];
+    }).then(function (comments) {
+      (Array.isArray(comments) ? comments : []).forEach(function (c) {
+        wrap.appendChild(renderCommentItem(c));
+      });
+      if (!wrap.querySelector('.comment')) {
+        wrap.appendChild(el('p', { class: 'comments-empty', text: '还没有评论，来抢沙发。' }));
+      }
+      status.remove();
+    }).catch(function (err) {
+      setStatus('评论加载失败：' + (err.message || '未知错误'));
+    });
   }
 
   function attachLightbox(root) {

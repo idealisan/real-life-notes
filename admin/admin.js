@@ -1058,6 +1058,9 @@
       type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
       placeholder: 'https://<用户名>.github.io/<仓库>/（默认自动推导）'
     });
+    var comments = state.cfg.comments || {};
+    var commentsOn = el('input', { type: 'checkbox', id: 'setComments', checked: comments.enabled ? 'checked' : null });
+    var commentsLabel = el('input', { type: 'text', id: 'setCommentsLabel', value: comments.label || '评论', maxlength: 30 });
 
     var saveBtn = el('button', { class: 'btn-primary', text: '保存设置', onClick: function () {
       if (!titleInput.value.trim()) { toast('站点标题不能为空', 'error'); return; }
@@ -1065,6 +1068,7 @@
       site.subtitle = subtitleInput.value.trim();
       site.footer = footerInput.value.trim();
       site.url = urlInput.value.trim();
+      state.cfg.comments = { enabled: commentsOn.checked, label: commentsLabel.value.trim() || '评论' };
       saveConfig('更新站点设置', function () {
         renderSettings();
       });
@@ -1076,6 +1080,9 @@
       el('div', { class: 'field' }, [el('label', { for: 'setSubtitle', text: '副标题' }), subtitleInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setUrl', text: '站点地址（RSS 链接用）' }), urlInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setFooter', text: '页脚文字' }), footerInput]),
+      el('div', { class: 'field' }, [el('label', { for: 'setComments', text: '启用评论（GitHub Issues）' }), commentsOn]),
+      el('div', { class: 'field' }, [el('label', { for: 'setCommentsLabel', text: '评论标签' }), commentsLabel]),
+      el('div', { class: 'hint', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' }),
       saveBtn
     ]));
 

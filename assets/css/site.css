@@ -259,6 +259,45 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 .pager a:hover { background: var(--bg-inset); color: var(--text); }
 .pager a.is-active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
+/* ---- 评论区 ---- */
+.post-comments {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.comments-title { font-size: 1.15em; margin: 0 0 var(--space-3); }
+.comments-status { color: var(--text-faint); padding: var(--space-3) 0; }
+.comments-empty { color: var(--text-faint); padding: var(--space-3) 0; }
+.comments-new {
+  display: inline-block;
+  margin-bottom: var(--space-4);
+  font-size: 0.9em;
+}
+.comment { margin-bottom: var(--space-4); }
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.comment-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-inset);
+}
+.comment-author { font-weight: 600; font-size: 0.95em; }
+.comment-date { color: var(--text-faint); font-size: 0.85em; }
+.comment-body {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  font-size: 0.95em;
+  line-height: 1.7;
+}
+.comment-body p { margin: 0 0 0.5em; }
+.comment-body p:last-child { margin-bottom: 0; }
+
 /* ---- 详情视图 ---- */
 .detail-head { padding: var(--space-5) 0 var(--space-3); }
 .detail-title {
