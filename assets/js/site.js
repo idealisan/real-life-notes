@@ -176,12 +176,30 @@
       if (p.draft) return false;
       if (state.cat && p.category !== state.cat) return false;
       if (state.q) {
-        var hay = (p.title + ' ' + (p.excerpt || '') + ' ' + (p.tags || []).join(' ')).toLowerCase();
-        if (hay.indexOf(state.q.toLowerCase()) === -1) return false;
+        var q = state.q.toLowerCase();
+        var hay = (p.title + ' ' + (p.excerpt || '') + ' ' + (p.tags || []).join(' ') + ' ' + (typeof p.content === 'string' ? p.content : '')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
       }
       return true;
     });
     return posts;
+  }
+
+  function highlightText(text) {
+    if (!state.q) return [text];
+    var q = state.q.toLowerCase();
+    var lower = text.toLowerCase();
+    var out = [];
+    var last = 0;
+    var at = lower.indexOf(q);
+    while (at !== -1) {
+      if (at > last) out.push(text.slice(last, at));
+      out.push(el('mark', { class: 'hl', text: text.slice(at, at + q.length) }));
+      last = at + q.length;
+      at = lower.indexOf(q, last);
+    }
+    if (last < text.length) out.push(text.slice(last));
+    return out;
   }
 
   /* ---------- 搜索输入（IME 组合输入安全 + 防抖） ---------- */
@@ -199,7 +217,7 @@
     if (searchEl) return searchEl;
     searchEl = el('input', {
       type: 'search',
-      placeholder: '搜索标题、标签…',
+      placeholder: '搜索标题、标签、正文…',
       value: state.q,
       'aria-label': '搜索文章'
     });
@@ -270,8 +288,8 @@
         el('time', { datetime: p.date, text: md.formatDate(p.date) }),
         p.updated ? el('span', { text: '更新于 ' + md.formatDate(p.updated) }) : null
       ]),
-      el('h2', { class: 'post-card-title', text: p.title }),
-      p.excerpt ? el('p', { class: 'post-card-excerpt', text: p.excerpt }) : null,
+      el('h2', { class: 'post-card-title' }, highlightText(p.title)),
+      p.excerpt ? el('p', { class: 'post-card-excerpt' }, highlightText(p.excerpt)) : null,
       (p.tags && p.tags.length) ? el('div', { class: 'post-card-tags' }, p.tags.map(tagLink)) : null
     ]);
   }
@@ -658,7 +676,47 @@
   function parseHash() {
     var h = location.hash || '#/';
     if (h.indexOf('#/post/') === 0) return { route: 'post', path: decodeURIComponent(h.slice(7)) };
+    if (h.indexOf('#/archive') === 0) return { route: 'archive' };
     return { route: 'list' };
+  }
+
+  function renderArchive() {
+    var posts = state.posts.filter(function (p) { return !p.draft; })
+      .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var groups = {};
+    posts.forEach(function (p) {
+      var m = (p.date || '').slice(0, 7) || '未知';
+      if (!groups[m]) groups[m] = [];
+      groups[m].push(p);
+    });
+    var months = Object.keys(groups).sort().reverse();
+
+    els.view.textContent = '';
+    els.view.appendChild(el('div', { class: 'list-head' }, [
+      el('div', {}, [
+        el('h1', { class: 'list-title', text: '归档' }),
+        el('p', { class: 'list-subtitle', text: posts.length + ' 篇文章' })
+      ])
+    ]));
+    if (!posts.length) {
+      els.view.appendChild(el('div', { class: 'empty-state' }, [
+        el('div', { class: 'big', text: '🍃' }),
+        el('p', { text: '还没有文章' })
+      ]));
+      return;
+    }
+    months.forEach(function (m) {
+      var group = groups[m];
+      els.view.appendChild(el('section', { class: 'archive-month' }, [
+        el('h2', { class: 'archive-month-title', text: m.slice(0, 4) + ' 年 ' + parseInt(m.slice(5), 10) + ' 月 · ' + group.length + ' 篇' }),
+        el('ul', { class: 'archive-list' }, group.map(function (p) {
+          return el('li', {}, [
+            el('time', { datetime: p.date, text: (p.date || '').slice(0, 10) }),
+            el('a', { href: '#/post/' + encodeURIComponent(p.path), text: p.title })
+          ]);
+        }))
+      ]));
+    });
   }
 
   function render() {
@@ -667,10 +725,13 @@
     updateReadingProgress();
     var r = parseHash();
     if (r.route !== 'post') setStructuredData(null);
-    setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
     if (r.route === 'post') {
       renderDetail(r.path);
+    } else if (r.route === 'archive') {
+      setPageMeta('归档 · ' + state.config.site.title, state.config.site.subtitle || state.config.site.title);
+      renderArchive();
     } else {
+      setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
       els.view.textContent = '';
       els.view.appendChild(skeletonList());
       renderList();
