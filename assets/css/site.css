@@ -56,7 +56,9 @@
   flex: 1;
 }
 .cat-nav::-webkit-scrollbar { display: none; }
-.cat-nav button {
+.cat-nav a {
+  display: inline-flex;
+  align-items: center;
   border: none;
   background: transparent;
   color: var(--text-soft);
@@ -64,9 +66,10 @@
   padding: 6px 14px;
   white-space: nowrap;
   font-weight: 500;
+  text-decoration: none;
 }
-.cat-nav button:hover { background: var(--bg-inset); color: var(--text); }
-.cat-nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.cat-nav a:hover { background: var(--bg-inset); color: var(--text); }
+.cat-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 .theme-toggle {
   border: none;
@@ -234,10 +237,27 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 
 .pager {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
   margin-top: var(--space-5);
 }
+.pager a {
+  min-width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  text-decoration: none;
+  font-weight: 500;
+}
+.pager a:hover { background: var(--bg-inset); color: var(--text); }
+.pager a.is-active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 
 /* ---- 详情视图 ---- */
 .detail-head { padding: var(--space-5) 0 var(--space-3); }

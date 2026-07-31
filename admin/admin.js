@@ -152,6 +152,13 @@
       '</urlset>\n';
   }
 
+  function buildRobots() {
+    var base = siteBaseUrl();
+    return 'User-agent: *\n' +
+      'Allow: /\n\n' +
+      'Sitemap: ' + base + '/sitemap.xml\n';
+  }
+
   function errMsg(err) {
     if (!err) return '未知错误';
     if (err.status === 401) return 'Token 无效或已被撤销';
@@ -877,7 +884,8 @@
         { path: contentPath, content: content },
         { path: 'content/index.json', content: newIndex },
         { path: 'rss.xml', content: buildRss(posts) },
-        { path: 'sitemap.xml', content: buildSitemap(posts) }
+        { path: 'sitemap.xml', content: buildSitemap(posts) },
+        { path: 'robots.txt', content: buildRobots() }
       ],
       deletes: deletes
     }).then(function (commit) {
@@ -906,7 +914,8 @@
       files: [
         { path: 'content/index.json', content: newIndex },
         { path: 'rss.xml', content: buildRss(posts) },
-        { path: 'sitemap.xml', content: buildSitemap(posts) }
+        { path: 'sitemap.xml', content: buildSitemap(posts) },
+        { path: 'robots.txt', content: buildRobots() }
       ],
       deletes: [path]
     }).then(function () {
@@ -1024,7 +1033,8 @@
       files: [
         { path: 'config.json', content: content },
         { path: 'rss.xml', content: buildRss() },
-        { path: 'sitemap.xml', content: buildSitemap() }
+        { path: 'sitemap.xml', content: buildSitemap() },
+        { path: 'robots.txt', content: buildRobots() }
       ]
     }).then(function () {
       setBusy(false);

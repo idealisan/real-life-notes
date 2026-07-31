@@ -61,6 +61,13 @@
     setMetaProperty('title', title);
     setMetaProperty('description', desc || '');
     setMetaProperty('url', location.href);
+    var can = document.querySelector('link[rel="canonical"]');
+    if (!can) {
+      can = document.createElement('link');
+      can.setAttribute('rel', 'canonical');
+      document.head.appendChild(can);
+    }
+    can.setAttribute('href', location.href);
   }
 
   function setStructuredData(data) {
@@ -174,21 +181,28 @@
     ]);
   }
 
-  /* ---------- 分类导航 ---------- */
+  /* ---------- 分类导航（真实链接 + 原地渲染） ---------- */
+  function catLink(key, label) {
+    return el('a', {
+      class: state.cat === key ? 'active' : '',
+      href: 'index.html' + (key ? '?cat=' + encodeURIComponent(key) : ''),
+      text: label,
+      onClick: function (e) {
+        e.preventDefault();
+        state.cat = key;
+        state.page = 1;
+        state.view = null;
+        render();
+      }
+    });
+  }
+
   function renderCats() {
     els.catNav.textContent = '';
-    els.catNav.appendChild(el('button', {
-      class: state.cat === null ? 'active' : '',
-      text: '全部',
-      onClick: function () { state.cat = null; state.page = 1; state.view = null; render(); }
-    }));
+    els.catNav.appendChild(catLink(null, '全部'));
     Object.keys(state.config.categories).forEach(function (key) {
       var c = state.config.categories[key];
-      els.catNav.appendChild(el('button', {
-        class: state.cat === key ? 'active' : '',
-        text: (c.icon ? c.icon + ' ' : '') + c.label,
-        onClick: function () { state.cat = key; state.page = 1; state.view = null; render(); }
-      }));
+      els.catNav.appendChild(catLink(key, (c.icon ? c.icon + ' ' : '') + c.label));
     });
   }
 
@@ -311,10 +325,7 @@
       ]);
     } else {
       body = el('div', {}, slice.map(postCard));
-      if (pages > 1) body.appendChild(pager(pages, state.page, function (p) {
-        state.page = p;
-        render();
-      }));
+      if (pages > 1) body.appendChild(pager(pages, state.page));
     }
 
     els.view.textContent = '';
@@ -369,16 +380,35 @@
     return svg;
   }
 
-  function pager(pages, current, go) {
-    var btns = [];
-    for (var i = 1; i <= pages; i++) {
-      btns.push(el('button', {
-        class: i === current ? 'btn-primary' : '',
-        text: String(i),
-        onClick: function (n) { return function () { go(n); }; }(i)
+  function pager(pages, current) {
+    function goLink(n) {
+      return el('a', {
+        class: n === current ? 'is-active' : '',
+        href: 'index.html?page=' + n,
+        text: String(n),
+        'aria-current': n === current ? 'page' : null,
+        onClick: function (e) {
+          e.preventDefault();
+          state.page = n;
+          render();
+        }
+      });
+    }
+    var links = [];
+    if (current > 1) {
+      links.push(el('a', {
+        class: 'pager-prev', href: 'index.html?page=' + (current - 1), text: '← 上一页',
+        onClick: function (e) { e.preventDefault(); state.page = current - 1; render(); }
       }));
     }
-    return el('div', { class: 'pager' }, btns);
+    for (var i = 1; i <= pages; i++) links.push(goLink(i));
+    if (current < pages) {
+      links.push(el('a', {
+        class: 'pager-next', href: 'index.html?page=' + (current + 1), text: '下一页 →',
+        onClick: function (e) { e.preventDefault(); state.page = current + 1; render(); }
+      }));
+    }
+    return el('nav', { class: 'pager', 'aria-label': '分页' }, links);
   }
 
   /* ---------- 详情 ---------- */
