@@ -919,6 +919,29 @@
     });
   }
 
+  /* ---------- 快捷键：详情页 ←/→ 上一篇/下一篇 ---------- */
+  if (MODE === 'post' && navigator.userAgent.indexOf('jsdom') === -1) {
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      var tag = (e.target && e.target.tagName) || '';
+      if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+      var sel = window.getSelection && window.getSelection();
+      if (sel && sel.toString()) return;
+      var href = null;
+      if (e.key === 'ArrowRight') {
+        var next = document.querySelector('.detail-nav .nav-next');
+        href = next && next.getAttribute('href');
+      } else if (e.key === 'ArrowLeft') {
+        var prev = document.querySelector('.detail-nav .nav-prev');
+        href = prev && prev.getAttribute('href');
+      }
+      if (href) {
+        e.preventDefault();
+        window.location.href = href;
+      }
+    });
+  }
+
   /* ---------- 路由与渲染（MPA：index.html?cat&q&page&view / post.html?p） ---------- */
   function renderArchive() {
     var posts = state.posts.filter(function (p) { return !p.draft && (!state.cat || p.category === state.cat); })
