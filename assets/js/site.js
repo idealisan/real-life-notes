@@ -319,11 +319,13 @@
   }
 
   function postCard(p) {
+    var mins = (typeof p.content === 'string' && p.content.trim()) ? wordCounts(p.content.replace(/\s+/g, ' ').trim()).minutes : null;
     return el('a', { class: 'post-card', href: 'post.html?p=' + encodeURIComponent(p.path) }, [
       el('div', { class: 'post-card-meta' }, [
         el('span', { class: 'cat-badge', text: (state.config.categories[p.category] || {}).label || p.category }),
         el('time', { datetime: p.date, text: md.formatDate(p.date) }),
-        p.updated ? el('span', { text: '更新于 ' + md.formatDate(p.updated) }) : null
+        p.updated ? el('span', { text: '更新于 ' + md.formatDate(p.updated) }) : null,
+        mins ? el('span', { text: '约 ' + mins + ' 分钟' }) : null
       ]),
       el('h2', { class: 'post-card-title' }, highlightText(p.title)),
       p.excerpt ? el('p', { class: 'post-card-excerpt' }, highlightText(p.excerpt)) : null,
