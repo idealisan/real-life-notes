@@ -339,7 +339,17 @@
     var head = el('div', { class: 'list-head' }, [
       el('div', {}, [
         el('h1', { class: 'list-title', text: (state.cat && state.config.categories[state.cat]) ? (state.config.categories[state.cat].icon ? state.config.categories[state.cat].icon + ' ' : '') + state.config.categories[state.cat].label : '全部文章' }),
-        state.q ? el('p', { class: 'list-subtitle', text: '搜索「' + state.q + '」· ' + total + ' 篇' })
+        state.q ? el('p', { class: 'list-subtitle' }, [
+          '搜索「' + state.q + '」· ' + total + ' 篇 ',
+          el('a', { class: 'search-clear', href: 'index.html', text: '清除 ✕', onClick: function (e) {
+            e.preventDefault();
+            state.q = '';
+            state.page = 1;
+            state.cat = null;
+            state.view = null;
+            render();
+          } })
+        ])
           : el('p', { class: 'list-subtitle', text: (state.cat && state.config.categories[state.cat] && state.config.categories[state.cat].description) ? state.config.categories[state.cat].description + ' · ' + total + ' 篇' : total + ' 篇记录' })
       ]),
       state.cat ? el('a', { class: 'cat-archive-link', href: 'index.html?view=archive&cat=' + encodeURIComponent(state.cat), text: '该分类归档 →', onClick: function (e) {
