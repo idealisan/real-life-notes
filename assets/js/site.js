@@ -623,6 +623,14 @@
             setTimeout(function () { self.textContent = '复制链接'; }, 2000);
           }).catch(function () {});
         } }),
+        el('button', { type: 'button', class: 'link-copy', text: '复制原文', onClick: function (e) {
+          e.preventDefault();
+          copyText(md.buildFrontmatter(meta) + parsed.body).then(function () {
+            var self = e.currentTarget;
+            self.textContent = '已复制 ✓';
+            setTimeout(function () { self.textContent = '复制原文'; }, 2000);
+          }).catch(function () {});
+        } }),
         sourceLink
       ])
     ]));
