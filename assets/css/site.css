@@ -351,14 +351,6 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   margin-bottom: var(--space-5);
   font-size: 0.95em;
 }
-@media (min-width: 960px) {
-  .detail-body .toc {
-    position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 32px);
-    overflow-y: auto;
-  }
-}
 .toc summary { cursor: pointer; font-weight: 600; color: var(--text); }
 .toc ol { margin: var(--space-2) 0 0; padding-left: var(--space-5); color: var(--text-soft); list-style: decimal; }
 .toc a { color: var(--text-soft); text-decoration: none; }

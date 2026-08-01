@@ -315,11 +315,18 @@
   }
 
   function tagLink(t) {
+    var href = 'index.html?q=' + encodeURIComponent(t);
     if (MODE === 'post') {
-      return el('a', { class: 'tag', href: 'index.html?q=' + encodeURIComponent(t), text: t });
+      return el('a', {
+        class: 'tag', href: href, text: t,
+        onClick: function (e) {
+          e.preventDefault();
+          window.location.href = href;
+        }
+      });
     }
     return el('a', {
-      class: 'tag', href: 'index.html?q=' + encodeURIComponent(t), text: t,
+      class: 'tag', href: href, text: t,
       onClick: function (e) {
         e.preventDefault();
         state.q = t;

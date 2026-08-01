@@ -14,8 +14,8 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - 持续迭代原则见「工作纪律」。
 
 ## 已知问题（待修 Bug）
-1. **详情页 TOC sticky 悬浮与正文重叠**：正文阅读时展开目录（`<details class="toc">`）后往下滚动，目录会 sticky 悬浮在页面上方、不随滚动消失，与下方正文排版发生重叠。桌面端 `≥980px` 的 `.detail-body .toc { position: sticky; top: 16px; … }` 效果不正确，应移除 sticky（恢复普通文档流/跟随正文滚动）。
-2. **详情页顶部标签点击无效果**：正文阅读（`post.html?p=…`）时点击详情头部的标签（`.detail-head` 的 `.tag`），页面无任何变化，网络请求中只有对当前页面地址的请求，未出现 `index.html?q=…` 的跳转/请求。修复方向：`site.js` 的 `tagLink()` 在 `MODE === 'post'` 分支返回的 `<a href="index.html?q=…">` 跳转未生效，需排查链接/事件绑定/路由，确保点击标签跳转到标签筛选页。
+1. ~~**详情页 TOC sticky 悬浮与正文重叠**~~（已修复 `04b8aba` 后）：正文阅读时展开目录（`<details class="toc">`）后往下滚动，目录会 sticky 悬浮在页面上方、不随滚动消失，与下方正文排版发生重叠。桌面端 `≥980px` 的 `.detail-body .toc { position: sticky; top: 16px; … }` 效果不正确。**已移除该 sticky 规则**（`.toc` 恢复普通文档流，跟随正文滚动）。
+2. **详情页顶部标签点击无效果**：正文阅读（`post.html?p=…`）时点击详情头部的标签（`.detail-head` 的 `.tag`），页面无任何变化，网络请求中只有对当前页面地址的请求，未出现 `index.html?q=…` 的跳转。**排查结论**：代码中 `.tag` 是 `<a href="index.html?q=…">`，href 解析正确（jsdom 验证 resolved href 正常）、无全局 click 拦截、无 preventDefault、无 service worker/base 标签；已做防御性修复——`tagLink()` 在 `MODE==='post'` 分支增加 `onClick`（`preventDefault()` + `window.location.href = href`）显式导航，保证点击必跳转。测试：`test-post.js` 断言点击后 `defaultPrevented=true`（导航接管）。若仍复现需在真实浏览器进一步排查。
 
 ## 高优先级：MPA 重构（已完成）- **公开站点 SPA(hash 路由) → 传统多页面 + query 参数路由（已完成，勿回退）**：
   - 列表：`index.html`；分类/搜索/翻页/归档：`index.html?cat=…&q=…&page=2&view=archive`（全部查询参数，不用 hash）。
