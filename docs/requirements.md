@@ -91,3 +91,8 @@
 - 单行代码不加行号；复制按钮仍取 `textContent`（每行末补 `\n`，最后一行不加，原有去尾换行逻辑兼容）。
 - **Bug 修复**：初版遍历 `code.childNodes`（live NodeList）时因 `appendChild` 移动元素节点导致迭代跳过文本节点，行号与文本内容损坏；改为先 `slice` 快照再分组，且未满两行时不改动原 DOM。
 - 测试：`test-welcome.js`（多行代码 clines≥3 + hljs 高亮并存）、`test-post.js`（单行代码无行号）。
+
+### 首页标签点击改为真实导航（与内容页一致）
+- **问题**：首页（index.html 列表态）点击标签（卡片标签 / 标签云）此前用 `e.preventDefault()` + 就地 `render()` 过滤，未真正刷新页面；内容页（post.html）点击标签是 `window.location.href` 真实跳转。
+- **修复**：`tagLink` 与 `renderTags` 标签云统一改为 `e.preventDefault(); window.location.href = href`（跳转 `index.html?q=<tag>`），与内容页行为一致；列表/详情共用同一 `tagLink`，删除 MODE 分支。
+- 测试：`test-site2.js` 卡片标签点击改为断言「触发 MPA 导航 + 不就地过滤」，并过滤 jsdom 的 `Not implemented: navigation` 提示。

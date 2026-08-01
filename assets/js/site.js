@@ -428,24 +428,11 @@
 
   function tagLink(t) {
     var href = 'index.html?q=' + encodeURIComponent(t);
-    if (MODE === 'post') {
-      return el('a', {
-        class: 'tag', href: href, text: t,
-        onClick: function (e) {
-          e.preventDefault();
-          window.location.href = href;
-        }
-      });
-    }
     return el('a', {
       class: 'tag', href: href, text: t,
       onClick: function (e) {
         e.preventDefault();
-        state.q = t;
-        state.cat = null;
-        state.page = 1;
-        state.view = null;
-        render();
+        window.location.href = href;
       }
     });
   }
@@ -1151,16 +1138,12 @@
       return;
     }
     els.view.appendChild(el('div', { class: 'tags-cloud' }, keys.map(function (t) {
+      var href = 'index.html?q=' + encodeURIComponent(t);
       return el('a', {
-        class: 'tag', href: 'index.html?q=' + encodeURIComponent(t),
-        text: t + ' · ' + counts[t],
+        class: 'tag', href: href, text: t + ' · ' + counts[t],
         onClick: function (e) {
           e.preventDefault();
-          state.q = t;
-          state.cat = null;
-          state.page = 1;
-          state.view = null;
-          render();
+          window.location.href = href;
         }
       });
     })));
