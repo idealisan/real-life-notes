@@ -136,6 +136,7 @@
         '    <link>' + escXml(link) + '</link>\n' +
         '    <guid isPermaLink="false">' + escXml(p.path + '@' + (p.updated || p.date)) + '</guid>\n' +
         '    <pubDate>' + pub + '</pubDate>\n' +
+        (site.author ? '    <author>' + escXml(site.author) + '</author>\n' : '') +
         cats.join('\n') + (cats.length ? '\n' : '') +
         '    <description><![CDATA[' + desc + ']]></description>\n' +
         '  </item>';
