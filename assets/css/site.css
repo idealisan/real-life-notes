@@ -221,6 +221,14 @@ mark.hl, .hl {
 }
 .archive-list a { text-decoration: none; }
 .archive-list a:hover { color: var(--accent); text-decoration: none; }
+.archive-excerpt {
+  color: var(--text-faint);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40em;
+}
 
 .cat-badge {
   background: var(--accent-soft);

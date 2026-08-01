@@ -461,18 +461,24 @@
     attachLightbox(body);
     attachCodeCopy(body);
     var firstImg = body.querySelector('img');
-    setOgImage(firstImg ? firstImg.getAttribute('src') : '');
+    var firstImgSrc = firstImg ? firstImg.getAttribute('src') : '';
+    setOgImage(firstImgSrc);
     var plain = body.textContent.replace(/\s+/g, ' ').trim();
     var counts = wordCounts(plain);
     if (plain) {
       setMetaDescription(plain.slice(0, 150));
       setMetaProperty('description', plain.slice(0, 150));
     }
+    var resolvedImg;
+    if (firstImgSrc) {
+      try { resolvedImg = new URL(firstImgSrc, location.href).href; } catch (e) { resolvedImg = firstImgSrc; }
+    }
     setStructuredData({
       '@context': 'https://schema.org',
       '@type': 'BlogPosting',
       mainEntityOfPage: { '@type': 'WebPage', '@id': location.href },
       headline: meta.title,
+      image: resolvedImg || undefined,
       datePublished: meta.date || undefined,
       dateModified: meta.updated || meta.date || undefined,
       description: plain.slice(0, 200),
@@ -853,7 +859,8 @@
         el('ul', { class: 'archive-list' }, group.map(function (p) {
           return el('li', {}, [
             el('time', { datetime: p.date, text: (p.date || '').slice(0, 10) }),
-            el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title })
+            el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title }),
+            p.excerpt ? el('span', { class: 'archive-excerpt', text: ' · ' + p.excerpt }) : null
           ]);
         }))
       ]));
