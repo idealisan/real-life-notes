@@ -246,7 +246,8 @@
       if (state.cat && p.category !== state.cat) return false;
       if (state.q) {
         var q = state.q.toLowerCase();
-        var hay = (p.title + ' ' + (p.excerpt || '') + ' ' + (p.tags || []).join(' ') + ' ' + (typeof p.content === 'string' ? p.content : '')).toLowerCase();
+        var catLabel = (state.config.categories[p.category] || {}).label || p.category;
+        var hay = (p.title + ' ' + catLabel + ' ' + (p.excerpt || '') + ' ' + (p.tags || []).join(' ') + ' ' + (typeof p.content === 'string' ? p.content : '')).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
