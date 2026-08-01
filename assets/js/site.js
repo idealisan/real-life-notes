@@ -253,18 +253,32 @@
   }
 
   /* ---------- 列表 ---------- */
+  function searchScore(p, q) {
+    var s = 0;
+    if (p.title.toLowerCase().indexOf(q) !== -1) s += 100;
+    if ((p.tags || []).some(function (t) { return t.toLowerCase().indexOf(q) !== -1; })) s += 40;
+    if ((p.excerpt || '').toLowerCase().indexOf(q) !== -1) s += 20;
+    if (typeof p.content === 'string' && p.content.toLowerCase().indexOf(q) !== -1) s += 5;
+    return s;
+  }
+
   function filteredPosts() {
+    var q = state.q ? state.q.toLowerCase() : '';
     var posts = state.posts.filter(function (p) {
       if (p.draft) return false;
       if (state.cat && p.category !== state.cat) return false;
-      if (state.q) {
-        var q = state.q.toLowerCase();
+      if (q) {
         var catLabel = (state.config.categories[p.category] || {}).label || p.category;
         var hay = (p.title + ' ' + catLabel + ' ' + (p.excerpt || '') + ' ' + (p.tags || []).join(' ') + ' ' + (typeof p.content === 'string' ? p.content : '')).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
       }
       return true;
     });
+    if (q) {
+      posts = posts.slice().sort(function (a, b) {
+        return searchScore(b, q) - searchScore(a, q);
+      });
+    }
     return posts;
   }
 
