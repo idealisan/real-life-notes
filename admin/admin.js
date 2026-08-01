@@ -25,7 +25,8 @@
     busy: false,
     integrity: null,
     emptyRepo: false,
-    sourceRepo: null
+    sourceRepo: null,
+    listSel: {}
   };
 
   var els = {
@@ -203,22 +204,40 @@
     els.connectForm.reset();
   }
 
+  function parseRepoAddress(addr) {
+    var s = String(addr || '').trim().replace(/\/+$/, '');
+    if (!s) return null;
+    if (s.indexOf('://') !== -1) {
+      s = s.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^/]+)\//, '');
+      if (s.indexOf('://') !== -1) return null;
+    } else if (s.indexOf('@') !== -1 && s.indexOf(':') !== -1) {
+      s = s.slice(s.lastIndexOf(':') + 1);
+    }
+    var parts = s.split('/').filter(function (x) { return x.length; });
+    if (parts.length < 2) return null;
+    var owner = parts[0];
+    var repo = parts[1].replace(/\.git$/, '');
+    var branch = null;
+    if (parts.length >= 4 && parts[2] === 'tree' && parts[3]) branch = parts[3];
+    if (!owner || !repo || owner === 'github.com' || owner === 'www.github.com') return null;
+    return { owner: owner, repo: repo, branch: branch };
+  }
+
   function connect(token, repoAddr) {
     setBusy(true);
     els.connectError.hidden = true;
     gh.config({ token: token });
-    if (repoAddr) {
-      var parts = repoAddr.replace(/^https?:\/\/(www\.)?github\.com\//, '').split('/');
-      if (parts.length === 2 && parts[0] && parts[1]) {
-        gh.config({ owner: parts[0].trim(), repo: parts[1].trim() });
-      }
+    var parsed = parseRepoAddress(repoAddr);
+    if (parsed) {
+      gh.config({ owner: parsed.owner, repo: parsed.repo });
+      if (parsed.branch) gh.config({ branch: parsed.branch });
     }
     gh.getUser().then(function (user) {
       state.user = user;
       els.connectMeta.textContent = '已登录：' + user.login;
       els.connectMeta.hidden = false;
       return gh.getRepo().then(function (repo) {
-        gh.config({ branch: repo.default_branch });
+        if (!parsed || !parsed.branch) gh.config({ branch: repo.default_branch });
         return gh.getBranchRef().then(function (ref) {
           state.emptyRepo = !ref;
           return Promise.all([
@@ -299,6 +318,26 @@
     var token = els.connectForm.elements.adminToken.value.trim();
     if (!token) return;
     connect(token, els.connectForm.elements.adminRepo.value.trim());
+  });
+
+  var repoHint = document.getElementById('connectRepoHint');
+  var repoHintTimer = null;
+  els.connectForm.elements.adminRepo.addEventListener('input', function () {
+    clearTimeout(repoHintTimer);
+    repoHintTimer = setTimeout(function () {
+      var addr = els.connectForm.elements.adminRepo.value.trim();
+      var parsed = addr ? parseRepoAddress(addr) : null;
+      if (addr && parsed) {
+        repoHint.textContent = '已识别：' + parsed.owner + ' / ' + parsed.repo +
+          (parsed.branch ? '  @' + parsed.branch : '');
+        repoHint.hidden = false;
+      } else if (addr) {
+        repoHint.textContent = '无法识别为 GitHub 仓库地址';
+        repoHint.hidden = false;
+      } else {
+        repoHint.hidden = true;
+      }
+    }, 200);
   });
   els.disconnectBtn.addEventListener('click', disconnect);
 
@@ -450,9 +489,31 @@
     if (!posts.length) {
       body = el('div', { class: 'notice notice-info', text: '还没有文章。点击「新建文章」开始记录。' });
     } else {
+      var selCount = Object.keys(state.listSel).length;
+      var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
+      var bulkBar = selCount ? el('div', { class: 'bulk-bar' }, [
+        el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }),
+        el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
+        el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
+        el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
+        el('span', { class: 'spacer' }),
+        el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
+      ]) : null;
+
       var rows = posts.map(function (p) {
         var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
         return el('tr', {}, [
+          el('td', {}, [
+            el('input', {
+              type: 'checkbox', 'aria-label': '选择《' + p.title + '》',
+              checked: state.listSel[p.path] ? '' : null,
+              onChange: function (e) {
+                if (e.target.checked) state.listSel[p.path] = true;
+                else delete state.listSel[p.path];
+                renderPosts();
+              }
+            })
+          ]),
           el('td', { class: 'row-title' }, [
             p.title,
             p.draft ? el('span', { class: 'draft-badge', text: '草稿' }) : null
@@ -473,12 +534,28 @@
           ])
         ]);
       });
-      body = el('table', { class: 'posts-table' }, [
-        el('thead', {}, [el('tr', {}, [
-          el('th', { text: '标题' }), el('th', { text: '分类' }),
-          el('th', { text: '日期' }), el('th', { text: '字数' }), el('th', { text: '状态' }), el('th', {})
-        ])]),
-        el('tbody', {}, rows)
+      body = el('div', {}, [
+        bulkBar,
+        el('table', { class: 'posts-table' }, [
+          el('thead', {}, [el('tr', {}, [
+            el('th', {}, [
+              el('input', {
+                type: 'checkbox', 'aria-label': '全选当前列表',
+                checked: allChecked ? '' : null,
+                onChange: function (e) {
+                  state.listSel = {};
+                  if (e.target.checked) {
+                    posts.forEach(function (p) { state.listSel[p.path] = true; });
+                  }
+                  renderPosts();
+                }
+              })
+            ]),
+            el('th', { text: '标题' }), el('th', { text: '分类' }),
+            el('th', { text: '日期' }), el('th', { text: '字数' }), el('th', { text: '状态' }), el('th', {})
+          ])]),
+          el('tbody', {}, rows)
+        ])
       ]);
     }
 
@@ -974,6 +1051,59 @@
     }).catch(function (err) {
       setBusy(false);
       toast('删除失败：' + errMsg(err), 'error');
+    });
+  }
+
+  function bulkAction(paths, action) {
+    var selected = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    if (!selected.length) return;
+    var label = action === 'delete' ? '删除' : (action === 'draft' ? '转为草稿' : '批量发布');
+    if (!confirm('确定' + label + '所选 ' + selected.length + ' 篇文章吗？')) return;
+
+    var ensureBody = function (p) {
+      if (typeof p.content === 'string') return Promise.resolve(p.content);
+      return gh.getContent(p.path).catch(function () { return ''; });
+    };
+
+    setBusy(true);
+    Promise.all(selected.map(ensureBody)).then(function (bodies) {
+      var posts = state.index.posts.map(function (p) {
+        var i = paths.indexOf(p.path);
+        if (i === -1) return p;
+        if (action === 'delete') return null;
+        var body = bodies[i] || '';
+        var meta = { title: p.title, tags: p.tags || [], date: p.date, updated: p.updated, draft: action === 'draft' };
+        var content = md.buildFrontmatter(meta) + body;
+        return {
+          path: p.path, slug: p.slug, title: p.title, category: p.category, tags: p.tags || [],
+          date: p.date, updated: action === 'draft' ? p.updated : md.isoNow(),
+          excerpt: md.excerpt(content), draft: action === 'draft',
+          content: action === 'draft' ? undefined : body
+        };
+      }).filter(Boolean);
+
+      var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
+      var files = [
+        { path: 'content/index.json', content: newIndex },
+        { path: 'rss.xml', content: buildRss(posts) },
+        { path: 'sitemap.xml', content: buildSitemap(posts) },
+        { path: 'robots.txt', content: buildRobots() }
+      ];
+      var deletes = action === 'delete' ? paths : [];
+      return gh.commitFiles({
+        message: '[' + label + '] 共 ' + selected.length + ' 篇',
+        files: files,
+        deletes: deletes
+      }).then(function () {
+        setBusy(false);
+        state.index = { schema: 1, posts: posts };
+        state.listSel = {};
+        toast(label + '完成 ✓', 'ok');
+        render();
+      });
+    }).catch(function (err) {
+      setBusy(false);
+      toast(label + '失败：' + errMsg(err), 'error');
     });
   }
 

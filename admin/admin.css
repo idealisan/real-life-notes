@@ -85,6 +85,11 @@
 .connect-target code { font-size: 0.95em; color: var(--accent); }
 .connect-card form { display: flex; flex-direction: column; gap: var(--space-3); }
 .connect-card form button { align-self: flex-start; min-width: 120px; }
+.connect-hint {
+  margin: -4px 0 0;
+  font-size: 0.82em;
+  color: var(--accent);
+}
 .connect-error {
   color: var(--danger);
   background: var(--danger-soft);
@@ -154,6 +159,19 @@
 .posts-table td:last-child { white-space: nowrap; text-align: right; }
 .posts-table .row-title { font-weight: 600; }
 .posts-table .row-title .draft-badge { margin-left: var(--space-2); }
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  flex-wrap: wrap;
+}
+.bulk-bar .bulk-count { font-weight: 600; }
 
 .draft-badge {
   font-size: 0.72em;

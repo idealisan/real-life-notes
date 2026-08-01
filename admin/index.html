@@ -37,10 +37,12 @@
         <input id="adminToken" name="adminToken" type="password"
                autocomplete="current-password" placeholder="github_pat_…"
                required spellcheck="false" autocapitalize="off">
-        <label for="adminRepo">目标仓库（owner/repo，可选）</label>
+        <label for="adminRepo">目标仓库 URL（可选，留空使用当前站点仓库）</label>
         <input id="adminRepo" name="adminRepo" type="text"
-               autocomplete="off" placeholder="例如 idealisan/real-life-notes（留空使用当前站点仓库）"
+               autocomplete="off"
+               placeholder="支持三种格式：https://github.com/owner/repo（浏览器地址栏）｜https://github.com/owner/repo.git（HTTPS 克隆）｜git@github.com:owner/repo.git（SSH 克隆）"
                spellcheck="false" autocapitalize="off">
+        <p class="connect-hint" id="connectRepoHint" hidden></p>
         <button type="submit" class="btn-primary" id="connectBtn">连接</button>
       </form>
 
