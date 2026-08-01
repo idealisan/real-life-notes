@@ -919,6 +919,18 @@
     });
   }
 
+  /* ---------- 随机一篇 ---------- */
+  var randomLink = document.getElementById('randomPost');
+  if (randomLink) {
+    randomLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      var pub = state.posts.filter(function (p) { return !p.draft; });
+      if (!pub.length) return;
+      var p = pub[Math.floor(Math.random() * pub.length)];
+      window.location.href = 'post.html?p=' + encodeURIComponent(p.path);
+    });
+  }
+
   /* ---------- 快捷键：/ 聚焦搜索 ---------- */
   if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) {
     document.addEventListener('keydown', function (e) {
