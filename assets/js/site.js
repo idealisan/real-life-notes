@@ -894,6 +894,21 @@
     });
   }
 
+  /* ---------- 快捷键：/ 聚焦搜索 ---------- */
+  if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) {
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      var tag = (e.target && e.target.tagName) || '';
+      if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+      var input = document.querySelector('#view .search-box input');
+      if (input) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+  }
+
   /* ---------- 路由与渲染（MPA：index.html?cat&q&page&view / post.html?p） ---------- */
   function renderArchive() {
     var posts = state.posts.filter(function (p) { return !p.draft && (!state.cat || p.category === state.cat); })
