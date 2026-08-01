@@ -337,6 +337,12 @@
     });
   }
 
+  function wordCount(text) {
+    var cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    var latin = (text.replace(/[\u4e00-\u9fff]/g, ' ').trim().match(/\S+/g) || []).length;
+    return cjk + latin;
+  }
+
   /* ---------- 文章列表 ---------- */
   var listFilter = { cat: '', q: '' };
   var filterInputEl = null;
@@ -455,6 +461,7 @@
             el('span', { text: md.formatDate(p.date) }),
             p.updated && !p.draft ? el('span', { class: 'status-pub', text: ' · 已更新' }) : null
           ]),
+          el('td', { text: (typeof p.content === 'string' && p.content.trim()) ? wordCount(p.content) + ' 字' : '' }),
           el('td', {}, [
             el('span', { class: p.draft ? 'status-draft' : 'status-pub', text: p.draft ? '草稿' : '已发布' })
           ]),
@@ -468,7 +475,7 @@
       body = el('table', { class: 'posts-table' }, [
         el('thead', {}, [el('tr', {}, [
           el('th', { text: '标题' }), el('th', { text: '分类' }),
-          el('th', { text: '日期' }), el('th', { text: '状态' }), el('th', {})
+          el('th', { text: '日期' }), el('th', { text: '字数' }), el('th', { text: '状态' }), el('th', {})
         ])]),
         el('tbody', {}, rows)
       ]);
