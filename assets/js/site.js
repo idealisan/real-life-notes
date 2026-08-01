@@ -30,13 +30,14 @@
     state.p = sp.get('p');
   }
 
-  function buildListUrl() {
+  function buildListUrl(pageOverride) {
+    var p = pageOverride || state.page;
     var parts = [];
     if (state.view === 'archive') parts.push('view=archive');
     if (state.view === 'tags') parts.push('view=tags');
     if (state.cat) parts.push('cat=' + encodeURIComponent(state.cat));
     if (state.q) parts.push('q=' + encodeURIComponent(state.q));
-    if (state.page > 1) parts.push('page=' + state.page);
+    if (p > 1) parts.push('page=' + p);
     return 'index.html' + (parts.length ? '?' + parts.join('&') : '');
   }
 
@@ -421,7 +422,7 @@
     function goLink(n) {
       return el('a', {
         class: n === current ? 'is-active' : '',
-        href: 'index.html?page=' + n,
+        href: buildListUrl(n),
         text: String(n),
         'aria-current': n === current ? 'page' : null,
         onClick: function (e) {
@@ -434,14 +435,14 @@
     var links = [];
     if (current > 1) {
       links.push(el('a', {
-        class: 'pager-prev', href: 'index.html?page=' + (current - 1), text: '← 上一页',
+        class: 'pager-prev', href: buildListUrl(current - 1), text: '← 上一页',
         onClick: function (e) { e.preventDefault(); state.page = current - 1; render(); }
       }));
     }
     for (var i = 1; i <= pages; i++) links.push(goLink(i));
     if (current < pages) {
       links.push(el('a', {
-        class: 'pager-next', href: 'index.html?page=' + (current + 1), text: '下一页 →',
+        class: 'pager-next', href: buildListUrl(current + 1), text: '下一页 →',
         onClick: function (e) { e.preventDefault(); state.page = current + 1; render(); }
       }));
     }
