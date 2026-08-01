@@ -716,7 +716,7 @@
   function externalizeLinks(root) {
     var links = root.querySelectorAll('a');
     Array.prototype.forEach.call(links, function (a) {
-      if (/^https?:\/\//i.test(a.getAttribute('href') || '') && !/^https?:\/\/idealisan\.github\.io/i.test(a.getAttribute('href') || '')) {
+      if (/^https?:\/\//i.test(a.getAttribute('href') || '')) {
         a.setAttribute('target', '_blank');
         a.setAttribute('rel', 'noopener noreferrer');
       }
