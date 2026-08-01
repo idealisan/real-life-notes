@@ -101,3 +101,8 @@
 - **问题**：首页（index.html）顶部标题栏的分类导航（如 笔记/生活/工作）点击时用 `e.preventDefault()` + 就地 `render()` 切换，不触发任何网络请求；正文阅读页（post.html）点击同类链接是 `window.location.href` 真实跳转。
 - **修复**：`catLink` 统一改为 `e.preventDefault(); window.location.href = href`（`index.html?cat=<分类>` / `index.html`），与内容页一致，点击即发起新的页面加载；删除 MODE 分支。
 - 测试：`test-site2.js` 分类导航点击改为断言「触发 MPA 导航 + 不就地过滤」，分类筛选效果改由 `replaceState('index.html?cat=life') + popstate`（模拟导航到达）验证。
+
+### 静态资源缓存失效版本号（Cloudflare 缓存穿透）
+- **问题**：站点经 Cloudflare 代理访问（`prevoclxd.809030.xyz` → 本机 8080）时，`assets/js/*.js`、`assets/css/*.css` 被 Cloudflare 按默认策略缓存（`max-age=14400`，约 4 小时），代码改动后浏览器仍拿到旧 JS/CSS；`index.html` 是 `DYNAMIC` 不缓存。
+- **修复**：`index.html`/`post.html`/`admin/index.html`/`404.html` 中对**会随开发变更的资源**（base.css、site.css、theme.js、md.js、site.js、gh.js、admin.js）统一追加 `?v=20260801a` 查询参数，改动资源时**同步递增该版本号**即可立即可见（HTML 实时 + 新 URL 命中缓存 MISS）。vendor 固定版本库不加。
+- 验证：`curl -I https://prevoclxd.809030.xyz/assets/js/site.js?v=20260801a` 返回新内容；`cf-cache-status` 对未带版本的旧 URL 为 HIT。
