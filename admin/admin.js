@@ -388,7 +388,7 @@
   }
 
   /* ---------- 文章列表 ---------- */
-  var listFilter = { cat: '', q: '' };
+  var listFilter = { cat: '', q: '', status: 'all' };
   var filterInputEl = null;
   var filterComposing = false;
   var filterSettleTimer = null;
@@ -450,6 +450,9 @@
     els.mainContent.textContent = '';
     var posts = sortedPosts().filter(function (p) {
       if (listFilter.cat && p.category !== listFilter.cat) return false;
+      if (listFilter.status === 'pub' && p.draft) return false;
+      if (listFilter.status === 'draft' && !p.draft) return false;
+      if (listFilter.status === 'pin' && !p.pinned) return false;
       if (listFilter.q) {
         var hay = (p.title + ' ' + (p.tags || []).join(' ') + ' ' + p.category).toLowerCase();
         if (hay.indexOf(listFilter.q.toLowerCase()) === -1) return false;
@@ -471,6 +474,14 @@
       ].concat(cats.map(function (c) {
         return el('option', { value: c, text: state.cfg.categories[c].label, selected: listFilter.cat === c ? '' : null });
       }))),
+      el('select', {
+        'aria-label': '按状态过滤',
+        value: listFilter.status,
+        onChange: function (e) { listFilter.status = e.target.value; renderPosts(); }
+      }, ['all', 'pub', 'draft', 'pin'].map(function (s) {
+        var label = { all: '全部状态', pub: '已发布', draft: '草稿', pin: '置顶' }[s];
+        return el('option', { value: s, text: label, selected: listFilter.status === s ? '' : null });
+      })),
       filterInputElement(),
       el('div', { class: 'spacer' }),
       el('button', { text: '完整性检查', onClick: checkIntegrity }),
