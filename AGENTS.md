@@ -13,6 +13,10 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **空仓库一键初始化**（远期，见 architecture.md §10）：token+仓库地址输入、初始化模块、Pages 开启引导。
 - 持续迭代原则见「工作纪律」。
 
+## 已知问题（待修 Bug）
+1. **详情页 TOC sticky 悬浮与正文重叠**：正文阅读时展开目录（`<details class="toc">`）后往下滚动，目录会 sticky 悬浮在页面上方、不随滚动消失，与下方正文排版发生重叠。桌面端 `≥980px` 的 `.detail-body .toc { position: sticky; top: 16px; … }` 效果不正确，应移除 sticky（恢复普通文档流/跟随正文滚动）。
+2. **详情页顶部标签点击无效果**：正文阅读（`post.html?p=…`）时点击详情头部的标签（`.detail-head` 的 `.tag`），页面无任何变化，网络请求中只有对当前页面地址的请求，未出现 `index.html?q=…` 的跳转/请求。修复方向：`site.js` 的 `tagLink()` 在 `MODE === 'post'` 分支返回的 `<a href="index.html?q=…">` 跳转未生效，需排查链接/事件绑定/路由，确保点击标签跳转到标签筛选页。
+
 ## 高优先级：MPA 重构（已完成）- **公开站点 SPA(hash 路由) → 传统多页面 + query 参数路由（已完成，勿回退）**：
   - 列表：`index.html`；分类/搜索/翻页/归档：`index.html?cat=…&q=…&page=2&view=archive`（全部查询参数，不用 hash）。
   - 详情：`post.html?p=content/notes/slug.md`（读 `content/index.json`，索引内嵌 `content` 正文，旧索引回退 fetch raw）；无 `p` 参数/未知路径/草稿 → 404 提示；`404.html` 兜底。
@@ -27,22 +31,21 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **CSP**：公共站点 `connect-src` 放行 `https://api.github.com`（仅为评论读取，仍无第三方脚本）。
 - 测试：`test-comments.js`（启用/未建 Issue 引导/禁用不渲染）。
 
-## 高优先级：搜索框中文/日文输入法兼容缺陷修复（已完成）
-### 问题描述
-现有实现仅监听 `input` 事件；使用拼音等输入法拼字过程中，未确认的拼音会持续触发搜索，造成搜索列表频繁闪烁、无效查询。用户期望仅在确认汉字后执行检索。
-### 修复方案（浏览器原生 CompositionEvent 标准方案，已落地）
-1. 利用 `compositionstart` / `compositionend` 区分「输入法拼字阶段」与「输入确认完成」；
-2. 拼字阶段设置标记 `composing=true`，屏蔽 `input` 事件触发搜索；
-3. 输入确认完成后（`compositionend`）主动执行一次搜索（防止浏览器 dispatch 顺序导致最后一次检索丢失）；
-4. 叠加 `debounce(fn, 300)` 防抖函数，减少频繁检索开销；`Escape`/`Enter` 时 `debounced.cancel()` 后立即搜索；
-5. 边界：防抖回调执行时若已进入拼字阶段则跳过（清空后 300ms 内开始打拼音的场景）；
-6. 搜索输入框单例复用（避免每次重渲染重建导致失焦/IME 状态丢失）。
-实现位置：`site.js` 的 `searchInputElement`/`doSearch`、`admin.js` 的 `filterInputElement`/`debouncedFilter`（后台过滤器同一套方案）。
-### 固定开发规范
-- 不引入第三方输入组件，原生 JS 实现；
-- 采用方案A：拼字过程不执行搜索，文字确认后检索；
-- 兼容中文、日文、韩文等全部需要输入法合成的语言；
-- 同时保证英文、数字、粘贴、回车搜索功能不受影响。
+## 高优先级：搜索框手动提交（已完成，替代自动搜索）
+### 决策
+自动搜索（input 防抖 + IME 组合事件处理）在真实浏览器中表现不佳、且每次都整页重渲染造成性能开销。**改为普通 `<input type="search">` + 「搜索」按钮的手动提交**（`.search-form` 表单 `onsubmit`）：
+- 输入框**不绑定任何 `input`/`keydown`/`composition*` 监听**，天然 IME 安全（中/日/韩输入法拼字、Enter 选词、Escape 取消都不会误触发搜索）；
+- 仅表单提交（点按钮或输入框内回车）时执行 `render()`，并重置 `page/view/cat`、同步 `q=` 到 URL；
+- 标签/分类点击仍是独立链接（`index.html?q=`/`?cat=`），`preventDefault` + 原地渲染不变。
+实现位置：`site.js` `renderList`（form+submit）、`.search-form`/`.search-submit` 样式（site.css）。
+后台编辑器列表的过滤框仍保留防抖（内存过滤、开销小，无性能问题）。
+测试：`test-site2.js` 搜索断言全部改为「输入不触发 + 提交才过滤 + IME 不干扰」。
+
+## 相对路径支持（已完成）
+- **`site.url` 为空时全部使用相对路径**，不再按 `github.owner/repo` 推导 `https://<owner>.github.io/<repo>/`——适配 GitHub Pages 多仓库/子路径部署（不能假设用户有顶级域名）。
+- `admin.js`：`siteBaseUrl()` 无 `site.url` 时返回 `''`；新增 `absUrl(path)`（base 为空 → 直接 `path`，否则 `base/path`）与 `homeUrl()`（base 为空 → `index.html`）；RSS（`<link>`/`<atom:link>`/item `<link>`）、sitemap（`<loc>`）、robots.txt（`Sitemap:`）均经这两个函数生成，无前导 `/`。
+- 公开站点内部链接本就是相对路径（`post.html?p=`/`index.html?…`），canonical/og:url 用 `location.href` 天然正确。
+- 后台站点设置「站点地址」占位提示改为「留空则用相对路径」。文档 `docs/data-model.md` 已同步。
 
 ## 当前状态与约定
 - 已实现（`5763381` 起）：公共站点（`index.html` + `assets/js/site.js`）、管理后台（`admin/`）、GitHub 客户端（`assets/js/gh.js`）、Markdown/公式渲染（`assets/js/md.js`）。
