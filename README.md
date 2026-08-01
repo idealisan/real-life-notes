@@ -9,6 +9,9 @@
 - **Token 存浏览器密码管理器**：标准 `type="password"` + `autocomplete="current-password"` 表单，浏览器负责保存与自动填充；前端只读输入框、不落盘（不写 localStorage/IndexedDB）。
 - **公共站点**：多页面结构——列表（分类过滤、关键词搜索、分页、归档）、详情 `post.html?p=…`（原生页内锚点）、全文搜索高亮、相关文章、上一篇/下一篇、暗色模式、移动端适配。
 - **Markdown + LaTeX 公式**：`marked` 渲染 + `DOMPurify` 消毒 + `KaTeX` 公式（行内 `$...$` 与块级 `$$...$$`）。
+- **社交分享与 SEO**：og:image（自动取正文首图）/og:site_name/article 时间戳、twitter 卡片、JSON-LD 结构化数据（BlogPosting 含作者与图片）。
+- **相对路径部署**：`site.url` 留空时全站使用相对路径（RSS/sitemap/robots），适配 GitHub Pages 多仓库/子路径。
+- **GitHub Issues 评论**：零第三方服务，可选开关（后台设置）。
 - **管理后台**：文章新建/编辑/草稿/发布/删除、分类管理、站点设置，编辑器实时预览（含公式），一次保存 = 一个 commit（文件 + 索引原子更新）。
 - **Git 即版本历史**：所有内容变更都可追溯、可回滚。
 
@@ -81,6 +84,8 @@ python3 -m http.server 8080 --directory .   # 需在仓库根目录
 - [x] Markdown + LaTeX 公式 + 代码高亮（marked / KaTeX / highlight.js，全部本地托管）
 - [x] 图片上传（粘贴/拖拽 → assets/images/ 提交）、RSS 订阅、详情页灯箱/复制链接/元描述
 - [x] 草稿隐私（草稿不进公开列表，直链也不渲染）、未保存修改提醒
+- [x] 搜索手动提交（IME 安全）、列表卡片阅读时长、归档摘要、主题切换（亮/暗/跟随系统）
+- [x] 相对路径部署、og/twitter 分享元数据、JSON-LD 结构化数据、GitHub Issues 评论
 - [x] jsdom 集成测试（站点渲染、草稿/发布/编辑/删除/409 重试、图片上传、草稿拦截）
 - [x] 本地 8080 预览（`python3 -m http.server 8080`）
 - [ ] 真实 token 端到端验收（提交→Pages 构建）

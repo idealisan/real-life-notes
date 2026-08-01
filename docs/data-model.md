@@ -28,6 +28,7 @@ rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 comm
   "site": {
     "title": "Real Life Notes",
     "subtitle": "记录生活中的各种事情",
+    "author": "作者名（用于 JSON-LD 结构化数据）",
     "footer": "Powered by Real Life Notes",
     "url": "https://idealisan.github.io/real-life-notes/"
   },
@@ -50,7 +51,8 @@ rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 comm
 | --- | --- | --- |
 | `schema` | int | 固定 `1`，用于未来迁移判断 |
 | `site.title` | string | 非空，≤ 60 字符 |
-| `site.subtitle` | string | ≤ 200 字符，可空 |
+| `site.subtitle` | string | ≤ 200 字符，可空；列表页 meta description 兜底 |
+| `site.author` | string? | 作者名，写入 JSON-LD `BlogPosting.author`；可空（空时回退站点标题） |
 | `site.footer` | string | 可空 |
 | `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；**为空时使用相对路径**（`post.html?p=…`、`rss.xml`），适配 GitHub Pages 多仓库/子路径部署 |
 | `github.owner` / `github.repo` | string | 非空；公开站点据此构造 raw 源 |
