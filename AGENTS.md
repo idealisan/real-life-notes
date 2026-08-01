@@ -4,7 +4,7 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 
 ## 文档分工准则
 - **AGENTS.md 只维护工作准则与纪律**（如何干活、约定、验证流程），不记录具体需求。
-- **工作需求一律记录在其他文档**：已规划/待办、已知问题、功能决策 → `docs/requirements.md`；架构 → `docs/architecture.md`；数据结构 → `docs/data-model.md`。
+- **工作需求一律记录在其他文档**：需求缺口/待补功能/优先级 → **`docs/requirements-analysis.md`（需求来源）**；已采纳待办/已知问题/功能决策 → `docs/requirements.md`；架构 → `docs/architecture.md`；数据结构 → `docs/data-model.md`；实现技术方案 → `docs/tech-manual.md`；使用说明 → `docs/user-manual.md`。
 - 新增需求或发现 Bug 时，**先更新 `docs/requirements.md` 再动手实现**；完成后同步把对应条目标记为已修复/已完成。
 
 ## 工作纪律
