@@ -212,6 +212,24 @@ mark.hl, .hl {
 }
 
 .archive-month { margin-top: var(--space-5); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-2);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.stat-value { font-size: 1.35em; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.82em; color: var(--text-soft); }
 .archive-month-title {
   font-size: 1.05em;
   margin: 0 0 var(--space-2);

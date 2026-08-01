@@ -1021,6 +1021,34 @@
   }
 
   /* ---------- 路由与渲染（MPA：index.html?cat&q&page&view / post.html?p） ---------- */
+  function statsBlock(posts) {
+    var totalWords = 0;
+    var counted = 0;
+    posts.forEach(function (p) {
+      if (typeof p.content === 'string' && p.content.trim()) {
+        totalWords += wordCounts(p.content.replace(/\s+/g, ' ').trim()).words;
+        counted++;
+      }
+    });
+    var tags = {};
+    posts.forEach(function (p) {
+      (p.tags || []).forEach(function (t) { tags[t] = (tags[t] || 0) + 1; });
+    });
+    var catCount = state.cat ? 1 : Object.keys(state.config.categories || {}).length;
+    var items = [
+      { label: '文章', value: posts.length },
+      { label: '分类', value: catCount },
+      { label: '标签', value: Object.keys(tags).length },
+      { label: '字数', value: counted ? totalWords.toLocaleString('en-US') : '—' }
+    ];
+    return el('div', { class: 'stats-grid', 'aria-label': '站点统计' }, items.map(function (it) {
+      return el('div', { class: 'stat' }, [
+        el('span', { class: 'stat-value', text: String(it.value) }),
+        el('span', { class: 'stat-label', text: it.label })
+      ]);
+    }));
+  }
+
   function renderArchive() {
     var posts = state.posts.filter(function (p) { return !p.draft && (!state.cat || p.category === state.cat); })
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
@@ -1047,6 +1075,7 @@
       ]));
       return;
     }
+    els.view.appendChild(statsBlock(posts));
     months.forEach(function (m) {
       var group = groups[m];
       els.view.appendChild(el('section', { class: 'archive-month' }, [
