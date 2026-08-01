@@ -99,7 +99,7 @@
     requireRepo();
     return _request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) + '/git/refs/heads/' + encodeURIComponent(cfg.branch))
       .catch(function (err) {
-        if (err && err.status === 404) return null;
+        if (err && (err.status === 404 || err.status === 409)) return null;
         throw err;
       });
   };

@@ -278,6 +278,11 @@
       posts = posts.slice().sort(function (a, b) {
         return searchScore(b, q) - searchScore(a, q);
       });
+    } else {
+      posts = posts.slice().sort(function (a, b) {
+        if (!!b.pinned !== !!a.pinned) return b.pinned ? 1 : -1;
+        return (b.date || '').localeCompare(a.date || '');
+      });
     }
     return posts;
   }
@@ -415,7 +420,7 @@
         p.updated ? el('span', { text: '更新于 ' + md.formatDate(p.updated) }) : null,
         mins ? el('span', { text: '约 ' + mins + ' 分钟' }) : null
       ]),
-      el('h2', { class: 'post-card-title' }, highlightText(p.title)),
+      el('h2', { class: 'post-card-title' }, (p.pinned ? [el('span', { class: 'pin-badge', text: '置顶' }), el('span', { class: 'post-card-title-text' }, highlightText(p.title))] : highlightText(p.title))),
       excerptChildren(p) ? el('p', { class: 'post-card-excerpt' }, excerptChildren(p)) : null,
       (p.tags && p.tags.length) ? el('div', { class: 'post-card-tags' }, p.tags.map(tagLink)) : null
     ]);
@@ -1011,6 +1016,7 @@
         el('ul', { class: 'archive-list' }, group.map(function (p) {
           return el('li', {}, [
             el('time', { datetime: p.date, text: (p.date || '').slice(0, 10) }),
+            p.pinned ? el('span', { class: 'pin-badge', text: '置顶' }) : null,
             el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title }),
             p.excerpt ? el('span', { class: 'archive-excerpt', text: ' · ' + p.excerpt }) : null
           ]);

@@ -159,6 +159,15 @@
 .posts-table td:last-child { white-space: nowrap; text-align: right; }
 .posts-table .row-title { font-weight: 600; }
 .posts-table .row-title .draft-badge { margin-left: var(--space-2); }
+.pin-badge {
+  font-size: 0.72em;
+  margin-left: var(--space-2);
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  vertical-align: middle;
+}
 
 .bulk-bar {
   display: flex;

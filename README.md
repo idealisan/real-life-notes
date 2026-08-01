@@ -75,8 +75,8 @@ python3 -m http.server 8080 --directory .   # 需在仓库根目录
 - [docs/architecture.md](docs/architecture.md) — 功能架构设计
 - [docs/data-model.md](docs/data-model.md) — 数据结构规范（config.json / 索引 / 帖子 frontmatter）
 - [docs/requirements.md](docs/requirements.md) — 需求与工作记录（待办 / 已知问题 / 功能决策）
-- [resource-analysis.md](resource-analysis.md) — 资源分析报告（API、CORS、密码管理器长度）
-- [system-design.md](system-design.md) — 系统设计（纯静态主方案 + Workers 备选）
+- [docs/resource-analysis.md](docs/resource-analysis.md) — 资源分析报告（API、CORS、密码管理器长度）
+- [docs/system-design.md](docs/system-design.md) — 系统设计（纯静态主方案 + Workers 备选）
 
 ## 状态
 

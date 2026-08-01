@@ -252,6 +252,10 @@
       els.workspace.hidden = false;
       els.repoBadge.hidden = false;
       els.repoBadge.textContent = state.cfg.github.owner + '/' + state.cfg.github.repo + ' @' + state.cfg.github.branch;
+      if (state.emptyRepo) {
+        state.view = 'settings';
+        toast('检测到空仓库，请先一键初始化再发布内容', 'ok');
+      }
       render();
     }).catch(function (err) {
       setBusy(false);
@@ -477,7 +481,8 @@
     if (state.emptyRepo) {
       els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
         el('strong', { text: '这是一个空仓库。' }),
-        el('span', { text: ' 发布文章前请先在「设置」中一键初始化仓库（把本站程序文件提交进来）。' })
+        el('span', { text: ' 发布文章前需要先初始化（把本站程序文件提交进来）。' }),
+        el('button', { class: 'btn-primary', style: 'margin-left:8px', text: '去初始化 →', onClick: function () { state.view = 'settings'; render(); } })
       ]));
     }
     if (state.integrity && state.integrity.length) {
@@ -516,6 +521,7 @@
           ]),
           el('td', { class: 'row-title' }, [
             p.title,
+            p.pinned ? el('span', { class: 'pin-badge', text: '置顶' }) : null,
             p.draft ? el('span', { class: 'draft-badge', text: '草稿' }) : null
           ]),
           el('td', { text: catLabel }),
@@ -588,7 +594,7 @@
     state.editing = {
       mode: 'new', path: null,
       title: '', category: Object.keys(state.cfg.categories)[0] || '',
-      date: md.isoNow(), tags: [], draft: false, body: ''
+      date: md.isoNow(), tags: [], draft: false, pinned: false, body: ''
     };
     state.view = 'editor';
     render();
@@ -604,6 +610,7 @@
         date: parsed.meta.date || p.date,
         tags: parsed.meta.tags.length ? parsed.meta.tags : (p.tags || []),
         draft: parsed.meta.draft !== undefined ? parsed.meta.draft : !!p.draft,
+        pinned: parsed.meta.pinned !== undefined ? parsed.meta.pinned : !!p.pinned,
         body: parsed.body
       };
       state.view = 'editor';
@@ -674,6 +681,10 @@
       el('label', { for: 'edDraft', style: 'display:inline-flex;align-items:center;gap:8px;font-weight:550;color:var(--text)' }, [
         el('input', { id: 'edDraft', type: 'checkbox', checked: ed.draft ? 'checked' : null, onChange: markDirty }),
         '草稿（仅自己可见，不公开显示）'
+      ]),
+      el('label', { for: 'edPinned', style: 'display:inline-flex;align-items:center;gap:8px;font-weight:550;color:var(--text)' }, [
+        el('input', { id: 'edPinned', type: 'checkbox', checked: ed.pinned ? 'checked' : null, onChange: markDirty }),
+        '置顶（列表与归档优先展示）'
       ])
     ]);
 
@@ -702,6 +713,7 @@
     editor.date = fieldRow.querySelector('#edDate');
     editor.tags = tagsField.querySelector('#edTags');
     editor.draft = draftField.querySelector('#edDraft');
+    editor.pinned = draftField.querySelector('#edPinned');
     editor.body = bodyField.querySelector('#edBody');
     editor.preview = preview;
     editor.slug = slugField.querySelector('#edSlug');
@@ -956,12 +968,14 @@
     }
 
     var dateIso = editor.date.value ? fmtToIso(editor.date.value) : md.isoNow();
+    var pinned = !!(editor.pinned && editor.pinned.checked);
     var meta = {
       title: title,
       tags: tags,
       date: dateIso,
       updated: ed.mode === 'edit' ? md.isoNow() : null,
-      draft: draft
+      draft: draft,
+      pinned: pinned
     };
 
     var slug = computeSlug({ title: title, date: dateIso });
@@ -983,7 +997,8 @@
       date: dateIso,
       updated: meta.updated || null,
       excerpt: md.excerpt(content),
-      draft: draft
+      draft: draft,
+      pinned: pinned
     };
     if (!draft) entry.content = body;
 
@@ -1072,12 +1087,12 @@
         if (i === -1) return p;
         if (action === 'delete') return null;
         var body = bodies[i] || '';
-        var meta = { title: p.title, tags: p.tags || [], date: p.date, updated: p.updated, draft: action === 'draft' };
+        var meta = { title: p.title, tags: p.tags || [], date: p.date, updated: p.updated, draft: action === 'draft', pinned: !!p.pinned };
         var content = md.buildFrontmatter(meta) + body;
         return {
           path: p.path, slug: p.slug, title: p.title, category: p.category, tags: p.tags || [],
           date: p.date, updated: action === 'draft' ? p.updated : md.isoNow(),
-          excerpt: md.excerpt(content), draft: action === 'draft',
+          excerpt: md.excerpt(content), draft: action === 'draft', pinned: !!p.pinned,
           content: action === 'draft' ? undefined : body
         };
       }).filter(Boolean);
@@ -1290,6 +1305,7 @@
     }).then(function () {
       setBusy(false);
       state.emptyRepo = false;
+      state.view = 'posts';
       toast('初始化完成 ✓ 仓库已就绪，可开启 GitHub Pages', 'ok');
       return Promise.all([fetchRepoConfig(), fetchRepoIndex()]).then(function () { render(); });
     }).catch(function (err) {
