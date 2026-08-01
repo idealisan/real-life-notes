@@ -96,3 +96,8 @@
 - **问题**：首页（index.html 列表态）点击标签（卡片标签 / 标签云）此前用 `e.preventDefault()` + 就地 `render()` 过滤，未真正刷新页面；内容页（post.html）点击标签是 `window.location.href` 真实跳转。
 - **修复**：`tagLink` 与 `renderTags` 标签云统一改为 `e.preventDefault(); window.location.href = href`（跳转 `index.html?q=<tag>`），与内容页行为一致；列表/详情共用同一 `tagLink`，删除 MODE 分支。
 - 测试：`test-site2.js` 卡片标签点击改为断言「触发 MPA 导航 + 不就地过滤」，并过滤 jsdom 的 `Not implemented: navigation` 提示。
+
+### 顶部分类导航改为真实 URL 跳转
+- **问题**：首页（index.html）顶部标题栏的分类导航（如 笔记/生活/工作）点击时用 `e.preventDefault()` + 就地 `render()` 切换，不触发任何网络请求；正文阅读页（post.html）点击同类链接是 `window.location.href` 真实跳转。
+- **修复**：`catLink` 统一改为 `e.preventDefault(); window.location.href = href`（`index.html?cat=<分类>` / `index.html`），与内容页一致，点击即发起新的页面加载；删除 MODE 分支。
+- 测试：`test-site2.js` 分类导航点击改为断言「触发 MPA 导航 + 不就地过滤」，分类筛选效果改由 `replaceState('index.html?cat=life') + popstate`（模拟导航到达）验证。

@@ -222,7 +222,7 @@
     ]);
   }
 
-  /* ---------- 分类导航（真实链接 + 原地渲染） ---------- */
+  /* ---------- 分类导航（真实链接 + 真实导航） ---------- */
   function catLink(key, label) {
     var href = 'index.html' + (key ? '?cat=' + encodeURIComponent(key) : '');
     return el('a', {
@@ -231,14 +231,7 @@
       text: label,
       onClick: function (e) {
         e.preventDefault();
-        if (MODE === 'post') {
-          window.location.href = href;
-          return;
-        }
-        state.cat = key;
-        state.page = 1;
-        state.view = null;
-        render();
+        window.location.href = href;
       }
     });
   }
