@@ -550,6 +550,7 @@
     var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(tagLink)) : null;
 
     var body = el('article', { class: 'detail-body', html: md.render(parsed.body) });
+    applyFontSize(body);
     externalizeLinks(body);
     attachLightbox(body);
     attachCodeCopy(body);
@@ -609,6 +610,7 @@
       ]),
       tags
     ]));
+    els.view.appendChild(renderFontCtl(body));
     els.view.appendChild(body);
     els.view.appendChild(renderDetailNav(path));
     var related = relatedPosts(path);
@@ -810,6 +812,42 @@
       pre._copyBtn = btn;
       pre.appendChild(btn);
     });
+  }
+
+  /* ---------- 阅读字号 ---------- */
+  var FONT_KEY = 'rln-fontsize';
+  function fontSteps() {
+    var v = 0;
+    try { v = parseInt(localStorage.getItem(FONT_KEY), 10) || 0; } catch (e) { v = 0; }
+    return Math.max(-3, Math.min(5, v));
+  }
+  function applyFontSize(body) {
+    if (!body) return;
+    var s = Math.round((1.02 + fontSteps() * 0.05) * 100) / 100;
+    body.style.fontSize = s + 'em';
+    body.style.lineHeight = (s >= 1.1 ? 1.85 : 1.75).toFixed(2);
+  }
+  function renderFontCtl(body) {
+    var wrap = el('span', { class: 'read-ctl', 'aria-label': '阅读字号调整' }, [
+      el('button', { type: 'button', class: 'ctl-btn', text: 'A−', title: '减小字号', 'aria-label': '减小字号', onClick: function (e) {
+        e.preventDefault();
+        var steps = Math.max(-3, fontSteps() - 1);
+        try { localStorage.setItem(FONT_KEY, String(steps)); } catch (err) {}
+        applyFontSize(body);
+      } }),
+      el('button', { type: 'button', class: 'ctl-btn', text: 'A+', title: '增大字号', 'aria-label': '增大字号', onClick: function (e) {
+        e.preventDefault();
+        var steps = Math.min(5, fontSteps() + 1);
+        try { localStorage.setItem(FONT_KEY, String(steps)); } catch (err) {}
+        applyFontSize(body);
+      } }),
+      el('button', { type: 'button', class: 'ctl-btn ctl-reset', text: '默认', title: '恢复默认字号', onClick: function (e) {
+        e.preventDefault();
+        try { localStorage.removeItem(FONT_KEY); } catch (err) {}
+        applyFontSize(body);
+      } })
+    ]);
+    return el('div', { class: 'read-ctl-row' }, [wrap]);
   }
 
   /* ---------- 目录 TOC ---------- */

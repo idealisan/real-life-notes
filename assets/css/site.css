@@ -366,6 +366,28 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   padding-top: var(--space-5);
   font-size: 1.02em;
 }
+.read-ctl-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--space-3) 0 0;
+}
+.read-ctl {
+  display: inline-flex;
+  gap: 4px;
+}
+.read-ctl .ctl-btn {
+  font-family: inherit;
+  font-size: 0.85em;
+  line-height: 1;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--bg-inset);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.read-ctl .ctl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.read-ctl .ctl-reset { font-size: 0.75em; }
 .detail-body > :first-child { margin-top: 0; }
 .detail-body a { text-decoration: underline; text-underline-offset: 2px; }
 .detail-body a:hover { text-decoration-thickness: 2px; }
