@@ -106,6 +106,12 @@
     return base ? base + '/' + path : path;
   }
 
+  function absolutizeRss(html) {
+    return String(html)
+      .replace(/src="(?!https?:|data:|#)([^"]+)"/gi, function (m, u) { return 'src="' + escXml(absUrl(u)) + '"'; })
+      .replace(/href="(?!https?:|mailto:|#)([^"]+)"/gi, function (m, u) { return 'href="' + escXml(absUrl(u)) + '"'; });
+  }
+
   function homeUrl() {
     var base = siteBaseUrl();
     return base ? base + '/' : 'index.html';
@@ -124,7 +130,7 @@
       var catKey = p.category || '';
       if (catKey && state.cfg.categories[catKey]) cats.push('<category>' + escXml(state.cfg.categories[catKey].label) + '</category>');
       (p.tags || []).forEach(function (t) { cats.push('<category>' + escXml(t) + '</category>'); });
-      var desc = typeof p.content === 'string' && p.content.trim() ? md.render(p.content) : (p.excerpt || '');
+      var desc = typeof p.content === 'string' && p.content.trim() ? absolutizeRss(md.render(p.content)) : (p.excerpt || '');
       return '  <item>\n' +
         '    <title>' + escXml(p.title) + '</title>\n' +
         '    <link>' + escXml(link) + '</link>\n' +
