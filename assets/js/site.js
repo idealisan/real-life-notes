@@ -596,7 +596,8 @@
     els.view.appendChild(el('div', { class: 'detail-head' }, [
       el('h1', { class: 'detail-title', text: meta.title }),
       el('div', { class: 'detail-meta' }, [
-        el('span', { class: 'cat-badge', text: cat.label || catKey || '未分类' }),
+        catKey ? el('a', { class: 'cat-badge', href: 'index.html?cat=' + encodeURIComponent(catKey), text: cat.label || catKey || '未分类' })
+          : el('span', { class: 'cat-badge', text: '未分类' }),
         el('time', { datetime: meta.date, text: md.formatDate(meta.date) }),
         meta.updated ? el('span', { text: '· 更新于 ' + md.fullDate(meta.updated) }) : null,
         counts.words ? el('span', { text: '· ' + counts.words + ' 字 · 约 ' + counts.minutes + ' 分钟' }) : null

@@ -237,7 +237,9 @@ mark.hl, .hl {
   padding: 1px 10px;
   font-size: 0.82em;
   font-weight: 600;
+  text-decoration: none;
 }
+.cat-badge:hover { text-decoration: none; }
 .search-clear { font-size: 0.85em; color: var(--text-faint); text-decoration: none; margin-left: 2px; }
 .search-clear:hover { color: var(--danger); text-decoration: none; }
 
