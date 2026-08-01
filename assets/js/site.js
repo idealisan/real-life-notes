@@ -328,6 +328,12 @@
         state.q ? el('p', { class: 'list-subtitle', text: '搜索「' + state.q + '」· ' + total + ' 篇' })
           : el('p', { class: 'list-subtitle', text: (state.cat && state.config.categories[state.cat] && state.config.categories[state.cat].description) ? state.config.categories[state.cat].description + ' · ' + total + ' 篇' : total + ' 篇记录' })
       ]),
+      state.cat ? el('a', { class: 'cat-archive-link', href: 'index.html?view=archive&cat=' + encodeURIComponent(state.cat), text: '该分类归档 →', onClick: function (e) {
+        e.preventDefault();
+        state.view = 'archive';
+        state.page = 1;
+        render();
+      } }) : null,
       el('form', { class: 'search-form', 'aria-label': '搜索文章', onSubmit: function (e) {
         e.preventDefault();
         if (searchEl) {
@@ -876,7 +882,7 @@
 
   /* ---------- 路由与渲染（MPA：index.html?cat&q&page&view / post.html?p） ---------- */
   function renderArchive() {
-    var posts = state.posts.filter(function (p) { return !p.draft; })
+    var posts = state.posts.filter(function (p) { return !p.draft && (!state.cat || p.category === state.cat); })
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var groups = {};
     posts.forEach(function (p) {
@@ -887,9 +893,10 @@
     var months = Object.keys(groups).sort().reverse();
 
     els.view.textContent = '';
+    var catLabel = (state.cat && state.config.categories[state.cat]) ? (state.config.categories[state.cat].icon ? state.config.categories[state.cat].icon + ' ' : '') + state.config.categories[state.cat].label : null;
     els.view.appendChild(el('div', { class: 'list-head' }, [
       el('div', {}, [
-        el('h1', { class: 'list-title', text: '归档' }),
+        el('h1', { class: 'list-title', text: catLabel ? catLabel + ' 归档' : '归档' }),
         el('p', { class: 'list-subtitle', text: posts.length + ' 篇文章' })
       ])
     ]));
