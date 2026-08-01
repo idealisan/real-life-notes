@@ -240,27 +240,8 @@
     return out;
   }
 
-  /* ---------- 搜索输入（IME 组合输入安全 + 防抖） ---------- */
+  /* ---------- 搜索输入（手动提交） ---------- */
   var searchEl = null;
-  var composing = false;
-  var imeSettleTimer = null;
-  function doSearch() {
-    if (!searchEl) return;
-    if (composing) return;
-    state.q = searchEl.value;
-    state.page = 1;
-    render();
-  }
-  var debouncedSearch = debounce(doSearch, 300);
-  function imeSettle() {
-    composing = false;
-    if (searchEl && searchEl.value !== state.q) doSearch();
-  }
-  function onImeKeydown() {
-    composing = true;
-    if (imeSettleTimer) clearTimeout(imeSettleTimer);
-    imeSettleTimer = setTimeout(imeSettle, 400);
-  }
   function searchInputElement() {
     if (searchEl) return searchEl;
     searchEl = el('input', {
@@ -268,33 +249,6 @@
       placeholder: '搜索标题、标签、正文…',
       value: state.q,
       'aria-label': '搜索文章'
-    });
-    searchEl.addEventListener('compositionstart', function () {
-      composing = true;
-      if (imeSettleTimer) clearTimeout(imeSettleTimer);
-    });
-    searchEl.addEventListener('compositionend', function () {
-      composing = false;
-      if (imeSettleTimer) clearTimeout(imeSettleTimer);
-      debouncedSearch();
-    });
-    searchEl.addEventListener('input', function (e) {
-      if (composing || e.isComposing) return;
-      debouncedSearch();
-    });
-    searchEl.addEventListener('keydown', function (e) {
-      if (e.keyCode === 229 || e.key === 'Process') { onImeKeydown(); return; }
-      if (composing || e.isComposing) return;
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        debouncedSearch.cancel();
-        searchEl.value = '';
-        doSearch();
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        debouncedSearch.cancel();
-        doSearch();
-      }
     });
     return searchEl;
   }
@@ -313,9 +267,21 @@
         state.q ? el('p', { class: 'list-subtitle', text: '搜索「' + state.q + '」· ' + total + ' 篇' })
           : el('p', { class: 'list-subtitle', text: total + ' 篇记录' })
       ]),
-      el('label', { class: 'search-box', 'aria-label': '搜索文章' }, [
-        searchIcon(),
-        searchInputElement()
+      el('form', { class: 'search-form', 'aria-label': '搜索文章', onSubmit: function (e) {
+        e.preventDefault();
+        if (searchEl) {
+          state.q = searchEl.value;
+          state.page = 1;
+          state.view = null;
+          state.cat = null;
+          render();
+        }
+      } }, [
+        el('label', { class: 'search-box' }, [
+          searchIcon(),
+          searchInputElement()
+        ]),
+        el('button', { type: 'submit', class: 'search-submit', text: '搜索' })
       ])
     ]);
 

@@ -98,8 +98,7 @@
   function siteBaseUrl() {
     var site = state.cfg.site || {};
     if (site.url) return site.url.replace(/\/+$/, '');
-    var g = state.cfg.github || {};
-    return 'https://' + g.owner + '.github.io/' + g.repo;
+    return '';
   }
 
   function buildRss(list) {
