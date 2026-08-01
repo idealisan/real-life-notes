@@ -270,6 +270,36 @@
     return out;
   }
 
+  function stripMd(s) {
+    return String(s == null ? '' : s)
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+      .replace(/\$[^$]*\$/g, ' ')
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/[*_~]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function excerptChildren(p) {
+    if (state.q && typeof p.content === 'string') {
+      var q = state.q.toLowerCase();
+      var plain = stripMd(p.content);
+      var lower = plain.toLowerCase();
+      var at = lower.indexOf(q);
+      if (at !== -1) {
+        var start = Math.max(0, at - 50);
+        var end = Math.min(plain.length, at + q.length + 80);
+        var snip = (start > 0 ? '…' : '') + plain.slice(start, end) + (end < plain.length ? '…' : '');
+        return highlightText(snip);
+      }
+    }
+    return p.excerpt ? highlightText(p.excerpt) : null;
+  }
+
   /* ---------- 搜索输入（手动提交） ---------- */
   var searchEl = null;
   function searchInputElement() {
@@ -341,7 +371,7 @@
         mins ? el('span', { text: '约 ' + mins + ' 分钟' }) : null
       ]),
       el('h2', { class: 'post-card-title' }, highlightText(p.title)),
-      p.excerpt ? el('p', { class: 'post-card-excerpt' }, highlightText(p.excerpt)) : null,
+      excerptChildren(p) ? el('p', { class: 'post-card-excerpt' }, excerptChildren(p)) : null,
       (p.tags && p.tags.length) ? el('div', { class: 'post-card-tags' }, p.tags.map(tagLink)) : null
     ]);
   }
