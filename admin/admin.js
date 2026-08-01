@@ -23,7 +23,9 @@
     view: 'posts',
     editing: null,
     busy: false,
-    integrity: null
+    integrity: null,
+    emptyRepo: false,
+    sourceRepo: null
   };
 
   var els = {
@@ -185,20 +187,29 @@
     els.connectForm.reset();
   }
 
-  function connect(token) {
+  function connect(token, repoAddr) {
     setBusy(true);
     els.connectError.hidden = true;
     gh.config({ token: token });
+    if (repoAddr) {
+      var parts = repoAddr.replace(/^https?:\/\/(www\.)?github\.com\//, '').split('/');
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        gh.config({ owner: parts[0].trim(), repo: parts[1].trim() });
+      }
+    }
     gh.getUser().then(function (user) {
       state.user = user;
       els.connectMeta.textContent = '已登录：' + user.login;
       els.connectMeta.hidden = false;
       return gh.getRepo().then(function (repo) {
         gh.config({ branch: repo.default_branch });
-        return Promise.all([
-          fetchRepoConfig(),
-          fetchRepoIndex()
-        ]);
+        return gh.getBranchRef().then(function (ref) {
+          state.emptyRepo = !ref;
+          return Promise.all([
+            fetchRepoConfig(),
+            fetchRepoIndex()
+          ]);
+        });
       });
     }).then(function () {
       setBusy(false);
@@ -271,7 +282,7 @@
     e.preventDefault();
     var token = els.connectForm.elements.adminToken.value.trim();
     if (!token) return;
-    connect(token);
+    connect(token, els.connectForm.elements.adminRepo.value.trim());
   });
   els.disconnectBtn.addEventListener('click', disconnect);
 
@@ -402,6 +413,12 @@
     ]);
 
     var body;
+    if (state.emptyRepo) {
+      els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
+        el('strong', { text: '这是一个空仓库。' }),
+        el('span', { text: ' 发布文章前请先在「设置」中一键初始化仓库（把本站程序文件提交进来）。' })
+      ]));
+    }
     if (state.integrity && state.integrity.length) {
       els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
         el('strong', { text: '以下索引中的文件缺失：' }),
@@ -832,6 +849,7 @@
 
     if (!title) { toast('请填写标题', 'error'); editor.title.focus(); return; }
     if (!category) { toast('请选择分类', 'error'); return; }
+    if (state.emptyRepo) { toast('请先在「设置」中一键初始化仓库', 'error'); return; }
     if (!Object.prototype.hasOwnProperty.call(state.cfg.categories, category)) {
       toast('分类不存在，请先在分类页添加', 'error'); return;
     }
@@ -1051,8 +1069,82 @@
     });
   }
 
+  /* ---------- 空仓库初始化 ---------- */
+  function fetchSourceFile(path) {
+    var binary = /\.(woff2?|ttf|otf|eot|png|jpe?g|gif|webp|ico)$/i.test(path);
+    return fetch('../' + path).then(function (res) {
+      if (!res.ok) throw new Error('读取文件失败：' + path);
+      if (binary) {
+        return res.arrayBuffer().then(function (buf) {
+          var bytes = new Uint8Array(buf);
+          var bin = '';
+          var chunk = 0x8000;
+          for (var i = 0; i < bytes.length; i += chunk) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+          }
+          return { path: path, content: btoa(bin), binary: true };
+        });
+      }
+      return res.text().then(function (t) { return { path: path, content: t }; });
+    });
+  }
+
+  function initRepo() {
+    if (!state.sourceRepo) { toast('无法确定源仓库（本站 config.json 缺失）', 'error'); return; }
+    if (state.emptyRepo === false) { toast('该仓库已有内容，不支持初始化', 'error'); return; }
+    setBusy(true);
+    toast('正在读取本站代码文件…', 'ok');
+    gh.listTreePublic(state.sourceRepo.owner, state.sourceRepo.repo, state.sourceRepo.branch).then(function (tree) {
+      var paths = tree
+        .filter(function (t) { return t.type === 'blob'; })
+        .map(function (t) { return t.path; })
+        .filter(function (p) {
+          if (p.indexOf('content/') === 0) return false;
+          if (p === 'rss.xml' || p === 'sitemap.xml' || p === 'robots.txt' || p === 'config.json') return false;
+          return true;
+        });
+      if (!paths.length) throw new Error('源仓库没有可复制的文件');
+      return Promise.all(paths.map(fetchSourceFile)).then(function (files) {
+        var snap = gh.snapshot();
+        var cfg = DEFAULT_CONFIG();
+        cfg.github = { owner: snap.owner, repo: snap.repo, branch: snap.branch || 'main' };
+        files.push({ path: 'config.json', content: JSON.stringify(cfg, null, 2) + '\n' });
+        files.push({ path: 'content/index.json', content: '{\n  "schema": 1,\n  "posts": []\n}\n' });
+        return gh.commitInitial({
+          message: '初始化：提交本站程序文件',
+          files: files
+        });
+      });
+    }).then(function () {
+      setBusy(false);
+      state.emptyRepo = false;
+      toast('初始化完成 ✓ 仓库已就绪，可开启 GitHub Pages', 'ok');
+      return Promise.all([fetchRepoConfig(), fetchRepoIndex()]).then(function () { render(); });
+    }).catch(function (err) {
+      setBusy(false);
+      toast('初始化失败：' + errMsg(err), 'error');
+    });
+  }
+
+  function initPanel() {
+    var g = state.cfg.github || {};
+    var pagesUrl = 'https://github.com/' + encodeURIComponent(g.owner) + '/' + encodeURIComponent(g.repo) + '/settings/pages';
+    return el('section', { class: 'panel' }, [
+      el('h2', { class: 'panel-title', text: '初始化仓库' }),
+      el('div', { class: 'hint', text: '检测到这是一个空仓库。可一键把本站程序文件（不含文章数据）提交到该仓库，之后即可正常发布内容。' }),
+      el('div', { class: 'panel-toolbar', style: 'margin-top:8px' }, [
+        el('button', { class: 'btn-primary', text: '一键初始化', onClick: initRepo })
+      ]),
+      el('div', { class: 'hint', style: 'margin-top:12px', text: '初始化完成后，去仓库设置开启 GitHub Pages（Build from branch）即可访问站点。' }),
+      el('div', { style: 'margin-top:6px' }, [el('a', { href: pagesUrl, target: '_blank', rel: 'noopener', text: pagesUrl })])
+    ]);
+  }
+
   /* ---------- 设置 ---------- */
   function renderSettings() {
+    if (state.emptyRepo) {
+      els.mainContent.appendChild(initPanel());
+    }
     var site = state.cfg.site;
     var g = state.cfg.github;
 
@@ -1119,6 +1211,11 @@
     }).then(function (cfg) {
       if (cfg && cfg.github) {
         gh.config({ owner: cfg.github.owner, repo: cfg.github.repo, branch: cfg.github.branch || 'main' });
+        state.sourceRepo = {
+          owner: cfg.github.owner,
+          repo: cfg.github.repo,
+          branch: cfg.github.branch || 'main'
+        };
       }
     }).catch(function () {}).then(function () {
       var t = gh.snapshot();

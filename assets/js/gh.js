@@ -95,6 +95,74 @@
       });
   };
 
+  gh.getBranchRef = function () {
+    requireRepo();
+    return _request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) + '/git/refs/heads/' + encodeURIComponent(cfg.branch))
+      .catch(function (err) {
+        if (err && err.status === 404) return null;
+        throw err;
+      });
+  };
+
+  gh.listTreePublic = function (owner, repo, branch) {
+    if (!owner || !repo) throw apiError(0, '缺少源仓库配置');
+    return fetch(API + '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/trees/' + encodeURIComponent(branch || 'main') + '?recursive=1', {
+      headers: COMMON_HEADERS
+    }).then(function (res) {
+      if (!res.ok) return res.json().catch(function () { return null; }).then(function (data) {
+        throw apiError(res.status, (data && data.message) || ('HTTP ' + res.status), data && data.documentation_url);
+      });
+      return res.json().then(function (data) {
+        return (data && data.tree) || [];
+      });
+    }).catch(function (err) {
+      if (err && err.status) throw err;
+      throw apiError(0, '网络请求失败：' + (err && err.message ? err.message : '无法读取源仓库'));
+    });
+  };
+
+  gh.commitInitial = function (opts) {
+    if (!opts || !opts.message) throw apiError(0, '提交缺少 message');
+    var files = opts.files || [];
+    if (!files.length) throw apiError(0, '没有可提交的变更');
+    var owner = cfg.owner, repo = cfg.repo, branch = cfg.branch;
+    requireRepo();
+
+    var entries = [];
+    var blobPromises = [];
+    files.forEach(function (f) {
+      if (f.binary) {
+        blobPromises.push(_request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/blobs', {
+          content: String(f.content),
+          encoding: 'base64'
+        }).then(function (blob) {
+          entries.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+        }));
+      } else {
+        entries.push({ path: f.path, mode: '100644', type: 'blob', content: String(f.content) });
+      }
+    });
+
+    return Promise.all(blobPromises).then(function () {
+      return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/trees', {
+        tree: entries
+      }).then(function (tree) {
+        return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/commits', {
+          message: opts.message,
+          tree: tree.sha
+        }).then(function (commit) {
+          return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/refs', {
+            ref: 'refs/heads/' + branch,
+            sha: commit.sha
+          }).then(function () {
+            commit.html_url = 'https://github.com/' + owner + '/' + repo + '/commit/' + commit.sha;
+            return commit;
+          });
+        });
+      });
+    });
+  };
+
   gh.commitFiles = function (opts) {
     if (!opts || !opts.message) throw apiError(0, '提交缺少 message');
     var files = opts.files || [];
