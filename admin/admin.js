@@ -101,6 +101,16 @@
     return '';
   }
 
+  function absUrl(path) {
+    var base = siteBaseUrl();
+    return base ? base + '/' + path : path;
+  }
+
+  function homeUrl() {
+    var base = siteBaseUrl();
+    return base ? base + '/' : 'index.html';
+  }
+
   function buildRss(list) {
     var site = state.cfg.site || {};
     var base = siteBaseUrl();
@@ -108,7 +118,7 @@
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); })
       .slice(0, 20);
     var items = published.map(function (p) {
-      var link = base + '/post.html?p=' + encodeURIComponent(p.path);
+      var link = absUrl('post.html?p=' + encodeURIComponent(p.path));
       var pub = (function () { var d = new Date(p.date); return isNaN(d.getTime()) ? '' : d.toUTCString(); })();
       var cats = [];
       var catKey = p.category || '';
@@ -128,36 +138,34 @@
       '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n' +
       '<channel>\n' +
       '  <title>' + escXml(site.title || '') + '</title>\n' +
-      '  <link>' + escXml(base + '/') + '</link>\n' +
+      '  <link>' + escXml(homeUrl()) + '</link>\n' +
       '  <description>' + escXml(site.subtitle || '') + '</description>\n' +
-      '  <atom:link href="' + escXml(base + '/rss.xml') + '" rel="self" type="application/rss+xml"/>\n' +
+      '  <atom:link href="' + escXml(absUrl('rss.xml')) + '" rel="self" type="application/rss+xml"/>\n' +
       '  <lastBuildDate>' + new Date().toUTCString() + '</lastBuildDate>\n' +
       items + '\n' +
       '</channel>\n</rss>\n';
   }
 
   function buildSitemap(list) {
-    var base = siteBaseUrl();
     var published = (list || state.index.posts || []).filter(function (p) { return !p.draft; });
     var urls = published.map(function (p) {
       var lastmod = (p.updated || p.date || '').slice(0, 10);
       return '  <url>\n' +
-        '    <loc>' + escXml(base + '/post.html?p=' + encodeURIComponent(p.path)) + '</loc>\n' +
+        '    <loc>' + escXml(absUrl('post.html?p=' + encodeURIComponent(p.path))) + '</loc>\n' +
         (lastmod ? '    <lastmod>' + escXml(lastmod) + '</lastmod>\n' : '') +
         '  </url>';
     }).join('\n');
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-      '  <url>\n    <loc>' + escXml(base + '/') + '</loc>\n  </url>\n' +
+      '  <url>\n    <loc>' + escXml(homeUrl()) + '</loc>\n  </url>\n' +
       (urls ? urls + '\n' : '') +
       '</urlset>\n';
   }
 
   function buildRobots() {
-    var base = siteBaseUrl();
     return 'User-agent: *\n' +
       'Allow: /\n\n' +
-      'Sitemap: ' + base + '/sitemap.xml\n';
+      'Sitemap: ' + absUrl('sitemap.xml') + '\n';
   }
 
   function errMsg(err) {
@@ -1152,7 +1160,7 @@
     var footerInput = el('input', { type: 'text', value: site.footer || '', id: 'setFooter', maxlength: 200 });
     var urlInput = el('input', {
       type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
-      placeholder: 'https://<用户名>.github.io/<仓库>/（默认自动推导）'
+      placeholder: 'https://<用户名>.github.io/<仓库>/（留空则用相对路径）'
     });
     var comments = state.cfg.comments || {};
     var commentsOn = el('input', { type: 'checkbox', id: 'setComments', checked: comments.enabled ? 'checked' : null });

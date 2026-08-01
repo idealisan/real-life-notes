@@ -52,7 +52,7 @@ rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 comm
 | `site.title` | string | 非空，≤ 60 字符 |
 | `site.subtitle` | string | ≤ 200 字符，可空 |
 | `site.footer` | string | 可空 |
-| `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；为空时按 `github.owner/repo` 推导 `https://<owner>.github.io/<repo>/` |
+| `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；**为空时使用相对路径**（`post.html?p=…`、`rss.xml`），适配 GitHub Pages 多仓库/子路径部署 |
 | `github.owner` / `github.repo` | string | 非空；公开站点据此构造 raw 源 |
 | `github.branch` | string | 默认 `main` |
 | `categories` | object | key = 分类 id（即 content/ 下目录名），value 见下 |
