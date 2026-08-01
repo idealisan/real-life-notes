@@ -158,6 +158,8 @@
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
       '  <url>\n    <loc>' + escXml(homeUrl()) + '</loc>\n  </url>\n' +
+      '  <url>\n    <loc>' + escXml(absUrl('index.html?view=archive')) + '</loc>\n  </url>\n' +
+      '  <url>\n    <loc>' + escXml(absUrl('index.html?view=tags')) + '</loc>\n  </url>\n' +
       (urls ? urls + '\n' : '') +
       '</urlset>\n';
   }
