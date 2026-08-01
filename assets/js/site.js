@@ -72,6 +72,18 @@
     can.setAttribute('href', location.href);
   }
 
+  function setOgImage(src) {
+    if (!src) {
+      setMetaProperty('image', '');
+      setMetaProperty('image:alt', '');
+      return;
+    }
+    var resolved;
+    try { resolved = new URL(src, location.href).href; } catch (e) { resolved = src; }
+    setMetaProperty('image', resolved);
+    setMetaProperty('image:alt', (document.title || '').slice(0, 80));
+  }
+
   function setStructuredData(data) {
     var node = document.getElementById('jsonld');
     if (!data) {
@@ -399,6 +411,7 @@
       els.view.textContent = '';
       els.view.appendChild(notFoundView());
       setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
+      setOgImage('');
       return;
     }
     els.view.textContent = '';
@@ -445,6 +458,8 @@
     externalizeLinks(body);
     attachLightbox(body);
     attachCodeCopy(body);
+    var firstImg = body.querySelector('img');
+    setOgImage(firstImg ? firstImg.getAttribute('src') : '');
     var plain = body.textContent.replace(/\s+/g, ' ').trim();
     var counts = wordCounts(plain);
     if (plain) {
@@ -888,6 +903,7 @@
     updateReadingProgress();
     if (MODE === 'post') {
       setStructuredData(null);
+      setOgImage('');
       if (!state.p) {
         els.view.textContent = '';
         els.view.appendChild(notFoundView());
