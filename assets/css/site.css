@@ -523,6 +523,18 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   position: relative;
   margin: var(--space-4) 0;
 }
+.detail-body pre code { counter-reset: line; }
+.detail-body pre code .cline { display: block; counter-increment: line; }
+.detail-body pre code .cline::before {
+  content: counter(line);
+  display: inline-block;
+  width: 2.4em;
+  margin-right: 1em;
+  text-align: right;
+  color: var(--text-faint);
+  user-select: none;
+  -webkit-user-select: none;
+}
 .code-copy {
   position: absolute;
   top: 8px;

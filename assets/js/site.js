@@ -554,6 +554,7 @@
     externalizeLinks(body);
     attachLightbox(body);
     attachCodeCopy(body);
+    addCodeLines(body);
     var firstImg = body.querySelector('img');
     var firstImgSrc = firstImg ? firstImg.getAttribute('src') : '';
     setOgImage(firstImgSrc);
@@ -790,6 +791,40 @@
     var words = cjk + latin;
     var minutes = Math.max(1, Math.round(words / 400));
     return { words: words, minutes: minutes };
+  }
+
+  function addCodeLines(root) {
+    function splitLines(code) {
+      var nodes = Array.prototype.slice.call(code.childNodes);
+      var lines = [[]];
+      nodes.forEach(function (n) {
+        if (n.nodeType === 3) {
+          var seg = n.nodeValue.split('\n');
+          for (var i = 0; i < seg.length; i++) {
+            if (i > 0) lines.push([]);
+            if (seg[i]) lines[lines.length - 1].push(document.createTextNode(seg[i]));
+          }
+        } else {
+          lines[lines.length - 1].push(n);
+        }
+      });
+      if (lines.length > 1 && lines[lines.length - 1].length === 0) lines.pop();
+      return lines;
+    }
+    Array.prototype.forEach.call(root.querySelectorAll('pre code'), function (code) {
+      var lines = splitLines(code);
+      if (lines.length < 2) return;
+      var frag = document.createDocumentFragment();
+      lines.forEach(function (parts, i) {
+        var span = document.createElement('span');
+        span.className = 'cline';
+        parts.forEach(function (n) { span.appendChild(n); });
+        if (i < lines.length - 1) span.appendChild(document.createTextNode('\n'));
+        frag.appendChild(span);
+      });
+      code.textContent = '';
+      code.appendChild(frag);
+    });
   }
 
   function attachCodeCopy(root) {

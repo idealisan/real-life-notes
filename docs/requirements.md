@@ -85,3 +85,9 @@
 - **修复**：`gh.getBranchRef` 将 404 与 409 都视为「无分支」返回 `null` → `state.emptyRepo=true`，不再报错。
 - **体验**：连接空仓库后**自动跳转「设置」页并直接展示「初始化仓库」面板**（此前落在文章列表、初始化入口藏在设置里）；文章列表页的空仓库横幅附带「去初始化 →」按钮；初始化成功后自动回到文章列表。
 - 测试：`test-empty409.js`（409 连接自动进初始化视图 + 一键初始化全流程 + 成功后回到文章列表）、`test-init.js`（同步改为自动跳转断言）。
+
+### 代码块行号（详情页）
+- 详情页多行代码块按行包裹 `.cline`，CSS `counter` 生成行号，覆盖 highlight.js 高亮（保留 hljs span）。
+- 单行代码不加行号；复制按钮仍取 `textContent`（每行末补 `\n`，最后一行不加，原有去尾换行逻辑兼容）。
+- **Bug 修复**：初版遍历 `code.childNodes`（live NodeList）时因 `appendChild` 移动元素节点导致迭代跳过文本节点，行号与文本内容损坏；改为先 `slice` 快照再分组，且未满两行时不改动原 DOM。
+- 测试：`test-welcome.js`（多行代码 clines≥3 + hljs 高亮并存）、`test-post.js`（单行代码无行号）。
