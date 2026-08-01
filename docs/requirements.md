@@ -60,3 +60,16 @@
 - 键盘快捷键：列表页 `/` 聚焦搜索；详情页 `←`/`→` 上一篇/下一篇（输入态或有选区时不触发）。
 - 404 页（详情/草稿/无参）内嵌搜索框，可直接搜索而非死胡同。
 - 搜索匹配范围含分类标签（按分类中文名可搜到该分类文章）；`index.html`/`post.html` 增加 RSS 自动发现 link。
+
+### 后台文章管理增强
+- 文章列表新增「字数」列（索引内嵌正文时按 CJK+拉丁词统计）。
+- 文章列表支持**复选框多选** + 批量操作条：批量发布 / 批量存草稿 / 批量删除（一次 commit 原子完成；索引未内嵌正文的旧文章自动先读取 raw 再重写 frontmatter）。
+- 详情页新增「复制原文」按钮：一键复制含 frontmatter 的 Markdown 源文。
+- RSS item 增加 `<author>` 标签（取 `site.author`，未配置则省略）。
+- 无障碍：`focus-visible` 焦点环、`prefers-reduced-motion` 减少动效（含详情页 smooth scroll）。
+
+### 后台连接页支持多种仓库地址格式
+- 目标仓库输入框可直接粘贴 **浏览器地址栏 URL**、**HTTPS 克隆 URL**、**SSH 克隆 URL**（含 `ssh://git@…`）、裸 `owner/repo`、`/tree/branch` 指定分支、尾斜杠。
+- 输入时 200ms 防抖**实时识别提示**（「已识别：owner / repo @branch」或「无法识别为 GitHub 仓库地址」）。
+- 解析器 `parseRepoAddress`：依次处理 `scheme://host/` 前缀、`git@host:…` scp 风格前缀，去 `.git` 后缀与尾斜杠，识别 `/tree/<branch>`；`https://github.com` 等无仓库路径输入视为无效。
+- 测试：`test-repourl.js`（三种格式 + ssh:// + 裸地址 + /tree/dev + 尾斜杠 + 无效输入）。
