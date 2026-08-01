@@ -73,3 +73,15 @@
 - 输入时 200ms 防抖**实时识别提示**（「已识别：owner / repo @branch」或「无法识别为 GitHub 仓库地址」）。
 - 解析器 `parseRepoAddress`：依次处理 `scheme://host/` 前缀、`git@host:…` scp 风格前缀，去 `.git` 后缀与尾斜杠，识别 `/tree/<branch>`；`https://github.com` 等无仓库路径输入视为无效。
 - 测试：`test-repourl.js`（三种格式 + ssh:// + 裸地址 + /tree/dev + 尾斜杠 + 无效输入）。
+
+### 置顶文章（pinned）
+- frontmatter / 索引新增可选 `pinned: true`；后台编辑器新增「置顶」复选框，保存时写入 frontmatter 与 `index.json`。
+- 列表（含分页前）排序：置顶优先（置顶内部仍按日期倒序），搜索态仍按相关性排序；归档按日期不变，但带「置顶」标记。
+- 列表卡片与后台文章表显示「置顶」徽标；批量发布/转草稿保留 pinned 字段。
+- 测试：`test-pinned.js`（排序 + 徽标）、`test-admin.js`（index/frontmatter/徽标断言）。
+
+### 空仓库（409/404）连接流程修复
+- **Bug**：全新空仓库（无初始提交）`GET /git/refs/heads/<branch>` 返回 **409 Conflict**（Git Repository is empty），旧代码只把 404 当作空仓库，导致连接直接报错中断。
+- **修复**：`gh.getBranchRef` 将 404 与 409 都视为「无分支」返回 `null` → `state.emptyRepo=true`，不再报错。
+- **体验**：连接空仓库后**自动跳转「设置」页并直接展示「初始化仓库」面板**（此前落在文章列表、初始化入口藏在设置里）；文章列表页的空仓库横幅附带「去初始化 →」按钮；初始化成功后自动回到文章列表。
+- 测试：`test-empty409.js`（409 连接自动进初始化视图 + 一键初始化全流程 + 成功后回到文章列表）、`test-init.js`（同步改为自动跳转断言）。

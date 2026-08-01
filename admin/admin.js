@@ -1311,6 +1311,7 @@
     }).catch(function (err) {
       setBusy(false);
       toast('初始化失败：' + errMsg(err), 'error');
+      render();
     });
   }
 
