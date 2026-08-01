@@ -185,12 +185,17 @@
 
   /* ---------- 分类导航（真实链接 + 原地渲染） ---------- */
   function catLink(key, label) {
+    var href = 'index.html' + (key ? '?cat=' + encodeURIComponent(key) : '');
     return el('a', {
       class: state.cat === key ? 'active' : '',
-      href: 'index.html' + (key ? '?cat=' + encodeURIComponent(key) : ''),
+      href: href,
       text: label,
       onClick: function (e) {
         e.preventDefault();
+        if (MODE === 'post') {
+          window.location.href = href;
+          return;
+        }
         state.cat = key;
         state.page = 1;
         state.view = null;
