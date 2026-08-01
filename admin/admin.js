@@ -500,6 +500,20 @@
         el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }),
         el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
         el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
+        el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
+          el('select', {
+            id: 'bulkMoveCat', 'aria-label': '选择目标分类',
+            value: '',
+            onChange: function () { bulkBar.dataset.movedone = '1'; }
+          }, cats.map(function (c) {
+            return el('option', { value: c, text: state.cfg.categories[c].label || c });
+          }))
+        ]),
+        el('button', { text: '移动', onClick: function () {
+          var sel = document.getElementById('bulkMoveCat');
+          if (!sel || !sel.value) { toast('请先选择目标分类', 'error'); return; }
+          bulkMoveCategory(Object.keys(state.listSel), sel.value);
+        } }),
         el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
         el('span', { class: 'spacer' }),
         el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
@@ -1119,6 +1133,54 @@
     }).catch(function (err) {
       setBusy(false);
       toast(label + '失败：' + errMsg(err), 'error');
+    });
+  }
+
+  function bulkMoveCategory(paths, newCat) {
+    var selected = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    if (!selected.length) return;
+    if (!Object.prototype.hasOwnProperty.call(state.cfg.categories, newCat)) {
+      toast('目标分类不存在', 'error'); return;
+    }
+    var moves = selected.filter(function (p) { return p.category !== newCat; });
+    if (!moves.length) { toast('所选文章已在此分类', 'ok'); state.listSel = {}; renderPosts(); return; }
+    var label = (state.cfg.categories[newCat] || {}).label || newCat;
+    if (!confirm('把所选 ' + moves.length + ' 篇文章移动到分类「' + label + '」吗？\n文件将移动到 content/' + newCat + '/ 目录。')) return;
+
+    setBusy(true);
+    Promise.all(moves.map(function (p) { return gh.getContent(p.path); })).then(function (raws) {
+      var posts = state.index.posts.map(function (p) {
+        var i = paths.indexOf(p.path);
+        if (i === -1) return p;
+        var oldPath = p.path;
+        var slug = p.slug || oldPath.split('/').pop().replace(/\.md$/, '');
+        var newPath = 'content/' + newCat + '/' + slug + '.md';
+        p = Object.assign({}, p, { path: newPath, category: newCat });
+        return p;
+      });
+      var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
+      return gh.commitFiles({
+        message: '[移动分类] ' + moves.length + ' 篇 → ' + label,
+        files: moves.map(function (p, i) {
+          var slug = p.slug || p.path.split('/').pop().replace(/\.md$/, '');
+          return { path: 'content/' + newCat + '/' + slug + '.md', content: raws[i] };
+        }).concat([
+          { path: 'content/index.json', content: newIndex },
+          { path: 'rss.xml', content: buildRss(posts) },
+          { path: 'sitemap.xml', content: buildSitemap(posts) },
+          { path: 'robots.txt', content: buildRobots() }
+        ]),
+        deletes: moves.map(function (p) { return p.path; })
+      }).then(function () {
+        setBusy(false);
+        state.index = { schema: 1, posts: posts };
+        state.listSel = {};
+        toast('已移动 ' + moves.length + ' 篇到「' + label + '」✓', 'ok');
+        render();
+      });
+    }).catch(function (err) {
+      setBusy(false);
+      toast('移动失败：' + errMsg(err), 'error');
     });
   }
 
