@@ -203,9 +203,22 @@
   }
 
   function notFoundView() {
-    return el('div', { class: 'notice notice-error' }, [
-      '找不到该页面。',
-      el('a', { href: 'index.html', text: ' 返回首页' })
+    return el('div', {}, [
+      el('div', { class: 'notice notice-error' }, [
+        '找不到该页面。',
+        el('a', { href: 'index.html', text: ' 返回首页' })
+      ]),
+      el('form', { class: 'search-form', 'aria-label': '搜索文章', onSubmit: function (e) {
+        e.preventDefault();
+        var input = this.querySelector('input');
+        window.location.href = 'index.html?q=' + encodeURIComponent((input && input.value || '').trim());
+      } }, [
+        el('label', { class: 'search-box' }, [
+          searchIcon(),
+          el('input', { type: 'search', placeholder: '搜索文章…', 'aria-label': '搜索文章' })
+        ]),
+        el('button', { type: 'submit', class: 'search-submit', text: '搜索' })
+      ])
     ]);
   }
 
