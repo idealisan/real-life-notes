@@ -5,7 +5,7 @@
     var snap = gh.snapshot();
     return {
       schema: 1,
-      site: { title: 'Real Life Notes', subtitle: '', footer: 'Powered by Real Life Notes', url: '' },
+      site: { title: 'Real Life Notes', subtitle: '', author: '', footer: 'Powered by Real Life Notes', url: '' },
       github: { owner: snap.owner, repo: snap.repo, branch: snap.branch || 'main' },
       categories: {
         notes: { label: '笔记', icon: '📝', description: '' },
@@ -1157,6 +1157,7 @@
 
     var titleInput = el('input', { type: 'text', value: site.title || '', id: 'setTitle', maxlength: 60 });
     var subtitleInput = el('input', { type: 'text', value: site.subtitle || '', id: 'setSubtitle', maxlength: 200 });
+    var authorInput = el('input', { type: 'text', value: site.author || '', id: 'setAuthor', maxlength: 60 });
     var footerInput = el('input', { type: 'text', value: site.footer || '', id: 'setFooter', maxlength: 200 });
     var urlInput = el('input', {
       type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
@@ -1170,6 +1171,7 @@
       if (!titleInput.value.trim()) { toast('站点标题不能为空', 'error'); return; }
       site.title = titleInput.value.trim();
       site.subtitle = subtitleInput.value.trim();
+      site.author = authorInput.value.trim();
       site.footer = footerInput.value.trim();
       site.url = urlInput.value.trim();
       state.cfg.comments = { enabled: commentsOn.checked, label: commentsLabel.value.trim() || '评论' };
@@ -1182,6 +1184,7 @@
       el('h2', { class: 'panel-title', text: '站点设置' }),
       el('div', { class: 'field' }, [el('label', { for: 'setTitle', text: '站点标题' }), titleInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setSubtitle', text: '副标题' }), subtitleInput]),
+      el('div', { class: 'field' }, [el('label', { for: 'setAuthor', text: '作者（用于结构化数据）' }), authorInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setUrl', text: '站点地址（RSS 链接用）' }), urlInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setFooter', text: '页脚文字' }), footerInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setComments', text: '启用评论（GitHub Issues）' }), commentsOn]),

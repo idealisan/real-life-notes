@@ -2,7 +2,7 @@
   'use strict';
 
   var DEFAULT_CONFIG = {
-    site: { title: 'Real Life Notes', subtitle: '', footer: '' },
+    site: { title: 'Real Life Notes', subtitle: '', author: '', footer: '' },
     categories: {},
     comments: { enabled: false, label: '评论' }
   };
