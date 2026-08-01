@@ -962,6 +962,7 @@
   }
 
   function render() {
+    renderCats();
     if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
     if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     updateReadingProgress();
