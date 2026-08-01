@@ -1078,6 +1078,24 @@
     });
   }
 
+  function regeneratePublishFiles() {
+    setBusy(true);
+    gh.commitFiles({
+      message: '重新生成 RSS/站点地图/robots',
+      files: [
+        { path: 'rss.xml', content: buildRss() },
+        { path: 'sitemap.xml', content: buildSitemap() },
+        { path: 'robots.txt', content: buildRobots() }
+      ]
+    }).then(function () {
+      setBusy(false);
+      toast('已重新生成 ✓', 'ok');
+    }).catch(function (err) {
+      setBusy(false);
+      toast('生成失败：' + errMsg(err), 'error');
+    });
+  }
+
   /* ---------- 空仓库初始化 ---------- */
   function fetchSourceFile(path) {
     var binary = /\.(woff2?|ttf|otf|eot|png|jpe?g|gif|webp|ico)$/i.test(path);
@@ -1192,7 +1210,8 @@
       el('div', { class: 'field' }, [el('label', { for: 'setComments', text: '启用评论（GitHub Issues）' }), commentsOn]),
       el('div', { class: 'field' }, [el('label', { for: 'setCommentsLabel', text: '评论标签' }), commentsLabel]),
       el('div', { class: 'hint', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' }),
-      saveBtn
+      saveBtn,
+      el('button', { class: 'btn', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles })
     ]));
 
     els.mainContent.appendChild(el('section', { class: 'panel' }, [
