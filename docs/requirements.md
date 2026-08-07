@@ -108,3 +108,9 @@
 - **问题**：站点经 Cloudflare 代理访问（`prevoclxd.809030.xyz` → 本机 8080）时，`assets/js/*.js`、`assets/css/*.css` 被 Cloudflare 按默认策略缓存（`max-age=14400`，约 4 小时），代码改动后浏览器仍拿到旧 JS/CSS；`index.html` 是 `DYNAMIC` 不缓存。
 - **修复**：`index.html`/`post.html`/`admin/index.html`/`404.html` 中对**会随开发变更的资源**（base.css、site.css、theme.js、md.js、site.js、gh.js、admin.js）统一追加 `?v=20260801a` 查询参数，改动资源时**同步递增该版本号**即可立即可见（HTML 实时 + 新 URL 命中缓存 MISS）。vendor 固定版本库不加。
 - 验证：`curl -I https://prevoclxd.809030.xyz/assets/js/site.js?v=20260801a` 返回新内容；`cf-cache-status` 对未带版本的旧 URL 为 HIT。
+
+### 图片上传二进制通道修复
+- **Bug**：后台 `uploadImage` 用 FileReader 把图片转成 base64 字符串后，经 `gh.commitFiles` 直接写入 tree 的 `content` 字段，而该字段按 **UTF-8 文本**写入 → 仓库里的 `.png` 文件实际存的是 base64 文本，浏览器拿到 `content-type: image/png` 却无法解码显示。
+- **修复**：`gh.commitFiles` 支持 `{ binary: true }`（与 `commitInitial` 一致），二进制文件改走 `POST /git/blobs`（`content` + `encoding: "base64"`）拿到 blob sha，tree 条目引用该 sha；`uploadImage` 传 `binary: true`。已损坏的 `assets/images/20260807-2u4wct.png` 解码还原为真实 PNG。
+- 测试：`test-binary.js`（mock fetch，断言调用序列 refs→commit→blobs→trees(引用 blob sha)→commits→PATCH refs）。
+
