@@ -157,8 +157,15 @@
 - 测试：`test-admin-layout.js`（预览 `../` 前缀、草稿无查看、检查前后字数对比），33 项全绿。
 
 ### 连接表单支持浏览器保存 Token
-- **问题**：点「连接」后浏览器不弹「保存密码」，因为表单缺 `action` 且 token 用 `autocomplete="current-password"`（登录语义，只会在已存凭证时提示更新）。
-- **方案**：`<form action="./" method="post">`（**必须有 action**，Chrome 才把它当可保存密码的表单）；token 输入 `autocomplete="new-password"`（新建凭证语义，提交后必然弹「保存密码」）；另加一个 `visually-hidden` 的 `autocomplete="username"` 隐藏字段，提交时由 JS 填仓库 owner，让密码管理器把 Token 存到用户名下、提示更友好。
-- 验证：jsdom 全绿；浏览器实测点「连接」后弹保存密码提示（已推送 `f901696`）。
+- **问题**：点「连接」后浏览器不弹「保存密码」。纯 SPA 里 `preventDefault` + fetch 登录时，Chrome/Firefox 的原生启发式**根本不会**弹出保存框——它需要真实导航/页面跳转，`action` + `autocomplete` 属性只是必要条件而非充分条件。
+- **方案**：两条腿走路——
+  - 表单属性：`<form action="./" method="post">` + token `autocomplete="current-password"` + `visually-hidden` 的 `autocomplete="username"` 隐藏字段（提交时 JS 填仓库 owner）。供不支持 API 的浏览器做原生兜底。
+  - **程序化触发（主力）**：连接成功后显式调用 Credential Management API —— `navigator.credentials.store(new PasswordCredential({ id: state.user.login, password: token }))`。该 API 已跨浏览器稳定（MDN：2020-01 起全支持；caniuse Chrome 57–152 ✅），仅限 HTTPS 与顶层上下文，成功后浏览器弹出「保存密码」。失败/不支持时静默忽略（store() 里 catch）。
+- 验证：jsdom 全绿；浏览器实测 HTTPS 下连接成功即弹保存提示（已推送 `86b3f9f`）。
+
+### 分类页空白 + 设置页左右偏移
+- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
+- **设置页偏移**：文章/分类页内容高、出现垂直滚动条；设置页内容矮、无滚动条 → 切换时滚动条出现/消失，页面左右轻微晃动。修复：admin.css 加 `html { overflow-y: scroll; }`（admin 专属），始终保留滚动条，各页布局稳定一致。
+- 测试：`test-admin-layout.js` 新增分类/设置页渲染断言（分类 2 行、设置两面板+保存按钮）。
 
 

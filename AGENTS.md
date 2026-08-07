@@ -26,7 +26,7 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - 不可作为主路线的替代（已调研否决）：OAuth device/web flow 无法纯浏览器完成（`github.com/login/*` 无 CORS、需 `client_secret`）；`POST /pages/deployments` 不可用（要求 GitHub Actions 签发的 OIDC token）。
 
 ## 实现要点（已验证，勿回退）
-- **token 表单**：`type="password"` + `autocomplete="new-password"`（触发浏览器「保存密码」提示）+ 稳定唯一 `id`/`name` + 正常 `<form action="./" method="post">`+submit（**必须带 `action`**，否则浏览器不认为这是可保存密码的表单）；表单内加一个 `visually-hidden` 的 `autocomplete="username"` 字段，提交时由 JS 填仓库 owner，密码管理器才能把 Token 存到用户名下；不设 `maxlength`；**不得**写入 localStorage/IndexedDB（内存持有，刷新重连）。
+- **token 表单**：`type="password"` + `autocomplete="current-password"` + 稳定唯一 `id`/`name` + 正常 `<form action="./" method="post">`+submit（**必须带 `action`**，否则浏览器不认为这是可保存密码的表单）；表单内加一个 `visually-hidden` 的 `autocomplete="username"` 字段，提交时由 JS 填仓库 owner。**纯 SPA + `preventDefault` 时浏览器原生启发式不会弹保存框**，必须显式调用 Credential Management API：连接成功后 `navigator.credentials.store(new PasswordCredential({ id: state.user.login, password: token }))`（仅 HTTPS、`window.PasswordCredential` 存在时）。不设 `maxlength`；**不得**写入 localStorage/IndexedDB（内存持有，刷新重连）。
 - **提交（`gh.commitFiles`，五步）**：GET refs/heads/{branch} → GET commits/{HEAD} → POST git/trees `{base_tree, tree}` → POST git/commits → PATCH refs。tree 条目直接带 `content`（GitHub 代写 blob）、删除用 `sha: null`；**必须带 `base_tree`**，否则未列出的文件全被删除；PATCH 409 时重试（重取基线）。
 - **渲染管线（`md.render`）**：先保护代码块（`@@CODE-n@@`）→ 提取 `$...$`/`$$...$$`（`@@MATH-n@@`，货币 `$数字` 启发式跳过）→ marked → DOMPurify（`FORBID_ATTR:['style']`）→ hljs 高亮 `pre code.language-*` → 回填 KaTeX HTML。
 - **el() 约定**（site.js/admin.js 共用工具）：`onClick` 等事件属性 → `addEventListener(k.slice(2).toLowerCase())`；`null/undefined` 属性值跳过 `setAttribute`（否则复选框/下拉永远选中）。
