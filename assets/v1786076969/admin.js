@@ -421,6 +421,7 @@
       btn.classList.toggle('active', btn.getAttribute('data-view') === state.view);
     });
     els.mainContent.textContent = '';
+    els.mainContent.classList.toggle('editor-screen', state.view === 'editor');
     if (state.view === 'posts') renderPosts();
     else if (state.view === 'editor') renderEditor();
     else if (state.view === 'categories') renderCategories();
@@ -811,7 +812,7 @@
 
     var grid = el('div', { class: 'editor-grid' }, [
       el('div', { class: 'editor-pane' }, [titleField, fieldRow, slugField, tagsField, draftField, bodyField]),
-      el('div', {}, [el('label', { text: '预览' }), preview])
+      el('div', { class: 'preview-wrap' }, [el('label', { text: '预览' }), preview])
     ]);
 
     els.mainContent.appendChild(el('section', { class: 'panel' }, [
