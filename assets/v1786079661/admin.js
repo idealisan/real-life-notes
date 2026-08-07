@@ -373,7 +373,12 @@
     e.preventDefault();
     var token = els.connectForm.elements.adminToken.value.trim();
     if (!token) return;
-    connect(token, els.connectForm.elements.adminRepo.value.trim());
+    var addr = els.connectForm.elements.adminRepo.value.trim();
+    var parsed = addr ? parseRepoAddress(addr) : null;
+    // 预填隐藏的用户名字段（密码管理器把 Token 存到该用户名下，保存提示才会弹出）
+    var userEl = els.connectForm.elements.adminUser;
+    if (userEl) userEl.value = (parsed && parsed.owner) || 'github';
+    connect(token, addr);
   });
 
   var repoHint = document.getElementById('connectRepoHint');

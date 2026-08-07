@@ -8,12 +8,12 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786079483/base.css">
+  <link rel="stylesheet" href="../assets/v1786079661/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786079483/admin.css">
-  <script src="../assets/v1786079483/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786079661/admin.css">
+  <script src="../assets/v1786079661/theme.js"></script>
 </head>
 <body class="admin-page">
 
@@ -24,10 +24,13 @@
         <span class="connect-logo">📝</span>
         <span class="connect-title">管理后台</span>
       </div>
-      <form id="connectForm" class="connect-form" autocomplete="on">
+      <form id="connectForm" class="connect-form" action="./" method="post" autocomplete="on">
+        <!-- 供密码管理器识别用户名的隐藏字段：提交时由 JS 填仓库 owner，让浏览器能正确提示保存 Token -->
+        <input id="adminUser" name="adminUser" type="text" autocomplete="username"
+               aria-hidden="true" tabindex="-1" class="visually-hidden">
         <input id="adminToken" name="adminToken" type="password"
                aria-label="GitHub Token"
-               autocomplete="current-password" placeholder="GitHub Token (github_pat_…)"
+               autocomplete="new-password" placeholder="GitHub Token (github_pat_…)"
                required spellcheck="false" autocapitalize="off">
         <input id="adminRepo" name="adminRepo" type="text"
                aria-label="目标仓库 URL（可选）"
@@ -80,8 +83,8 @@
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786079483/gh.js"></script>
-  <script src="../assets/v1786079483/md.js"></script>
-  <script src="../assets/v1786079483/admin.js"></script>
+  <script src="../assets/v1786079661/gh.js"></script>
+  <script src="../assets/v1786079661/md.js"></script>
+  <script src="../assets/v1786079661/admin.js"></script>
 </body>
 </html>
