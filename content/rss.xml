@@ -4,8 +4,8 @@
   <title>Real Life Notes</title>
   <link>index.html</link>
   <description>记录生活中的各种事情</description>
-  <atom:link href="rss.xml" rel="self" type="application/rss+xml"/>
-  <lastBuildDate>Fri, 07 Aug 2026 02:11:41 GMT</lastBuildDate>
+  <atom:link href="content/rss.xml" rel="self" type="application/rss+xml"/>
+  <lastBuildDate>Fri, 07 Aug 2026 05:05:52 GMT</lastBuildDate>
   <item>
     <title>123</title>
     <link>post.html?p=content%2Fnotes%2F2026-08-07-123.md</link>
