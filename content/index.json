@@ -2,6 +2,19 @@
   "schema": 1,
   "posts": [
     {
+      "path": "content/notes/2026-08-07-123.md",
+      "slug": "2026-08-07-123",
+      "title": "123",
+      "category": "notes",
+      "tags": [],
+      "date": "2026-08-07T10:11:00+08:00",
+      "updated": null,
+      "excerpt": "测试2， as-ssd-bench Realtek RTL9210 2026.4.15 11-07-32.png",
+      "draft": false,
+      "pinned": false,
+      "content": "测试2，\n![as-ssd-bench Realtek RTL9210  2026.4.15 11-07-32.png](assets/images/20260807-szi5eg.png)\n"
+    },
+    {
       "path": "content/notes/2026-08-07-首次直接登录然后发布的仓库文章更新-棒不棒.md",
       "slug": "2026-08-07-首次直接登录然后发布的仓库文章更新-棒不棒",
       "title": "首次直接登录然后发布的仓库文章更新，棒不棒？",
