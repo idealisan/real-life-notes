@@ -613,7 +613,7 @@
           ]),
           el('td', { class: 'row-actions' }, [
             el('button', { text: '编辑', onClick: function () { startEditPost(p); } }),
-            el('button', { text: '查看', onClick: function () { if (!assertRepoTargets()) return; window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
+            p.draft ? null : el('button', { text: '查看', onClick: function () { if (!assertRepoTargets()) return; window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
             el('button', { class: 'btn-danger', text: '删除', onClick: function () { deletePost(p); } })
           ])
         ]);
@@ -654,7 +654,12 @@
     setBusy(true);
     toast('正在检查文件一致性…', 'ok');
     Promise.all(state.index.posts.map(function (p) {
-      return gh.getContent(p.path).then(function () { return null; }).catch(function () { return p.path; });
+      return gh.getContent(p.path).then(function (text) {
+        // 顺带补全正文，供列表字数统计使用（草稿/旧索引缺少 content 时也能显示）
+        var parsed = md.parseFrontmatter(text);
+        p.content = parsed.body;
+        return null;
+      }).catch(function () { return p.path; });
     })).then(function (missing) {
       setBusy(false);
       missing = missing.filter(Boolean);
@@ -998,6 +1003,13 @@
     };
     var content = md.buildFrontmatter(meta) + '\n' + editor.body.value;
     editor.preview.innerHTML = '<div class="preview-head"></div><div class="preview-body">' + md.render(content) + '</div>';
+    // 预览页位于 /admin/ 下，相对路径图片要相对站点根解析（../content/images/...），绝对路径不动
+    Array.prototype.forEach.call(editor.preview.querySelectorAll('.preview-body img'), function (img) {
+      var src = img.getAttribute('src');
+      if (src && !/^(https?:|data:|blob:|\/)/i.test(src)) {
+        img.setAttribute('src', '../' + src);
+      }
+    });
     var head = editor.preview.querySelector('.preview-head');
     head.appendChild(el('h3', { style: 'margin:0 0 8px', text: meta.title }));
     head.appendChild(el('div', { style: 'color:var(--text-faint);font-size:0.85em', text: md.formatDate(meta.date) + (meta.draft ? ' · 草稿' : '') }));
