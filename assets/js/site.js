@@ -479,6 +479,92 @@
   }
 
   /* ---------- 详情 ---------- */
+  function ensureWikiMaps() {
+    if (state.wikiMapped) return;
+    state.wikiMapped = true;
+    state.wikiByPath = {};
+    state.wikiByTitle = {};
+    state.wikiBySlug = {};
+    state.posts.forEach(function (p) {
+      if (p.draft) return;
+      state.wikiByPath[String(p.path).toLowerCase()] = p;
+      if (p.title) state.wikiByTitle[String(p.title).toLowerCase()] = p;
+      var slug = p.path.split('/').pop().replace(/\.md$/, '');
+      if (slug) state.wikiBySlug[slug.toLowerCase()] = p;
+    });
+  }
+
+  function resolveWikiTarget(target) {
+    ensureWikiMaps();
+    var t = String(target).trim().toLowerCase();
+    if (!t) return null;
+    return state.wikiByPath[t] || state.wikiByTitle[t] || state.wikiBySlug[t] || null;
+  }
+
+  function applyWikiLinks(root) {
+    ensureWikiMaps();
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        var p = node.parentNode;
+        if (!p || /^(PRE|CODE|A|SCRIPT|STYLE)$/.test(p.nodeName)) return NodeFilter.FILTER_REJECT;
+        if (p.classList && p.classList.contains('wl')) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var texts = [];
+    var node;
+    while ((node = walker.nextNode())) texts.push(node);
+    texts.forEach(function (textNode) {
+      var text = textNode.nodeValue;
+      var re = /\[\[([^\]\]]+)\]\]/g;
+      var m, last = 0, any = false;
+      var frag = document.createDocumentFragment();
+      while ((m = re.exec(text))) {
+        var post = resolveWikiTarget(m[1]);
+        var display = post ? (post.title || m[1].trim()) : m[1].trim();
+        var span;
+        if (post) {
+          span = document.createElement('a');
+          span.className = 'wl';
+          span.href = 'post.html?p=' + encodeURIComponent(post.path);
+        } else {
+          span = document.createElement('span');
+          span.className = 'wl wl-missing';
+          span.title = '未找到对应文章';
+        }
+        span.textContent = display;
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        frag.appendChild(span);
+        last = m.index + m[0].length;
+        any = true;
+      }
+      if (!any) return;
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      textNode.parentNode.replaceChild(frag, textNode);
+    });
+  }
+
+  function backlinksOf(path) {
+    ensureWikiMaps();
+    var cur = null;
+    state.posts.forEach(function (p) { if (p.path === path) cur = p; });
+    if (!cur) return [];
+    var names = [];
+    if (cur.title) names.push(String(cur.title).toLowerCase());
+    var slug = cur.path.split('/').pop().replace(/\.md$/, '');
+    if (slug) names.push(slug.toLowerCase());
+    names = names.filter(function (s) { return !!s; });
+    if (!names.length) return [];
+    var out = [];
+    state.posts.forEach(function (p) {
+      if (p.draft || p.path === path) return;
+      if (typeof p.content !== 'string' || !p.content) return;
+      var c = p.content.toLowerCase();
+      if (names.some(function (name) { return c.indexOf('[[' + name + ']]') !== -1; })) out.push(p);
+    });
+    return out;
+  }
+
   function renderDetail(path) {
     var inIndex = null;
     state.posts.forEach(function (p) { if (p.path === path) inIndex = p; });
@@ -530,6 +616,7 @@
     var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(tagLink)) : null;
 
     var body = el('article', { class: 'detail-body', html: md.render(parsed.body) });
+    applyWikiLinks(body);
     applyFontSize(body);
     externalizeLinks(body);
     attachLightbox(body);
@@ -596,6 +683,15 @@
     els.view.appendChild(renderDetailNav(path));
     var related = relatedPosts(path);
     if (related) els.view.appendChild(related);
+    var bl = backlinksOf(path);
+    if (bl.length) {
+      els.view.appendChild(el('section', { class: 'backlinks' }, [
+        el('h2', { class: 'backlinks-title', text: '反向链接' }),
+        el('ul', { class: 'backlinks-list' }, bl.map(function (p) {
+          return         el('li', {}, [el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title || p.path })]);
+        }))
+      ]));
+    }
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
       el('a', { href: 'index.html', text: '← 返回列表' }),
       el('span', { class: 'detail-foot-actions' }, [
