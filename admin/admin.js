@@ -299,6 +299,8 @@
       });
     }).then(function () {
       setBusy(false);
+      writeSession('adminToken', token);
+      writeSession('adminRepo', repoAddr || '');
       storeCredential(token);
       els.connectView.hidden = true;
       els.workspace.hidden = false;
@@ -317,6 +319,16 @@
       els.connectError.textContent = errMsg(err);
       els.connectError.hidden = false;
     });
+  }
+
+  function readSession(key) {
+    try { return sessionStorage.getItem(key) || ''; } catch (e) { return ''; }
+  }
+  function writeSession(key, val) {
+    try { sessionStorage.setItem(key, val); } catch (e) {}
+  }
+  function clearSession() {
+    try { sessionStorage.removeItem('adminToken'); sessionStorage.removeItem('adminRepo'); } catch (e) {}
   }
 
   function storeCredential(token) {
@@ -378,6 +390,7 @@
     state.cfg = null;
     state.index = { posts: [] };
     gh.config({ token: null });
+    clearSession();
     showConnect();
   }
 
@@ -1615,8 +1628,19 @@
         els.connectTargetText.textContent = t.owner + '/' + t.repo + ' @' + (t.branch || 'main');
         els.connectTarget.hidden = false;
       }
+      var savedToken = readSession('adminToken');
+      if (savedToken) {
+        // 独立登录页已把 Token/仓库写入 sessionStorage：自动连接，成功后直接进入工作区
+        els.connectView.hidden = false;
+        els.workspace.hidden = true;
+        els.connectError.hidden = true;
+        els.connectMeta.hidden = false;
+        els.connectMeta.textContent = '正在连接 GitHub…';
+        connect(savedToken, readSession('adminRepo'));
+      } else {
+        showConnect();
+      }
     });
-    showConnect();
   }
 
   boot();

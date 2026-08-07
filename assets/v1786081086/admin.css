@@ -78,6 +78,8 @@ html { overflow-y: scroll; }
 }
 .repo-warn .repo-warn-close:hover { background: color-mix(in srgb, var(--warning) 18%, transparent); }
 
+.connect-login-link { font-size: 0.85em; color: var(--accent); }
+
 /* ---- 连接横幅 ---- */
 .connect-view {
   position: sticky;
