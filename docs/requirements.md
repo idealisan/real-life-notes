@@ -119,4 +119,12 @@
 - **修复**：`gh.commitInitial` 改为先探测分支 ref —— 若不存在（404/409），先用 Contents API 写 `README.md` 创建首个提交拿到基线 sha；然后走 blobs/trees（空仓库不带 `base_tree`，全量替换）→ commits（`parents=[基线]`）→ `PATCH refs`（改为更新而非创建 ref，兼容已存在分支）。仓库已有内容时保留 `base_tree` 增量写入。
 - 测试：`test-init-commit.js`（空仓库：409→README 引导→无 base_tree→parents=[引导提交]；非空：带 base_tree→parents=[HEAD]）。
 
+### 仓库匹配校验（当前仓库 ≠ 预览目标仓库时拦截）
+- **问题**：站点不一定部署在 GitHub Pages（也可能经 Cloudflare/自定义域名指向后台所在站点），后台无法只靠 URL 判断「当前管理仓库」；若用户在 A 仓库部署的后台里连接了 B 仓库发布内容，「查看」链接会生成指向 B 的 URL，而 B 并没有站点，预览必然失败。
+- **方案**：**当前管理仓库以数据记录** —— `config.json.github{owner,repo,branch}`，连接时从 `gh.snapshot()` 强制同步为该仓库（连接即覆盖），一键初始化新仓库时同样正确写入。
+- **匹配判定** `repoMismatch`：后台启动时把本地 `../config.json` 读到的宿主仓库记为 `state.sourceRepo`（后台部署位置）；若 `site.url` 为空 → 用 `sourceRepo` 与当前仓库比对；若 `site.url` 是 `https://<owner>.github.io/<repo>` → 解析比对；自定义域名无法自动判定 → 信任用户在设置中填写的 `site.url`。
+- **拦截**：不匹配时页面顶部显示警示横幅（可关闭，改连接/改 `site.url` 后自动恢复），并阻止「查看」与发布/保存操作（`assertRepoTargets`）。
+- **便捷**：设置页新增「填入 GitHub Pages 地址」按钮，按当前仓库一键填 `https://<owner>.github.io/<repo>/`。
+- 测试：`test-repo-mismatch.js`（同仓库可查看、异仓库横幅+拦截、填地址保存后恢复）。
+
 
