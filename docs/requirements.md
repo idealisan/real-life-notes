@@ -159,9 +159,17 @@
 ### 连接表单支持浏览器保存 Token
 - **问题**：点「连接」后浏览器不弹「保存密码」。纯 SPA 里 `preventDefault` + fetch 登录时，Chrome/Firefox 的原生启发式**根本不会**弹出保存框——它需要真实导航/页面跳转，`action` + `autocomplete` 属性只是必要条件而非充分条件。
 - **方案**：两条腿走路——
-  - 表单属性：`<form action="./" method="post">` + token `autocomplete="current-password"` + `visually-hidden` 的 `autocomplete="username"` 隐藏字段（提交时 JS 填仓库 owner）。供不支持 API 的浏览器做原生兜底。
+  - 表单属性：`<form action="./" method="get">` + token `autocomplete="current-password"` + `visually-hidden` 的 `autocomplete="username"` 隐藏字段（提交时 JS 填仓库 owner）。供不支持 API 的浏览器做原生兜底。
   - **程序化触发（主力）**：连接成功后显式调用 Credential Management API —— `navigator.credentials.store(new PasswordCredential({ id: state.user.login, password: token }))`。该 API 已跨浏览器稳定（MDN：2020-01 起全支持；caniuse Chrome 57–152 ✅），仅限 HTTPS 与顶层上下文，成功后浏览器弹出「保存密码」。失败/不支持时静默忽略（store() 里 catch）。
 - 验证：jsdom 全绿；浏览器实测 HTTPS 下连接成功即弹保存提示（已推送 `86b3f9f`）。
+
+### 独立登录页（无后端静态兼容，触发浏览器保存 Token）
+- **问题**：后台登录若用 `method="post"`，静态托管（GitHub Pages / 任意静态服务器）没有后端接收 POST，不可行。
+- **方案**：新增 `admin/login.html` 独立登录页，用 `method="get"` + `action="./index.html"` 做**真实表单提交跳转**（静态托管 GET 完全可行），通过真实页面跳转触发浏览器「保存密码」提示。
+  - Token/仓库输入**不带 `name`**（GET 序列化时不会把敏感 Token 带进 URL），改用 `id` 定位；隐藏 `adminUser` 字段保留 `name="adminUser"` + `autocomplete="username"`，提交时 JS 填仓库 owner 供密码管理器识别。
+  - 提交处理器把 Token/仓库写入 `sessionStorage`（`adminToken`/`adminRepo`），**不 preventDefault**，浏览器真实 GET 跳转到 `index.html`；后台 `boot()` 读到 sessionStorage 自动连接（`test-login-flow.js` 覆盖）。
+  - 后台横幅新增入口链接「使用独立登录页登录」；原横幅内嵌连接表单（SPA + `preventDefault` + Credential Management API）保留作兜底。
+- 验证：jsdom `test-login-flow.js` 16 项全绿（含 method=get、Token 无 name、不 preventDefault、sessionStorage 缓存、自动连接）；代理线上 `/admin/login.html` 200。
 
 ### 分类页空白 + 设置页左右偏移
 - **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。

@@ -16,17 +16,18 @@
       <p class="hint" style="margin:0 0 16px">
         填写 GitHub Token 后点击提交：浏览器会弹出「保存密码」提示，保存后下次打开可自动填充并一键进入后台。
       </p>
-      <form id="loginForm" action="./index.html" method="post" autocomplete="on">
-        <input type="text" name="adminUser" autocomplete="username"
+      <!-- GET 真实提交：纯静态托管无需后端也能跳转；敏感输入不带 name，Token 不会进入 URL -->
+      <form id="loginForm" action="./index.html" method="get" autocomplete="on">
+        <input type="text" id="adminUser" name="adminUser" autocomplete="username"
                class="visually-hidden" aria-hidden="true" tabindex="-1">
         <div class="field">
           <label for="adminToken">GitHub Token（fine-grained PAT，仅授权本仓库 Contents 读写）</label>
-          <input id="adminToken" name="adminToken" type="password" autocomplete="current-password"
+          <input id="adminToken" type="password" autocomplete="current-password"
                  placeholder="github_pat_…" required spellcheck="false" autocapitalize="off">
         </div>
         <div class="field">
           <label for="adminRepo">目标仓库 URL（可选）</label>
-          <input id="adminRepo" name="adminRepo" type="text" autocomplete="off"
+          <input id="adminRepo" type="text" autocomplete="off"
                  placeholder="https://github.com/owner/repo" spellcheck="false" autocapitalize="off">
         </div>
         <button type="submit" class="btn-primary">连接并进入后台</button>
@@ -37,21 +38,23 @@
     (function () {
       'use strict';
       var form = document.getElementById('loginForm');
-      var userEl = form.elements.adminUser;
+      var userEl = document.getElementById('adminUser');
+      var tokenEl = document.getElementById('adminToken');
+      var repoEl = document.getElementById('adminRepo');
       try {
         var savedRepo = sessionStorage.getItem('adminRepo');
-        if (savedRepo) form.elements.adminRepo.value = savedRepo;
+        if (savedRepo) repoEl.value = savedRepo;
       } catch (e) {}
       form.addEventListener('submit', function () {
         try {
-          sessionStorage.setItem('adminToken', form.elements.adminToken.value.trim());
-          sessionStorage.setItem('adminRepo', form.elements.adminRepo.value.trim());
-          var s = form.elements.adminRepo.value.trim().replace(/\/+$/, '');
+          sessionStorage.setItem('adminToken', tokenEl.value.trim());
+          sessionStorage.setItem('adminRepo', repoEl.value.trim());
+          var s = repoEl.value.trim().replace(/\/+$/, '');
           var parts = s ? s.split('/').filter(Boolean) : [];
           userEl.value = parts.length >= 2 ? parts[parts.length - 2] : 'github';
         } catch (e) {}
-        // 不调用 preventDefault：让表单真实提交并跳转到 index.html，
-        // 通过真实页面跳转触发浏览器「保存密码」提示。
+        // 不调用 preventDefault：让表单以 GET 真实提交并跳转到 index.html，
+        // 通过真实页面跳转触发浏览器「保存密码」提示。敏感输入无 name，Token 不会进 URL。
       });
     })();
   </script>
