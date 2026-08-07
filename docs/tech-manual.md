@@ -41,11 +41,11 @@ assets/
         site.js       公共站点控制器
         theme.js      主题切换（亮/暗/跟随系统）
   vendor/             本地托管第三方库（marked/purify/katex+字体/hljs+主题）
-config.json           站点配置（标题、分类、GitHub 坐标、评论开关）
+content/config.json   站点配置（标题、分类、GitHub 坐标、评论开关）
 content/index.json    帖子索引（公开站点唯一入口；含正文 content 与 draft）
 content/<分类>/<slug>.md  帖子正文（frontmatter + Markdown）
-assets/images/        编辑器上传的图片
-rss.xml / sitemap.xml / robots.txt   由后台随发布重建
+content/images/       编辑器上传的图片
+content/rss.xml / sitemap.xml / robots.txt   由后台随发布重建
 docs/                 设计文档
 ```
 
@@ -145,10 +145,10 @@ docs/                 设计文档
 **工作区**：
 - 文章列表：`renderPosts`（筛选/状态徽标/字数列/置顶徽标/批量勾选条）。
 - 编辑器 `renderEditor`：标题、分类、标签、日期、草稿/置顶开关、正文（textarea）+ 双栏实时预览；`markDirty` 未保存提醒（beforeunload）；工具栏（`lineAction`/`wrapSelection`/`attachEditorKeys` 加粗斜体等）；公式/代码高亮预览复用 `md.render`。
-- 图片上传 `uploadImage`：粘贴/拖拽/选择文件 → 前端校验类型与大小 → 转 Base64 → 随保存 commit 写入 `assets/images/<YYYYMMDD>-<rand>.<ext>`。
-- 发布 `savePost`：计算 slug（`YYYY-MM-DD-<kebab-case>`，冲突加 `-2`）→ 组装 md + frontmatter → 计算新 index.json → 同 commit 原子更新（md + index + rss.xml）；删除 `deletePost` 同理（tree `sha:null`）。
+- 图片上传 `uploadImage`：粘贴/拖拽/选择文件 → 前端校验类型与大小 → 转 Base64 → 随保存 commit 写入 `content/images/<YYYYMMDD>-<rand>.<ext>`。
+- 发布 `savePost`：计算 slug（`YYYY-MM-DD-<kebab-case>`，冲突加 `-2`）→ 组装 md + frontmatter → 计算新 index.json → 同 commit 原子更新（md + index + content/rss.xml）；删除 `deletePost` 同理（tree `sha:null`）。
 - 批量 `bulkAction`：勾选多篇 → 批量发布/存草稿/删除（一次 commit）；`bulkMoveCategory`：批量移动分类。
-- 分类管理 `renderCategories`：增删改（写入 config.json，校验重名/非法 key）。
+- 分类管理 `renderCategories`：增删改（写入 content/config.json，校验重名/非法 key）。
 - 站点设置 `renderSettings`：标题/副标题/作者/站点地址/评论开关与标签、「重新生成 RSS/sitemap/robots」（`regeneratePublishFiles`，`buildRss/buildSitemap/buildRobots` 纯生成）。
 - 空仓库初始化 `initRepo`：读源仓库（本项目模板）公开树 → 逐文件 fetch（二进制转 Base64）→ `commitInitial` 一次性交付。
 
@@ -166,7 +166,7 @@ docs/                 设计文档
       message: "[post] 新建|更新|删除 <title>",
       files: [ {path: content/<cat>/<slug>.md, content},
                {path: content/index.json, content: newIndex},
-               {path: rss.xml, content: buildRss()} ]  // 站点设置/删除也重建
+               {path: content/rss.xml, content: buildRss()} ]  // 站点设置/删除也重建
     })
   → 成功：展示 commit 链接；提示 Pages 将自动构建、raw 已即时可见
 ```

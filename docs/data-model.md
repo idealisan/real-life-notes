@@ -7,20 +7,20 @@
 ## 1. 仓库数据总览
 
 ```
-config.json          — 站点配置（站点元信息 + 分类元数据 + GitHub 源坐标）
+content/config.json   — 站点配置（站点元信息 + 分类元数据 + GitHub 源坐标）
 content/index.json   — 帖子索引（公开站点列表的唯一入口）
 content/<category>/<slug>.md  — 帖子正文（frontmatter + Markdown）
-assets/images/       — 编辑器上传的图片（<YYYYMMDD>-<rand>.<ext>）
-rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 commit 重建）
+content/images/      — 编辑器上传的图片（<YYYYMMDD>-<rand>.<ext>）
+content/rss.xml / content/sitemap.xml / content/robots.txt  — 派生的 RSS/站点地图/robots（每次内容变更时随 commit 重建）
 ```
 
-三种文件全部是普通文本，可直接用 Git 版本控制；所有读写都通过 GitHub API 完成。
+**结构约定**：所有**用户内容**（markdown、图片、配置、派生的 RSS/sitemap/robots）统一放在顶层 `content/` 目录下，与代码/项目资源（`assets/`、`admin/`、`tools/`、`docs/`、页面 HTML）完全分离。`assets/` 下只有代码（`js/`、`css/`、`vendor/`、版本目录 `v<ts>/`）。三种文件全部是普通文本，可直接用 Git 版本控制；所有读写都通过 GitHub API 完成。
 
 ---
 
 ## 2. config.json
 
-`config.json` 位于仓库根目录。
+`content/config.json`（位于 `content/` 目录内）。
 
 ```jsonc
 {
@@ -54,7 +54,7 @@ rss.xml              — 派生的 RSS 订阅源（每次内容变更时随 comm
 | `site.subtitle` | string | ≤ 200 字符，可空；列表页 meta description 兜底 |
 | `site.author` | string? | 作者名，写入 JSON-LD `BlogPosting.author`；可空（空时回退站点标题） |
 | `site.footer` | string | 可空 |
-| `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；**为空时使用相对路径**（`post.html?p=…`、`rss.xml`），适配 GitHub Pages 多仓库/子路径部署 |
+| `site.url` | string? | 站点绝对地址（生成 RSS/sitemap 链接用）；**为空时使用相对路径**（`post.html?p=…`、`content/rss.xml`），适配 GitHub Pages 多仓库/子路径部署 |
 | `github.owner` / `github.repo` | string | 非空；公开站点据此构造 raw 源 |
 | `github.branch` | string | 默认 `main` |
 | `categories` | object | key = 分类 id（即 content/ 下目录名），value 见下 |
@@ -187,7 +187,7 @@ updated: <ISO8601>\n  # 仅更新时
 - 一次发布 = **一个 commit**，其 tree 同时包含：
   - 帖子 md 文件（新增/更新/删除）
   - `content/index.json`（索引同步：新增/更新/删除条目、draft 翻转）
-  - `rss.xml`（按最新已发布列表重建；发布/删除/站点设置变更时都重建）
+  - `content/rss.xml`（按最新已发布列表重建；发布/删除/站点设置变更时都重建）
 - 保证公开站点与 raw 内容永远一致，不会出现"有索引无文件"或"有文件无索引"。
 
 ---

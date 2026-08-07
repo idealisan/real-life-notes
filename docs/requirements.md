@@ -113,7 +113,7 @@
 
 ### 图片上传二进制通道修复
 - **Bug**：后台 `uploadImage` 用 FileReader 把图片转成 base64 字符串后，经 `gh.commitFiles` 直接写入 tree 的 `content` 字段，而该字段按 **UTF-8 文本**写入 → 仓库里的 `.png` 文件实际存的是 base64 文本，浏览器拿到 `content-type: image/png` 却无法解码显示。
-- **修复**：`gh.commitFiles` 支持 `{ binary: true }`（与 `commitInitial` 一致），二进制文件改走 `POST /git/blobs`（`content` + `encoding: "base64"`）拿到 blob sha，tree 条目引用该 sha；`uploadImage` 传 `binary: true`。已损坏的 `assets/images/20260807-2u4wct.png` 解码还原为真实 PNG。
+- **修复**：`gh.commitFiles` 支持 `{ binary: true }`（与 `commitInitial` 一致），二进制文件改走 `POST /git/blobs`（`content` + `encoding: "base64"`）拿到 blob sha，tree 条目引用该 sha；`uploadImage` 传 `binary: true`。已损坏的图片（当时位于 `assets/images/`，现已随结构迁移到 `content/images/`）解码还原为真实 PNG。
 - 测试：`test-binary.js`（mock fetch，断言调用序列 refs→commit→blobs→trees(引用 blob sha)→commits→PATCH refs）。
 
 ### 空仓库初始化失败修复（Git Repository is empty 409）
@@ -123,10 +123,21 @@
 
 ### 仓库匹配校验（当前仓库 ≠ 预览目标仓库时拦截）
 - **问题**：站点不一定部署在 GitHub Pages（也可能经 Cloudflare/自定义域名指向后台所在站点），后台无法只靠 URL 判断「当前管理仓库」；若用户在 A 仓库部署的后台里连接了 B 仓库发布内容，「查看」链接会生成指向 B 的 URL，而 B 并没有站点，预览必然失败。
-- **方案**：**当前管理仓库以数据记录** —— `config.json.github{owner,repo,branch}`，连接时从 `gh.snapshot()` 强制同步为该仓库（连接即覆盖），一键初始化新仓库时同样正确写入。
-- **匹配判定** `repoMismatch`：后台启动时把本地 `../config.json` 读到的宿主仓库记为 `state.sourceRepo`（后台部署位置）；若 `site.url` 为空 → 用 `sourceRepo` 与当前仓库比对；若 `site.url` 是 `https://<owner>.github.io/<repo>` → 解析比对；自定义域名无法自动判定 → 信任用户在设置中填写的 `site.url`。
+- **方案**：**当前管理仓库以数据记录** —— `content/config.json` 的 `github{owner,repo,branch}`，连接时从 `gh.snapshot()` 强制同步为该仓库（连接即覆盖），一键初始化新仓库时同样正确写入。
+- **匹配判定** `repoMismatch`：后台启动时把本地 `../content/config.json` 读到的宿主仓库记为 `state.sourceRepo`（后台部署位置）；若 `site.url` 为空 → 用 `sourceRepo` 与当前仓库比对；若 `site.url` 是 `https://<owner>.github.io/<repo>` → 解析比对；自定义域名无法自动判定 → 信任用户在设置中填写的 `site.url`。
 - **拦截**：不匹配时页面顶部显示警示横幅（可关闭，改连接/改 `site.url` 后自动恢复），并阻止「查看」与发布/保存操作（`assertRepoTargets`）。
 - **便捷**：设置页新增「填入 GitHub Pages 地址」按钮，按当前仓库一键填 `https://<owner>.github.io/<repo>/`。
 - 测试：`test-repo-mismatch.js`（同仓库可查看、异仓库横幅+拦截、填地址保存后恢复）。
+
+### 用户内容与代码/项目资源分离（目录结构调整）
+- **问题**：用户内容（markdown、上传图片、站点配置、派生的 RSS/sitemap/robots）与代码/项目资源混放在仓库根与 `assets/` 下：`assets/images/`（图片在代码资源目录里）、根目录 `config.json`/`rss.xml`/`sitemap.xml`/`robots.txt` 与页面 HTML 平级。
+- **方案**：全部**用户内容**统一收进顶层 `content/` 目录，与代码完全分离：
+  - `config.json` → `content/config.json`（站点启动/后台 boot 改读该路径）
+  - `assets/images/` → `content/images/`（上传与历史内容引用同步迁移）
+  - `rss.xml`/`sitemap.xml`/`robots.txt` → `content/`（后台随发布重建时写入 `content/`；HTML 的 RSS 链接改为 `content/rss.xml`）
+  - `content/index.json` 与 `content/<分类>/<slug>.md` 位置不变（`posts[].path` 语义不变）
+- `assets/` 现在只放代码（`js/`、`css/`、`vendor/`、版本目录 `v<ts>/`）；页面 HTML、`admin/`、`tools/`、`docs/` 为项目资源。
+- **影响**：RSS/站点地图/robots 从根路径移到 `content/`；爬虫默认抓取根 `/robots.txt` 会 404（视为不限制，可接受）；`initRepo` 复制源仓库时 `content/` 整体跳过（本来就是用户内容）。
+- 验证：jsdom 集成测试全绿；代理线上 `content/config.json`、`content/images/`、版本化资源均 200，旧根路径 404。
 
 

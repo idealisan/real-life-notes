@@ -199,7 +199,7 @@
       '  <title>' + escXml(site.title || '') + '</title>\n' +
       '  <link>' + escXml(homeUrl()) + '</link>\n' +
       '  <description>' + escXml(site.subtitle || '') + '</description>\n' +
-      '  <atom:link href="' + escXml(absUrl('rss.xml')) + '" rel="self" type="application/rss+xml"/>\n' +
+      '  <atom:link href="' + escXml(absUrl('content/rss.xml')) + '" rel="self" type="application/rss+xml"/>\n' +
       '  <lastBuildDate>' + new Date().toUTCString() + '</lastBuildDate>\n' +
       items + '\n' +
       '</channel>\n</rss>\n';
@@ -226,7 +226,7 @@
   function buildRobots() {
     return 'User-agent: *\n' +
       'Allow: /\n\n' +
-      'Sitemap: ' + absUrl('sitemap.xml') + '\n';
+      'Sitemap: ' + absUrl('content/sitemap.xml') + '\n';
   }
 
   function errMsg(err) {
@@ -319,7 +319,7 @@
   }
 
   function fetchRepoConfig() {
-    return gh.getContent('config.json').then(function (text) {
+    return gh.getContent('content/config.json').then(function (text) {
       try {
         state.cfg = Object.assign(DEFAULT_CONFIG(), JSON.parse(text));
         if (!state.cfg.categories) state.cfg.categories = {};
@@ -996,7 +996,7 @@
       var base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
       var now = new Date();
       var p = String(now.getFullYear()) + ('0' + (now.getMonth() + 1)).slice(-2) + ('0' + now.getDate()).slice(-2);
-      var path = 'assets/images/' + p + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      var path = 'content/images/' + p + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       var markdown = '![' + (file.name || path.split('/').pop()).replace(/[[\]()]/g, '') + '](' + path + ')';
       setBusy(true);
       toast('正在上传图片…', 'ok');
@@ -1101,9 +1101,9 @@
       files: [
         { path: contentPath, content: content },
         { path: 'content/index.json', content: newIndex },
-        { path: 'rss.xml', content: buildRss(posts) },
-        { path: 'sitemap.xml', content: buildSitemap(posts) },
-        { path: 'robots.txt', content: buildRobots() }
+        { path: 'content/rss.xml', content: buildRss(posts) },
+        { path: 'content/sitemap.xml', content: buildSitemap(posts) },
+        { path: 'content/robots.txt', content: buildRobots() }
       ],
       deletes: deletes
     }).then(function (commit) {
@@ -1131,9 +1131,9 @@
       message: '[删除] ' + (title || path),
       files: [
         { path: 'content/index.json', content: newIndex },
-        { path: 'rss.xml', content: buildRss(posts) },
-        { path: 'sitemap.xml', content: buildSitemap(posts) },
-        { path: 'robots.txt', content: buildRobots() }
+        { path: 'content/rss.xml', content: buildRss(posts) },
+        { path: 'content/sitemap.xml', content: buildSitemap(posts) },
+        { path: 'content/robots.txt', content: buildRobots() }
       ],
       deletes: [path]
     }).then(function () {
@@ -1179,9 +1179,9 @@
       var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
       var files = [
         { path: 'content/index.json', content: newIndex },
-        { path: 'rss.xml', content: buildRss(posts) },
-        { path: 'sitemap.xml', content: buildSitemap(posts) },
-        { path: 'robots.txt', content: buildRobots() }
+        { path: 'content/rss.xml', content: buildRss(posts) },
+        { path: 'content/sitemap.xml', content: buildSitemap(posts) },
+        { path: 'content/robots.txt', content: buildRobots() }
       ];
       var deletes = action === 'delete' ? paths : [];
       return gh.commitFiles({
@@ -1231,9 +1231,9 @@
           return { path: 'content/' + newCat + '/' + slug + '.md', content: raws[i] };
         }).concat([
           { path: 'content/index.json', content: newIndex },
-          { path: 'rss.xml', content: buildRss(posts) },
-          { path: 'sitemap.xml', content: buildSitemap(posts) },
-          { path: 'robots.txt', content: buildRobots() }
+          { path: 'content/rss.xml', content: buildRss(posts) },
+          { path: 'content/sitemap.xml', content: buildSitemap(posts) },
+          { path: 'content/robots.txt', content: buildRobots() }
         ]),
         deletes: moves.map(function (p) { return p.path; })
       }).then(function () {
@@ -1350,10 +1350,10 @@
     gh.commitFiles({
       message: message,
       files: [
-        { path: 'config.json', content: content },
-        { path: 'rss.xml', content: buildRss() },
-        { path: 'sitemap.xml', content: buildSitemap() },
-        { path: 'robots.txt', content: buildRobots() }
+        { path: 'content/config.json', content: content },
+        { path: 'content/rss.xml', content: buildRss() },
+        { path: 'content/sitemap.xml', content: buildSitemap() },
+        { path: 'content/robots.txt', content: buildRobots() }
       ]
     }).then(function () {
       setBusy(false);
@@ -1370,9 +1370,9 @@
     gh.commitFiles({
       message: '重新生成 RSS/站点地图/robots',
       files: [
-        { path: 'rss.xml', content: buildRss() },
-        { path: 'sitemap.xml', content: buildSitemap() },
-        { path: 'robots.txt', content: buildRobots() }
+        { path: 'content/rss.xml', content: buildRss() },
+        { path: 'content/sitemap.xml', content: buildSitemap() },
+        { path: 'content/robots.txt', content: buildRobots() }
       ]
     }).then(function () {
       setBusy(false);
@@ -1404,7 +1404,7 @@
   }
 
   function initRepo() {
-    if (!state.sourceRepo) { toast('无法确定源仓库（本站 config.json 缺失）', 'error'); return; }
+    if (!state.sourceRepo) { toast('无法确定源仓库（本站 content/config.json 缺失）', 'error'); return; }
     if (state.emptyRepo === false) { toast('该仓库已有内容，不支持初始化', 'error'); return; }
     setBusy(true);
     toast('正在读取本站代码文件…', 'ok');
@@ -1414,7 +1414,6 @@
         .map(function (t) { return t.path; })
         .filter(function (p) {
           if (p.indexOf('content/') === 0) return false;
-          if (p === 'rss.xml' || p === 'sitemap.xml' || p === 'robots.txt' || p === 'config.json') return false;
           return true;
         });
       if (!paths.length) throw new Error('源仓库没有可复制的文件');
@@ -1422,7 +1421,7 @@
         var snap = gh.snapshot();
         var cfg = DEFAULT_CONFIG();
         cfg.github = { owner: snap.owner, repo: snap.repo, branch: snap.branch || 'main' };
-        files.push({ path: 'config.json', content: JSON.stringify(cfg, null, 2) + '\n' });
+        files.push({ path: 'content/config.json', content: JSON.stringify(cfg, null, 2) + '\n' });
         files.push({ path: 'content/index.json', content: '{\n  "schema": 1,\n  "posts": []\n}\n' });
         return gh.commitInitial({
           message: '初始化：提交本站程序文件',
@@ -1519,7 +1518,7 @@
     els.mainContent.appendChild(el('section', { class: 'panel' }, [
       el('h2', { class: 'panel-title', text: '仓库信息' }),
       el('div', { class: 'field' }, [
-        el('div', { class: 'hint', text: '以下信息来自已连接的仓库，如需修改请直接更新 config.json。' }),
+        el('div', { class: 'hint', text: '以下信息来自已连接的仓库，如需修改请直接更新 content/config.json。' }),
         el('div', { class: 'repo-badge', style: 'display:inline-block;margin-top:8px', text: g.owner + '/' + g.repo + ' @' + g.branch })
       ]),
       state.user ? el('div', { class: 'field' }, [
@@ -1538,7 +1537,7 @@
   });
 
   function boot() {
-    fetch('../config.json').then(function (res) {
+    fetch('../content/config.json').then(function (res) {
       if (!res.ok) throw new Error();
       return res.json();
     }).then(function (cfg) {

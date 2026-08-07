@@ -33,9 +33,11 @@ real-life-notes/
 │   └── vendor/             # 本地托管的第三方库（避免 CDN，收紧 CSP）
 │       ├── marked.min.js
 │       └── purify.min.js
-├── config.json             # 站点配置（标题、简介、分类元数据）
-├── content/                # 内容仓库（数据源）
+├── content/                # 用户内容（与代码/项目资源完全分离）
+│   ├── config.json         # 站点配置（标题、简介、分类元数据）
 │   ├── index.json          # 帖子索引（公开站点读取的唯一入口）
+│   ├── images/             # 编辑器上传的图片
+│   ├── rss.xml / sitemap.xml / robots.txt   # 派生的订阅/站点地图（随发布重建）
 │   ├── notes/              # 分类 = 目录
 │   │   └── 2026-07-31-hello.md
 │   ├── life/
@@ -75,7 +77,7 @@ real-life-notes/
 ### 3.3 site.js — 公共站点控制器
 
 职责：
-- 启动流程：读取 `/config.json`（同源，失败则回退内嵌默认值）→ 读 `config.github` 确定 raw 源 → 拉取 `content/index.json` → 渲染页面。
+- 启动流程：读取 `/content/config.json`（同源，失败则回退内嵌默认值）→ 读 `config.github` 确定 raw 源 → 拉取 `content/index.json` → 渲染页面。
 - 路由（MPA + query，无 hash）：`site.js` 按当前页面（`index.html` / `post.html`）自动进入列表或详情模式：
   - `index.html`：列表视图，`?cat=` 分类、`?q=` 关键词搜索、`?page=` 翻页、`?view=archive` 归档；筛选变化用 `history.replaceState` 同步 URL，监听 `popstate` 支持前进/后退。
   - `post.html?p=content/<分类>/<slug>.md`：文章详情（优先读 index.json 内嵌 `content`，旧索引回退 fetch raw）；页内锚点 `#heading` 原生可用；无 `p`/未知路径/草稿 → 404 提示。
@@ -90,8 +92,8 @@ real-life-notes/
 - **工作区视图**：
   - 文章列表（分类过滤、搜索、草稿标记、编辑/删除入口）
   - 编辑器（新建/编辑）：标题、分类、标签、日期、草稿开关、正文、双栏预览、发布
-  - 分类管理：增删改分类元数据（写入 config.json）
-  - 站点设置：标题/简介/分类图标等（写入 config.json）
+  - 分类管理：增删改分类元数据（写入 content/config.json）
+  - 站点设置：标题/简介/分类图标等（写入 content/config.json）
 - **发布流程**：组装文件变更 → `gh.commitFiles()` → 展示 commit 链接。
 - 状态管理：单一 `state` 对象 + 纯函数更新，视图重绘集中在 `render()`。
 
@@ -117,7 +119,7 @@ real-life-notes/
 
 ### 5.1 首次访问公开站点
 ```
-浏览器 → GET /config.json (同源)
+浏览器 → GET /content/config.json (同源)
       → GET <raw>/content/index.json
       → 渲染分类 + 文章列表
 ```
@@ -200,7 +202,7 @@ admin 填表 → 组装 post 内容（frontmatter + body）
 
 ## 10. 演进路线
 
-**已实现**（见 README 状态）：图片上传（`assets/images/`，Base64 经 Git tree 提交）、代码高亮（highlight.js 本地托管 + 深浅主题）、深色模式、RSS（发布时随 commit 重建）、sitemap、详情页灯箱/复制链接/元描述、标签点击搜索、草稿直链拦截、全文搜索（索引内嵌 `content` + 命中高亮 `mark.hl`）、归档视图（`index.html?view=archive`）、**MPA 重构**（`index.html`/`post.html?p=`/`404.html`，query 路由 + 原生锚点 + `replaceState` URL 同步）。
+**已实现**（见 README 状态）：图片上传（`content/images/`，Base64 经 Git tree 提交）、代码高亮（highlight.js 本地托管 + 深浅主题）、深色模式、RSS（发布时随 commit 重建）、sitemap、详情页灯箱/复制链接/元描述、标签点击搜索、草稿直链拦截、全文搜索（索引内嵌 `content` + 命中高亮 `mark.hl`）、归档视图（`index.html?view=archive`）、**MPA 重构**（`index.html`/`post.html?p=`/`404.html`，query 路由 + 原生锚点 + `replaceState` URL 同步）。
 
 **未做/可演进**：
 - 多作者（服务端 Workers 集中 secret，见 system-design 形态 B）。

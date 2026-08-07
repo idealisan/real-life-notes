@@ -9,7 +9,7 @@
 ## 1. 项目定位与核心约束
 
 - **形态**：公共站点（`index.html` / `post.html?p=`）+ 管理后台（`admin/`），纯原生 JS，无构建步骤。
-- **数据层**：`config.json` + `content/index.json` + `content/<分类>/<slug>.md` + `assets/images/`，一次发布 = 一个 commit 原子更新。
+- **数据层**：`config.json` + `content/index.json` + `content/<分类>/<slug>.md` + `content/images/`，一次发布 = 一个 commit 原子更新。
 - **可用外部能力**：GitHub REST API（公开读 + PAT 私有写，无 CORS 限制）；GitHub Issues（天然评论系统）；浏览器 localStorage/IndexedDB/Web Crypto（本地数据）；GitHub Pages 构建（推送即发布）。
 - **不可用能力**：任何服务端逻辑、Cron 定时任务、无授权第三方服务、需 OAuth 的秘密流程（已调研否决，见 `system-design.md`）。
 - **部署形态**：GitHub Pages 多仓库/子路径（相对路径部署已支持），亦可部署到任意静态托管；实际经 Cloudflare 代理访问（有静态资源缓存，资源更新需递增 `?v=` 版本号）。
@@ -173,7 +173,7 @@
 ### 4.12 R12 — 媒体库管理
 
 - **现状**：图片上传即走，无法复用/整理/删除旧图。
-- **目标**：后台"图片库"：列出 `assets/images/` 全部图片（缩略图网格）、按文件名/日期筛选、复制 URL 插入正文、批量删除（一次 commit）。上传时支持选择已有图片复用。
+- **目标**：后台"图片库"：列出 `content/images/` 全部图片（缩略图网格）、按文件名/日期筛选、复制 URL 插入正文、批量删除（一次 commit）。上传时支持选择已有图片复用。
 - **可行性**：目录树 API + 索引本地列表。
 
 ### 4.13 R13 — 数据备份 / 导出

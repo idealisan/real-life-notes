@@ -31,7 +31,7 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - **渲染管线（`md.render`）**：先保护代码块（`@@CODE-n@@`）→ 提取 `$...$`/`$$...$$`（`@@MATH-n@@`，货币 `$数字` 启发式跳过）→ marked → DOMPurify（`FORBID_ATTR:['style']`）→ hljs 高亮 `pre code.language-*` → 回填 KaTeX HTML。
 - **el() 约定**（site.js/admin.js 共用工具）：`onClick` 等事件属性 → `addEventListener(k.slice(2).toLowerCase())`；`null/undefined` 属性值跳过 `setAttribute`（否则复选框/下拉永远选中）。
 - **数据结构**：`config.json`（站点+分类+GitHub 坐标）、`content/index.json`（唯一索引，含 `draft` 字段，草稿进索引但公开站点过滤）、`content/<分类>/<slug>.md`（frontmatter + body）。一次发布 = 一个 commit 原子更新 md + index.json。见 `docs/data-model.md`。
-- 后台入口在 `/admin/`，相对路径要用 `../config.json`。
+- 后台入口在 `/admin/`，相对路径要用 `../content/config.json`。
 
 ## 验证
 - 语法检查与集成测试用 node（本机未装，可临时下载到 `/tmp/opencode/node`）：

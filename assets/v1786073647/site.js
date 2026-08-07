@@ -1279,7 +1279,7 @@
 
   function boot() {
     parseParams();
-    fetchJSON('config.json', null).then(function (cfg) {
+    fetchJSON('content/config.json', null).then(function (cfg) {
       if (cfg) state.config = Object.assign({}, DEFAULT_CONFIG, cfg);
       if (!state.config.site) state.config.site = DEFAULT_CONFIG.site;
       if (!state.config.categories) state.config.categories = {};

@@ -12,7 +12,7 @@
       "excerpt": "测试2， as-ssd-bench Realtek RTL9210 2026.4.15 11-07-32.png",
       "draft": false,
       "pinned": false,
-      "content": "测试2，\n![as-ssd-bench Realtek RTL9210  2026.4.15 11-07-32.png](assets/images/20260807-szi5eg.png)\n"
+      "content": "测试2，\n![as-ssd-bench Realtek RTL9210  2026.4.15 11-07-32.png](content/images/20260807-szi5eg.png)\n"
     },
     {
       "path": "content/notes/2026-08-07-首次直接登录然后发布的仓库文章更新-棒不棒.md",
@@ -25,7 +25,7 @@
       "excerpt": "测试， 粗体 上传图片失败，似乎没有权限，待会试一下。发现没有给token添加这个仓库权限，改了，再试试。 as-ssd-bench SAMSUNG MZVL2512 2026.3.27 9-17-56.png",
       "draft": false,
       "pinned": false,
-      "content": "测试，**粗体**\n上传图片失败，似乎没有权限，待会试一下。发现没有给token添加这个仓库权限，改了，再试试。\n![as-ssd-bench SAMSUNG MZVL2512 2026.3.27 9-17-56.png](assets/images/20260807-2u4wct.png)\n"
+      "content": "测试，**粗体**\n上传图片失败，似乎没有权限，待会试一下。发现没有给token添加这个仓库权限，改了，再试试。\n![as-ssd-bench SAMSUNG MZVL2512 2026.3.27 9-17-56.png](content/images/20260807-2u4wct.png)\n"
     },
     {
       "path": "content/notes/2026-07-31-welcome.md",
