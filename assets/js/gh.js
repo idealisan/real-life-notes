@@ -214,17 +214,29 @@
       return getHeadSha().then(function (headSha) {
         return getCommitTree(headSha).then(function (treeSha) {
           var entries = [];
+          var blobPromises = [];
           files.forEach(function (f) {
-            entries.push({ path: f.path, mode: '100644', type: 'blob', content: String(f.content) });
+            if (f.binary) {
+              blobPromises.push(_request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/blobs', {
+                content: String(f.content),
+                encoding: 'base64'
+              }).then(function (blob) {
+                entries.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+              }));
+            } else {
+              entries.push({ path: f.path, mode: '100644', type: 'blob', content: String(f.content) });
+            }
           });
           deletes.forEach(function (p) {
             entries.push({ path: p, mode: '100644', type: 'blob', sha: null });
           });
-          return createTree(treeSha, entries).then(function (newTree) {
-            return createCommit(opts.message, newTree.sha, headSha).then(function (commit) {
-              return updateRef(commit.sha).then(function () {
-                commit.html_url = 'https://github.com/' + owner + '/' + repo + '/commit/' + commit.sha;
-                return commit;
+          return Promise.all(blobPromises).then(function () {
+            return createTree(treeSha, entries).then(function (newTree) {
+              return createCommit(opts.message, newTree.sha, headSha).then(function (commit) {
+                return updateRef(commit.sha).then(function () {
+                  commit.html_url = 'https://github.com/' + owner + '/' + repo + '/commit/' + commit.sha;
+                  return commit;
+                });
               });
             });
           });

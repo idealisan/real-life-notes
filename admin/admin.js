@@ -954,7 +954,7 @@
       toast('正在上传图片…', 'ok');
       gh.commitFiles({
         message: '[图片] ' + path.split('/').pop(),
-        files: [{ path: path, content: base64 }]
+        files: [{ path: path, content: base64, binary: true }]
       }).then(function (commit) {
         setBusy(false);
         if (editor && editor.body) {
