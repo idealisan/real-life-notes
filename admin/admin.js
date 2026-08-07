@@ -40,6 +40,7 @@
     mainContent: document.getElementById('mainContent'),
     repoBadge: document.getElementById('repoBadge'),
     disconnectBtn: document.getElementById('disconnectBtn'),
+    repoWarn: document.getElementById('repoWarn'),
     busyOverlay: document.getElementById('busyOverlay'),
     toast: document.getElementById('toast')
   };
@@ -121,6 +122,51 @@
   function publicUrl(path) {
     var base = siteBaseUrl();
     return base ? base + '/' + path : '../' + path;
+  }
+
+  /* 当前仓库标记：state.cfg.github 始终等于所连接仓库（fetchRepoConfig 强制同步）。
+     检测站点链接实际指向的仓库与当前仓库是否一致。
+     站点地址已配置时：能解析出 github.io owner/repo 就比对；自定义域名无法判定则信任用户配置。
+     未配置站点地址时：链接是相对路径，落在后台所在站点（state.sourceRepo），与之比对。 */
+  function repoMismatch() {
+    var g = (state.cfg || {}).github || {};
+    if (!g.owner || !g.repo) return null;
+    var url = ((state.cfg || {}).site || {}).url || '';
+    var cur = g.owner.toLowerCase() + '/' + g.repo.toLowerCase();
+    if (url) {
+      var m = url.match(/github\.io\/([^/]+)\/([^/?]+)/);
+      if (m && (m[1].toLowerCase() + '/' + m[2].toLowerCase()) !== cur) {
+        return '站点地址指向了其他仓库（' + m[1] + '/' + m[2] + '），而当前管理的是 ' + g.owner + '/' + g.repo + '。请到「设置」中改为当前仓库的站点地址。';
+      }
+      return null;
+    }
+    var sr = state.sourceRepo;
+    if (sr && (sr.owner.toLowerCase() + '/' + sr.repo.toLowerCase()) !== cur) {
+      return '当前后台所在站点属于仓库 ' + sr.owner + '/' + sr.repo + '，不是当前管理的 ' + g.owner + '/' + g.repo + '。预览链接将指向错误仓库。请到该仓库部署的站点使用后台，或在「设置」中填写正确的站点地址。';
+    }
+    return null;
+  }
+
+  var repoWarnDismissed = false;
+  function updateRepoWarn() {
+    if (!els.repoWarn) return;
+    var m = repoWarnDismissed ? null : repoMismatch();
+    els.repoWarn.textContent = '';
+    els.repoWarn.hidden = !m;
+    if (m) {
+      els.repoWarn.appendChild(el('span', { text: m }));
+      var close = el('button', {
+        class: 'repo-warn-close', type: 'button', 'aria-label': '关闭提醒', text: '✕',
+        onClick: function () { repoWarnDismissed = true; updateRepoWarn(); }
+      });
+      els.repoWarn.appendChild(close);
+    }
+  }
+
+  function assertRepoTargets() {
+    var m = repoMismatch();
+    if (m) { toast(m, 'error'); return false; }
+    return true;
   }
 
   function buildRss(list) {
@@ -261,6 +307,7 @@
         state.view = 'settings';
         toast('检测到空仓库，请先一键初始化再发布内容', 'ok');
       }
+      updateRepoWarn();
       render();
     }).catch(function (err) {
       setBusy(false);
@@ -378,6 +425,7 @@
     else if (state.view === 'editor') renderEditor();
     else if (state.view === 'categories') renderCategories();
     else if (state.view === 'settings') renderSettings();
+    updateRepoWarn();
   }
 
   function sortedPosts() {
@@ -565,7 +613,7 @@
           ]),
           el('td', { class: 'row-actions' }, [
             el('button', { text: '编辑', onClick: function () { startEditPost(p); } }),
-            el('button', { text: '查看', onClick: function () { window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
+            el('button', { text: '查看', onClick: function () { if (!assertRepoTargets()) return; window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
             el('button', { class: 'btn-danger', text: '删除', onClick: function () { deletePost(p); } })
           ])
         ]);
@@ -984,6 +1032,7 @@
   }
 
   function savePost(draft) {
+    if (!assertRepoTargets()) return;
     var ed = state.editing;
     var title = editor.title.value.trim();
     var category = editor.category.value;
@@ -1423,6 +1472,14 @@
       type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
       placeholder: 'https://<用户名>.github.io/<仓库>/（留空则用相对路径）'
     });
+    var pagesFillBtn = el('button', {
+      class: 'btn', type: 'button', text: '填入 GitHub Pages 地址',
+      onClick: function () {
+        var g = state.cfg.github;
+        urlInput.value = 'https://' + g.owner + '.github.io/' + g.repo + '/';
+        toast('已按当前仓库填入，保存后生效', 'ok');
+      }
+    });
     var comments = state.cfg.comments || {};
     var commentsOn = el('input', { type: 'checkbox', id: 'setComments', checked: comments.enabled ? 'checked' : null });
     var commentsLabel = el('input', { type: 'text', id: 'setCommentsLabel', value: comments.label || '评论', maxlength: 30 });
@@ -1436,6 +1493,7 @@
       site.url = urlInput.value.trim();
       state.cfg.comments = { enabled: commentsOn.checked, label: commentsLabel.value.trim() || '评论' };
       saveConfig('更新站点设置', function () {
+        updateRepoWarn();
         renderSettings();
       });
     } });
@@ -1446,6 +1504,10 @@
       el('div', { class: 'field' }, [el('label', { for: 'setSubtitle', text: '副标题' }), subtitleInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setAuthor', text: '作者（用于结构化数据）' }), authorInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setUrl', text: '站点地址（RSS 链接用）' }), urlInput]),
+      el('div', { class: 'hint', style: 'margin-top:-6px' }, [
+        pagesFillBtn,
+        el('span', { text: ' 站点地址必须是「当前管理仓库」的站点；留空时预览链接按相对路径指向后台所在站点。' })
+      ]),
       el('div', { class: 'field' }, [el('label', { for: 'setFooter', text: '页脚文字' }), footerInput]),
       el('div', { class: 'field' }, [el('label', { for: 'setComments', text: '启用评论（GitHub Issues）' }), commentsOn]),
       el('div', { class: 'field' }, [el('label', { for: 'setCommentsLabel', text: '评论标签' }), commentsLabel]),
