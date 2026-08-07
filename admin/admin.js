@@ -118,6 +118,11 @@
     return base ? base + '/' : 'index.html';
   }
 
+  function publicUrl(path) {
+    var base = siteBaseUrl();
+    return base ? base + '/' + path : '../' + path;
+  }
+
   function buildRss(list) {
     var site = state.cfg.site || {};
     var base = siteBaseUrl();
@@ -560,7 +565,7 @@
           ]),
           el('td', { class: 'row-actions' }, [
             el('button', { text: '编辑', onClick: function () { startEditPost(p); } }),
-            el('button', { text: '查看', onClick: function () { window.open('post.html?p=' + encodeURIComponent(p.path), '_blank'); } }),
+            el('button', { text: '查看', onClick: function () { window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
             el('button', { class: 'btn-danger', text: '删除', onClick: function () { deletePost(p); } })
           ])
         ]);
