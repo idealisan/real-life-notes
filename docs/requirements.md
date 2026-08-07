@@ -104,10 +104,12 @@
 - **修复**：`catLink` 统一改为 `e.preventDefault(); window.location.href = href`（`index.html?cat=<分类>` / `index.html`），与内容页一致，点击即发起新的页面加载；删除 MODE 分支。
 - 测试：`test-site2.js` 分类导航点击改为断言「触发 MPA 导航 + 不就地过滤」，分类筛选效果改由 `replaceState('index.html?cat=life') + popstate`（模拟导航到达）验证。
 
-### 静态资源缓存失效版本号（Cloudflare 缓存穿透）
+### 代码资源版本化目录（解决 CDN 缓存旧版本）
 - **问题**：站点经 Cloudflare 代理访问（`prevoclxd.809030.xyz` → 本机 8080）时，`assets/js/*.js`、`assets/css/*.css` 被 Cloudflare 按默认策略缓存（`max-age=14400`，约 4 小时），代码改动后浏览器仍拿到旧 JS/CSS；`index.html` 是 `DYNAMIC` 不缓存。
-- **修复**：`index.html`/`post.html`/`admin/index.html`/`404.html` 中对**会随开发变更的资源**（base.css、site.css、theme.js、md.js、site.js、gh.js、admin.js）统一追加 `?v=20260801a` 查询参数，改动资源时**同步递增该版本号**即可立即可见（HTML 实时 + 新 URL 命中缓存 MISS）。vendor 固定版本库不加。
-- 验证：`curl -I https://prevoclxd.809030.xyz/assets/js/site.js?v=20260801a` 返回新内容；`cf-cache-status` 对未带版本的旧 URL 为 HIT。
+- **方案（架构变更，取代 `?v=` 手动版本号）**：所有会被 CDN 缓存的**代码资源**（js / css；vendor 第三方库固定版本不变、不版本化；用户内容如图片、markdown 及每次发布都会重写的用户数据 `config.json`/`content/index.json` 一律**不**进版本目录）统一复制到 **`assets/v<改代码的unix时间戳>/`** 目录；`index.html`/`post.html`/`404.html`/`admin/index.html` 统一引用该目录下的资源。
+- **版本目录名** = 各代码资源源文件 mtime 的最大值（unix 秒），同一批改动共用一个版本目录；换版本时删除旧版本目录，仓库只保留当前版本（旧 CDN 缓存按 TTL 自然过期）。浏览器/CDN 请求新 URL → 必然 MISS → 立即拿到新代码，无需手工递增版本号。
+- **工具**：`tools/version-bump.js`。改完代码后运行 `node tools/version-bump.js`（幂等：时间戳与内容指纹都一致才跳过；同时比对版本目录内文件内容防"同秒改动"失效），再 `git add -A && git commit && git push` —— 保证 HTML 与版本目录在**同一个提交**里上线。`--dry-run` 只预览不写入。
+- 验证：`curl -I https://prevoclxd.809030.xyz/assets/v<ts>/site.js` 返回新内容；旧 URL 不再被引用。
 
 ### 图片上传二进制通道修复
 - **Bug**：后台 `uploadImage` 用 FileReader 把图片转成 base64 字符串后，经 `gh.commitFiles` 直接写入 tree 的 `content` 字段，而该字段按 **UTF-8 文本**写入 → 仓库里的 `.png` 文件实际存的是 base64 文本，浏览器拿到 `content-type: image/png` 却无法解码显示。

@@ -19,6 +19,7 @@ Real Life Notes — 把 GitHub 仓库当作笔记/博客后端，管理员在浏
 - 纯原生 JS（IIFE + 全局 `gh`/`md`/`Site`/`Admin`），无构建步骤，`python3 -m http.server 8080` 即可本地运行。
 - 沟通与文档用中文；commit message 用中文。分支 `main`，remote `origin` = `git@github.com:idealisan/real-life-notes.git`。
 - 第三方库**本地托管**于 `assets/vendor/`（marked 4.3.0、DOMPurify 3.0.6、KaTeX 0.16.11 + 字体、highlight.js 11.9.0 + 主题），不依赖 CDN。
+- **改代码资源（js/css）后的发布流程**：`node tools/version-bump.js` → `git add -A && git commit && git push`。脚本会把代码资源统一复制到 `assets/v<unix时间戳>/` 并重写 4 个 HTML 的引用（取代旧的手动 `?v=` 版本号），幂等可重复运行；**HTML 与版本目录必须在同一个提交里上线**。用户内容（图片/md/config.json/content/index.json）不版本化。
 
 ## 核心设计（勿偏离主路线）
 - 主方案：**纯静态、零后端**。管理员用自己的 fine-grained PAT（仅授权本仓库 `Contents: read/write`），token 存**浏览器密码管理器**，前端直调 `api.github.com` 提交 commit → GitHub Pages 自动构建。
