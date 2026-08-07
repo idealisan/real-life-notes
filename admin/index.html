@@ -12,42 +12,39 @@
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="admin.css?v=20260801a">
   <script src="../assets/js/theme.js?v=20260801a"></script>
 </head>
 <body>
 
-  <!-- 连接页 -->
+  <!-- 连接横幅 -->
   <section class="connect-view" id="connectView" hidden>
-    <div class="connect-card">
-      <div class="connect-logo">📝</div>
-      <h1>Real Life Notes · 管理后台</h1>
-      <p class="connect-tip">
-        填入一个仅授权本仓库的 GitHub fine-grained Personal Access Token。
-        Token 只在浏览器内存中使用，不会写入磁盘（不存 localStorage），
-        并会自动交给浏览器密码管理器保管。
-      </p>
-
-      <p class="connect-target" id="connectTarget" hidden>
-        目标仓库：<code id="connectTargetText"></code>
-      </p>
-
-      <form id="connectForm" autocomplete="on">
-        <label for="adminToken">GitHub Token</label>
+    <div class="container connect-bar">
+      <div class="connect-brand">
+        <span class="connect-logo">📝</span>
+        <span class="connect-title">管理后台</span>
+      </div>
+      <form id="connectForm" class="connect-form" autocomplete="on">
         <input id="adminToken" name="adminToken" type="password"
-               autocomplete="current-password" placeholder="github_pat_…"
+               aria-label="GitHub Token"
+               autocomplete="current-password" placeholder="GitHub Token (github_pat_…)"
                required spellcheck="false" autocapitalize="off">
-        <label for="adminRepo">目标仓库 URL（可选，留空使用当前站点仓库）</label>
         <input id="adminRepo" name="adminRepo" type="text"
+               aria-label="目标仓库 URL（可选）"
                autocomplete="off"
-               placeholder="支持三种格式：https://github.com/owner/repo（浏览器地址栏）｜https://github.com/owner/repo.git（HTTPS 克隆）｜git@github.com:owner/repo.git（SSH 克隆）"
+               placeholder="目标仓库 URL（可选）"
                spellcheck="false" autocapitalize="off">
-        <p class="connect-hint" id="connectRepoHint" hidden></p>
         <button type="submit" class="btn-primary" id="connectBtn">连接</button>
       </form>
-
-      <p class="connect-error" id="connectError" hidden></p>
-      <p class="connect-meta" id="connectMeta" hidden></p>
+      <div class="connect-msgs">
+        <p class="connect-tip">Token 仅在浏览器内存使用，不落盘，会自动交给浏览器密码管理器保管。</p>
+        <p class="connect-hint" id="connectRepoHint" hidden></p>
+        <p class="connect-target" id="connectTarget" hidden>
+          目标仓库：<code id="connectTargetText"></code>
+        </p>
+        <p class="connect-error" id="connectError" hidden></p>
+        <p class="connect-meta" id="connectMeta" hidden></p>
+      </div>
     </div>
   </section>
 
