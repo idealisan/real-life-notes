@@ -114,3 +114,9 @@
 - **修复**：`gh.commitFiles` 支持 `{ binary: true }`（与 `commitInitial` 一致），二进制文件改走 `POST /git/blobs`（`content` + `encoding: "base64"`）拿到 blob sha，tree 条目引用该 sha；`uploadImage` 传 `binary: true`。已损坏的 `assets/images/20260807-2u4wct.png` 解码还原为真实 PNG。
 - 测试：`test-binary.js`（mock fetch，断言调用序列 refs→commit→blobs→trees(引用 blob sha)→commits→PATCH refs）。
 
+### 空仓库初始化失败修复（Git Repository is empty 409）
+- **Bug**：全新空仓库（无任何提交）点「一键初始化」报 `初始化失败：Git Repository is empty.（HTTP 409）`。GitHub 的 Git Data API（blobs/trees/commits/refs）在零提交仓库上直接返回 409，无法创建首个提交；官方文档要求先用 Contents API（`PUT /contents/{path}`）引导出一个首个提交。
+- **修复**：`gh.commitInitial` 改为先探测分支 ref —— 若不存在（404/409），先用 Contents API 写 `README.md` 创建首个提交拿到基线 sha；然后走 blobs/trees（空仓库不带 `base_tree`，全量替换）→ commits（`parents=[基线]`）→ `PATCH refs`（改为更新而非创建 ref，兼容已存在分支）。仓库已有内容时保留 `base_tree` 增量写入。
+- 测试：`test-init-commit.js`（空仓库：409→README 引导→无 base_tree→parents=[引导提交]；非空：带 base_tree→parents=[HEAD]）。
+
+

@@ -127,12 +127,34 @@
     if (!files.length) throw apiError(0, '没有可提交的变更');
     var owner = cfg.owner, repo = cfg.repo, branch = cfg.branch;
     requireRepo();
+    var repoPath = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo);
+
+    function ensureBase() {
+      return _request('GET', repoPath + '/git/refs/heads/' + encodeURIComponent(branch))
+        .then(function (ref) {
+          return _request('GET', repoPath + '/git/commits/' + ref.object.sha).then(function (c) {
+            return { base_tree: c.tree.sha, head: ref.object.sha };
+          });
+        })
+        .catch(function (err) {
+          if (err.status === 404 || err.status === 409) {
+            return _request('PUT', repoPath + '/contents/README.md', {
+              message: '初始化：创建首个提交',
+              content: btoa('# Real Life Notes\n'),
+              branch: branch
+            }).then(function (data) {
+              return { base_tree: null, head: data.commit.sha };
+            });
+          }
+          throw err;
+        });
+    }
 
     var entries = [];
     var blobPromises = [];
     files.forEach(function (f) {
       if (f.binary) {
-        blobPromises.push(_request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/blobs', {
+        blobPromises.push(_request('POST', repoPath + '/git/blobs', {
           content: String(f.content),
           encoding: 'base64'
         }).then(function (blob) {
@@ -143,20 +165,23 @@
       }
     });
 
-    return Promise.all(blobPromises).then(function () {
-      return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/trees', {
-        tree: entries
-      }).then(function (tree) {
-        return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/commits', {
-          message: opts.message,
-          tree: tree.sha
-        }).then(function (commit) {
-          return _request('POST', '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/refs', {
-            ref: 'refs/heads/' + branch,
-            sha: commit.sha
-          }).then(function () {
-            commit.html_url = 'https://github.com/' + owner + '/' + repo + '/commit/' + commit.sha;
-            return commit;
+    return ensureBase().then(function (base) {
+      return Promise.all(blobPromises).then(function () {
+        var treeBody = { tree: entries };
+        if (base.base_tree) treeBody.base_tree = base.base_tree;
+        return _request('POST', repoPath + '/git/trees', treeBody).then(function (tree) {
+          return _request('POST', repoPath + '/git/commits', {
+            message: opts.message,
+            tree: tree.sha,
+            parents: [base.head]
+          }).then(function (commit) {
+            return _request('PATCH', repoPath + '/git/refs/heads/' + encodeURIComponent(branch), {
+              sha: commit.sha,
+              force: false
+            }).then(function () {
+              commit.html_url = 'https://github.com/' + owner + '/' + repo + '/commit/' + commit.sha;
+              return commit;
+            });
           });
         });
       });
