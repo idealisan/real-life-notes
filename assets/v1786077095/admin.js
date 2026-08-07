@@ -421,7 +421,6 @@
       btn.classList.toggle('active', btn.getAttribute('data-view') === state.view);
     });
     els.mainContent.textContent = '';
-    els.mainContent.classList.toggle('editor-screen', state.view === 'editor');
     if (state.view === 'posts') renderPosts();
     else if (state.view === 'editor') renderEditor();
     else if (state.view === 'categories') renderCategories();
@@ -822,6 +821,8 @@
 
     editor.body.value = ed.body;
     editor.dirty = false;
+    autoGrowTextarea(editor.body);
+    editor.body.addEventListener('input', function () { autoGrowTextarea(editor.body); });
     editor.body.addEventListener('paste', function (e) {
       var items = e.clipboardData && e.clipboardData.items;
       for (var i = 0; items && i < items.length; i++) {
@@ -869,6 +870,11 @@
     ta.selectionStart = ta.selectionEnd = s + (sel ? before.length : before.length + placeholder.length);
     ta.focus();
     updatePreview();
+  }
+
+  function autoGrowTextarea(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
   }
 
   function lineAction(ta, prefix) {
