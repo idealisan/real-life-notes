@@ -104,6 +104,26 @@
       });
   };
 
+  // 无需 token 读取公开仓库的单个文件（用于连接前读取仓库中已保存的加密 Token）。
+  gh.getContentPublic = function (owner, repo, path) {
+    if (!owner || !repo || !path) throw apiError(0, '缺少源仓库配置');
+    return fetch(API + '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), {
+      headers: COMMON_HEADERS
+    }).then(function (res) {
+      if (res.status === 404) return null;
+      if (!res.ok) return res.json().catch(function () { return null; }).then(function (data) {
+        throw apiError(res.status, (data && data.message) || ('HTTP ' + res.status), data && data.documentation_url);
+      });
+      return res.json().then(function (data) {
+        if (data && data.content !== undefined) return base64ToUtf8(data.content);
+        throw apiError(0, '读取文件内容失败：' + path);
+      });
+    }).catch(function (err) {
+      if (err && err.status) throw err;
+      throw apiError(0, '网络请求失败：' + (err && err.message ? err.message : '无法读取仓库文件'));
+    });
+  };
+
   gh.listTreePublic = function (owner, repo, branch) {
     if (!owner || !repo) throw apiError(0, '缺少源仓库配置');
     return fetch(API + '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/git/trees/' + encodeURIComponent(branch || 'main') + '?recursive=1', {

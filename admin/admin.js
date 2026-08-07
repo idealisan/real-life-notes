@@ -26,7 +26,9 @@
     integrity: null,
     emptyRepo: false,
     sourceRepo: null,
-    listSel: {}
+    listSel: {},
+    encryptedToken: null,
+    encTokenSaved: false
   };
 
   var els = {
@@ -37,6 +39,11 @@
     connectMeta: document.getElementById('connectMeta'),
     connectTarget: document.getElementById('connectTarget'),
     connectTargetText: document.getElementById('connectTargetText'),
+    connectTip: document.getElementById('connectTip'),
+    unlockForm: document.getElementById('unlockForm'),
+    unlockPass: document.getElementById('unlockPass'),
+    unlockTip: document.getElementById('unlockTip'),
+    modeToggle: document.getElementById('modeToggle'),
     mainContent: document.getElementById('mainContent'),
     repoBadge: document.getElementById('repoBadge'),
     disconnectBtn: document.getElementById('disconnectBtn'),
@@ -89,6 +96,107 @@
     };
     wrapped.cancel = function () { clearTimeout(timer); timer = null; };
     return wrapped;
+  }
+
+  /* ---------- Token 加密存储（AES-256-GCM + PBKDF2） ----------
+     方案：用户用一个密码把 Token 加密后存入仓库 content/.admin-token。
+     之后在后台首页输入密码解密即可连接，无需再粘贴长 Token。
+     密文结构：{ v, kdf, iter, algo, salt, iv, ct }（均为 base64）。 */
+  var TOKEN_FILE = 'content/.admin-token';
+
+  function b64enc(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function b64dec(str) {
+    var bin = atob(str);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function encSupported() {
+    return !!(window.crypto && crypto.subtle && window.TextEncoder && window.btoa);
+  }
+
+  function encryptToken(token, password) {
+    var enc = new TextEncoder();
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey'])
+      .then(function (base) {
+        return crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: 120000, hash: 'SHA-256' },
+          base,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt']
+        );
+      })
+      .then(function (key) {
+        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, enc.encode(token));
+      })
+      .then(function (ct) {
+        return JSON.stringify({
+          v: 1, kdf: 'PBKDF2-SHA256', iter: 120000, algo: 'AES-256-GCM',
+          salt: b64enc(salt), iv: b64enc(iv), ct: b64enc(new Uint8Array(ct))
+        });
+      });
+  }
+
+  function decryptToken(payload, password) {
+    var p;
+    try { p = JSON.parse(payload); } catch (e) { throw new Error('加密数据损坏'); }
+    if (!p || p.v !== 1 || !p.salt || !p.iv || !p.ct) throw new Error('不支持的加密数据');
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey'])
+      .then(function (base) {
+        return crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: b64dec(p.salt), iterations: p.iter || 120000, hash: 'SHA-256' },
+          base,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['decrypt']
+        );
+      })
+      .then(function (key) {
+        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64dec(p.iv) }, key, b64dec(p.ct));
+      })
+      .then(function (pt) { return new TextDecoder().decode(pt); });
+  }
+
+  function saveEncryptedToken(password) {
+    if (!state.token) { toast('请先连接，再保存 Token', 'error'); return; }
+    if (!encSupported()) { toast('当前环境不支持加密（需 HTTPS）', 'error'); return; }
+    setBusy(true);
+    encryptToken(state.token, password).then(function (payload) {
+      return gh.commitFiles({
+        message: '保存加密的登录 Token',
+        files: [{ path: TOKEN_FILE, content: payload }]
+      });
+    }).then(function () {
+      setBusy(false);
+      state.encTokenSaved = true;
+      toast('已加密保存到仓库 ✓ 之后输入密码即可解锁', 'ok');
+      renderSettings();
+    }).catch(function (err) {
+      setBusy(false);
+      toast('保存失败：' + errMsg(err), 'error');
+    });
+  }
+
+  function clearEncryptedToken() {
+    if (!confirm('确定从仓库删除已保存的加密 Token 吗？')) return;
+    setBusy(true);
+    gh.commitFiles({ message: '删除加密的登录 Token', deletes: [TOKEN_FILE] }).then(function () {
+      setBusy(false);
+      state.encTokenSaved = false;
+      state.encryptedToken = null;
+      toast('已删除 ✓', 'ok');
+      renderSettings();
+    }).catch(function (err) {
+      setBusy(false);
+      toast('删除失败：' + errMsg(err), 'error');
+    });
   }
 
   function escXml(s) {
@@ -253,6 +361,33 @@
     els.connectError.hidden = true;
     els.connectMeta.hidden = true;
     els.connectForm.reset();
+    els.unlockForm.reset();
+    els.connectForm.hidden = false;
+    els.unlockForm.hidden = true;
+    els.connectTip.hidden = false;
+    els.unlockTip.hidden = true;
+    els.modeToggle.hidden = true;
+  }
+
+  function showUnlockMode() {
+    els.connectForm.hidden = true;
+    els.unlockForm.hidden = false;
+    els.connectTip.hidden = true;
+    els.unlockTip.hidden = false;
+    els.connectError.hidden = true;
+    els.modeToggle.textContent = '改用 Token 手动登录';
+    els.modeToggle.hidden = false;
+    setTimeout(function () { els.unlockPass.focus(); }, 50);
+  }
+
+  function showManualMode() {
+    els.connectForm.hidden = false;
+    els.unlockForm.hidden = true;
+    els.connectTip.hidden = false;
+    els.unlockTip.hidden = true;
+    els.connectError.hidden = true;
+    els.modeToggle.textContent = '使用已保存的 Token 解锁';
+    els.modeToggle.hidden = false;
   }
 
   function parseRepoAddress(addr) {
@@ -277,6 +412,7 @@
   function connect(token, repoAddr) {
     setBusy(true);
     els.connectError.hidden = true;
+    state.token = token;
     gh.config({ token: token });
     var parsed = parseRepoAddress(repoAddr);
     if (parsed) {
@@ -405,6 +541,30 @@
     var userEl = els.connectForm.elements.adminUser;
     if (userEl) userEl.value = (parsed && parsed.owner) || 'github';
     connect(token, addr);
+  });
+
+  els.unlockForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pass = els.unlockPass.value;
+    if (!pass) return;
+    if (!state.encryptedToken) { toast('未找到已保存的加密 Token', 'error'); return; }
+    if (!encSupported()) { toast('当前环境不支持解密（需 HTTPS）', 'error'); return; }
+    setBusy(true);
+    decryptToken(state.encryptedToken, pass).then(function (token) {
+      setBusy(false);
+      // 用解出的 Token 连接 sourceRepo（若用户填过仓库则优先用）
+      var addr = els.connectForm.elements.adminRepo.value.trim();
+      connect(token, addr);
+    }).catch(function () {
+      setBusy(false);
+      toast('密码错误或数据损坏，解锁失败', 'error');
+    });
+  });
+
+  els.modeToggle.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!els.unlockForm.hidden) showManualMode();
+    else showUnlockMode();
   });
 
   var repoHint = document.getElementById('connectRepoHint');
@@ -1599,6 +1759,36 @@
         el('div', { text: state.user.login + '（' + state.user.name + '）' })
       ]) : null
     ]));
+
+    var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码' });
+    var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认' });
+    var saveEncBtn = el('button', {
+      class: 'btn-primary', type: 'button', text: state.encTokenSaved ? '更新加密 Token' : '加密保存 Token 到仓库',
+      onClick: function () {
+        var p1 = tokPass.value, p2 = tokPass2.value;
+        if (!p1) { toast('请设置解锁密码', 'error'); return; }
+        if (p1.length < 6) { toast('解锁密码至少 6 位', 'error'); return; }
+        if (p1 !== p2) { toast('两次输入的密码不一致', 'error'); return; }
+        saveEncryptedToken(p1);
+      }
+    });
+    var clearEncBtn = el('button', {
+      class: 'btn-ghost', type: 'button', text: '清除已保存的加密 Token',
+      onClick: clearEncryptedToken
+    });
+    var encStatus = state.encTokenSaved
+      ? el('div', { class: 'hint', style: 'margin-top:8px', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
+      : el('div', { class: 'hint', style: 'margin-top:8px', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
+    els.mainContent.appendChild(el('section', { class: 'panel' }, [
+      el('h2', { class: 'panel-title', text: 'Token 加密存储' }),
+      el('div', { class: 'field' }, [
+        el('label', { for: 'tokPass', text: '解锁密码（AES-256-GCM + PBKDF2 加密 Token 后存入仓库）' }),
+        tokPass
+      ]),
+      el('div', { class: 'field' }, [tokPass2]),
+      el('div', { style: 'display:flex;gap:8px' }, [saveEncBtn, state.encTokenSaved ? clearEncBtn : null]),
+      encStatus
+    ]));
   }
 
   /* ---------- 启动 ---------- */
@@ -1608,6 +1798,30 @@
       e.returnValue = '';
     }
   });
+
+  function probeEncryptedToken() {
+    // 后台通常与内容托管在同一仓库：先试本地静态读取，再退回公开 API 读取。
+    fetch('../' + TOKEN_FILE).then(function (res) {
+      if (!res.ok) throw new Error();
+      return res.text();
+    }).then(function (text) {
+      if (text && text.trim()) {
+        state.encryptedToken = text;
+        state.encTokenSaved = true;
+        showUnlockMode();
+      }
+    }).catch(function () {
+      var src = state.sourceRepo;
+      if (!src || !src.owner || !src.repo) return;
+      gh.getContentPublic(src.owner, src.repo, TOKEN_FILE).then(function (text) {
+        if (text && text.trim()) {
+          state.encryptedToken = text;
+          state.encTokenSaved = true;
+          showUnlockMode();
+        }
+      }).catch(function () {});
+    });
+  }
 
   function boot() {
     document.addEventListener('click', closeAllMenus);
@@ -1640,6 +1854,7 @@
         connect(savedToken, readSession('adminRepo'));
       } else {
         showConnect();
+        probeEncryptedToken();
       }
     });
   }

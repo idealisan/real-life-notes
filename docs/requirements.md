@@ -171,8 +171,16 @@
 - **结论**：GET 跳转在静态托管可完成、连接流程正常，但浏览器**不会**为无后端应答的 GET 提交弹「保存密码」；`navigator.credentials.store` 等程序化方案也随 Web 标准移除而不可靠。故放弃自动保存。
 - **保留**：`admin/login.html` 作为登录入口（连接流程正常），文案引导手动保存。
 
-### 分类页空白 + 设置页左右偏移
-- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
+### Token 加密存储到仓库（密码解锁，替代长 Token 粘贴）
+- **问题**：Token 很长，每次打开后台都要粘贴一次；浏览器密码管理器自动保存不可靠（见前节）。
+- **方案**：设置页新增「Token 加密存储」面板——用户自定义一个解锁密码，把当前 Token 用 **AES-256-GCM**（密钥由 **PBKDF2-SHA256** 12 万次迭代从密码派生）加密后写入仓库 `content/.admin-token`（密文结构 `{v,kdf,iter,algo,salt,iv,ct}`，Web Crypto `crypto.subtle`）。
+  - **保存**：`encryptToken(token, password)` → `gh.commitFiles` 提交 `content/.admin-token`；已保存时按钮变「更新加密 Token」，另提供「清除已保存的加密 Token」。
+  - **解锁**：`boot()` 先本地 `fetch('../content/.admin-token')`（后台与内容同仓库部署），失败则 `gh.getContentPublic` 读公开仓库；探测到密文即显示「输入密码解锁」模式（隐藏手动 Token 表单），`decryptToken(payload, password)` 成功即 `connect(token, addr)` 自动连接；可切换回手动 Token 登录。
+  - **安全**：密码只在内存、不落盘；密文可放心放仓库（公开也需暴力破解 PBKDF2+AES）。仅 HTTPS 可用（`crypto.subtle` 需安全上下文）。
+- 测试：`test-enc-token.js` 14 项（解锁模式显示、错误密码失败、正确密码自动连接、设置页保存提交密文、无密文走手动模式、模式切换往返）。
+- 验证：jsdom 全绿；版本目录更新，代理线上 `/admin/` 正常。
+
+### 分类页空白 + 设置页左右偏移- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
 - **设置页偏移**：文章/分类页内容高、出现垂直滚动条；设置页内容矮、无滚动条 → 切换时滚动条出现/消失，页面左右轻微晃动。修复：admin.css 加 `html { overflow-y: scroll; }`（admin 专属），始终保留滚动条，各页布局稳定一致。
 - 测试：`test-admin-layout.js` 新增分类/设置页渲染断言（分类 2 行、设置两面板+保存按钮）。
 
