@@ -888,56 +888,77 @@
 
   var EMOJIS = ['😀', '😂', '🤣', '😊', '😍', '😎', '🤔', '🥳', '😤', '😴', '🤗', '😇', '👍', '👎', '👏', '🙏', '💪', '🔥', '✨', '🎉', '💡', '📌', '🚀', '❤️', '🌟', '🍀', '🎯', '💯'];
 
+  function closeAllMenus() {
+    document.querySelectorAll('.menu-dropdown').forEach(function (dd) { dd.hidden = true; });
+    document.querySelectorAll('.menu-trigger.open').forEach(function (b) { b.classList.remove('open'); });
+  }
+
+  function buildMenuButton(label, items) {
+    var dd = el('div', { class: 'menu-dropdown', hidden: '', role: 'menu' });
+    dd.addEventListener('click', function (e) { e.stopPropagation(); });
+    items.forEach(function (it) {
+      if (it === 'sep') { dd.appendChild(el('div', { class: 'menu-sep' })); return; }
+      if (it.emoji) {
+        dd.appendChild(el('div', { class: 'menu-emoji-grid' }, EMOJIS.map(function (em) {
+          return el('button', {
+            type: 'button', class: 'emoji-btn', 'aria-label': em, text: em,
+            onClick: function () { closeAllMenus(); wrapSelection(editor.body, '', '', em); }
+          });
+        })));
+        return;
+      }
+      dd.appendChild(el('button', {
+        type: 'button',
+        class: it.cls ? ('menu-action ' + it.cls) : 'menu-action',
+        role: 'menuitem',
+        title: it.title || '',
+        text: it.label,
+        onClick: function () { closeAllMenus(); it.onClick(); }
+      }));
+    });
+    var trigger = el('button', {
+      type: 'button', class: 'menu-trigger', text: label, 'aria-haspopup': 'menu',
+      onClick: function (e) {
+        e.stopPropagation();
+        var willOpen = dd.hidden;
+        closeAllMenus();
+        if (willOpen) { dd.hidden = false; trigger.classList.add('open'); }
+      }
+    });
+    return el('div', { class: 'menu' }, [trigger, dd]);
+  }
+
   function buildEditorToolbar(imageInput) {
-    var emojiPanel = el('div', { class: 'emoji-panel', hidden: '' }, EMOJIS.map(function (em) {
-      return el('button', {
-        type: 'button', class: 'emoji-btn', 'aria-label': em, text: em,
-        onClick: function () {
-          wrapSelection(editor.body, '', '', em);
-        }
-      });
-    }));
-    function wrap(before, after, placeholder, title, label) {
-      return el('button', {
-        type: 'button', title: title, text: label,
-        onClick: function () { wrapSelection(editor.body, before, after, placeholder); }
-      });
-    }
-    function line(prefix, title, label) {
-      return el('button', {
-        type: 'button', title: title, text: label,
-        onClick: function () { lineAction(editor.body, prefix); }
-      });
-    }
-    var toolbar = el('div', { class: 'editor-toolbar' }, [
-      wrap('**', '**', '加粗文字', '加粗（Ctrl+B）', 'B'),
-      wrap('*', '*', '斜体文字', '斜体（Ctrl+I）', 'I'),
-      line('> ', '引用（>）', '❝ 引用'),
-      line('- ', '无序列表（-）', '• 列表'),
-      line('1. ', '有序列表（1.）', '1. 列表'),
-      line('- [ ] ', '任务列表（- [ ]）', '☑ 任务'),
-      wrap('`', '`', '代码', '行内代码（Ctrl+E）', '`代码`'),
-      wrap('\n```\n', '\n```\n', '代码', '代码块（Ctrl+Shift+E）', '◧ 代码块'),
-      wrap('[', '](https://example.com)', '链接文字', '链接（Ctrl+K）', '🔗 链接'),
-      wrap('![', '](https://example.com/image.png)', '图片描述', '图片地址', '🖼 图片'),
-      line('---', '分隔线', '— 分隔线'),
-      wrap('\n\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '', '', '表格', '▦ 表格'),
-      el('span', { class: 'toolbar-sep' }),
-      el('button', {
-        type: 'button', title: '插入 Emoji', text: '😀 Emoji',
-        onClick: function () {
-          emojiPanel.hidden = !emojiPanel.hidden;
-        }
-      }),
-      el('button', {
-        type: 'button', title: '插入图片（上传到仓库）', text: '📷 上传图片',
-        onClick: function () {
+    var toolbar = el('div', { class: 'editor-menubar', role: 'menubar' }, [
+      buildMenuButton('格式', [
+        { label: 'B', cls: 'menu-bold', title: '加粗（Ctrl+B）', onClick: function () { wrapSelection(editor.body, '**', '**', '加粗文字'); } },
+        { label: 'I', cls: 'menu-italic', title: '斜体（Ctrl+I）', onClick: function () { wrapSelection(editor.body, '*', '*', '斜体文字'); } },
+        { label: 'S', cls: 'menu-strike', title: '删除线', onClick: function () { wrapSelection(editor.body, '~~', '~~', '删除线文字'); } },
+        { label: '`code`', cls: 'menu-mono', title: '行内代码（Ctrl+E）', onClick: function () { wrapSelection(editor.body, '`', '`', '代码'); } },
+        'sep',
+        { label: '🔗 链接', title: '插入链接（Ctrl+K）', onClick: function () { wrapSelection(editor.body, '[', '](https://example.com)', '链接文字'); } },
+        { label: '🖼 图片', title: '插入图片地址', onClick: function () { wrapSelection(editor.body, '![', '](https://example.com/image.png)', '图片描述'); } }
+      ]),
+      buildMenuButton('段落', [
+        { label: '❝ 引用', title: '引用（>）', onClick: function () { lineAction(editor.body, '> '); } },
+        { label: '• 无序列表', title: '无序列表（-）', onClick: function () { lineAction(editor.body, '- '); } },
+        { label: '1. 有序列表', title: '有序列表（1.）', onClick: function () { lineAction(editor.body, '1. '); } },
+        { label: '☑ 任务列表', title: '任务列表（- [ ]）', onClick: function () { lineAction(editor.body, '- [ ] '); } },
+        'sep',
+        { label: '— 分隔线', title: '插入分隔线', onClick: function () { wrapSelection(editor.body, '\n\n---\n\n', '', ''); } },
+        { label: '▦ 表格', title: '插入表格', onClick: function () { wrapSelection(editor.body, '\n\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '', ''); } },
+        { label: '◧ 代码块', title: '代码块（Ctrl+Shift+E）', onClick: function () { wrapSelection(editor.body, '\n```\n', '\n```\n', '代码'); } }
+      ]),
+      buildMenuButton('插入', [
+        { label: '📷 上传图片', title: '上传图片到仓库', onClick: function () {
           if (!state.user) { toast('请先连接 GitHub Token', 'error'); return; }
           imageInput.click();
-        }
-      })
+        } },
+        'sep',
+        { emoji: true }
+      ])
     ]);
-    return el('div', {}, [toolbar, emojiPanel, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点按钮即可包裹格式 · Ctrl+Enter 或 Ctrl+S 保存' })]);
+    return el('div', {}, [toolbar, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点菜单即可包裹格式 · Ctrl+Enter 或 Ctrl+S 保存' })]);
   }
 
   function attachEditorKeys(ta) {
@@ -1537,6 +1558,7 @@
   });
 
   function boot() {
+    document.addEventListener('click', closeAllMenus);
     fetch('../content/config.json').then(function (res) {
       if (!res.ok) throw new Error();
       return res.json();

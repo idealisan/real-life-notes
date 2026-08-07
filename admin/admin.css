@@ -1,4 +1,7 @@
 /* ---- 布局 ---- */
+/* 管理后台用更宽的容器（覆盖 base.css 的 --maxw，仅影响后台页面） */
+.admin-page { --maxw: 1280px; }
+
 .admin-topbar {
   position: sticky;
   top: 0;
@@ -9,10 +12,12 @@
 .admin-topbar-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   min-height: 56px;
+  flex-wrap: wrap;
 }
-.topbar-right { display: flex; align-items: center; gap: var(--space-3); }
+.admin-topbar-inner .brand { margin-right: var(--space-2); }
+.topbar-right { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
 .repo-badge {
   font-size: 0.82em;
   color: var(--text-soft);
@@ -22,6 +27,30 @@
   padding: 3px 12px;
   font-family: var(--font-mono);
 }
+
+/* 顶部横栏导航（原左侧菜单） */
+.side-nav {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.side-nav button {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  border-radius: var(--radius-s);
+  padding: 8px 16px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.side-nav button:hover { background: var(--bg-inset); color: var(--text); }
+.side-nav button.active { background: var(--accent-soft); color: var(--accent); }
+
+.admin-main { padding-top: var(--space-5); padding-bottom: var(--space-7); }
 
 .repo-warn {
   background: var(--warning-soft);
@@ -45,36 +74,6 @@
   cursor: pointer;
 }
 .repo-warn .repo-warn-close:hover { background: color-mix(in srgb, var(--warning) 18%, transparent); }
-
-.admin-body {
-  display: grid;
-  grid-template-columns: 170px 1fr;
-  gap: var(--space-5);
-  padding-top: var(--space-5);
-  padding-bottom: var(--space-7);
-  align-items: start;
-}
-
-.admin-side {
-  position: sticky;
-  top: 72px;
-}
-.side-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.side-nav button {
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--text-soft);
-  border-radius: var(--radius-s);
-  padding: 9px 14px;
-  font-weight: 550;
-}
-.side-nav button:hover { background: var(--bg-inset); color: var(--text); }
-.side-nav button.active { background: var(--accent-soft); color: var(--accent); }
 
 /* ---- 连接横幅 ---- */
 .connect-view {
@@ -220,58 +219,108 @@
 /* ---- 编辑器 ---- */
 .editor-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: var(--space-4);
   align-items: start;
 }
 .editor-pane textarea {
-  min-height: 420px;
+  width: 100%;
+  min-height: 480px;
   font-family: var(--font-mono);
   font-size: 0.92em;
   line-height: 1.6;
   resize: vertical;
   tab-size: 4;
 }
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-  flex-wrap: wrap;
-}
-.editor-toolbar button {
-  border: 1px solid var(--border-soft);
-  background: var(--bg-soft);
-  color: var(--text-soft);
-  border-radius: var(--radius-s);
-  padding: 4px 10px;
-  font-size: 0.85em;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.editor-toolbar button:hover { background: var(--bg-inset); color: var(--text); border-color: var(--accent); }
-.toolbar-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
-.emoji-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
+.preview-pane {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-s);
   background: var(--bg);
-  padding: var(--space-2);
-  margin-bottom: var(--space-2);
-  max-width: 320px;
+  padding: var(--space-4);
+  min-height: 260px;
+  font-size: 0.98em;
+  overflow-wrap: break-word;
 }
-.emoji-panel[hidden] { display: none; }
-.emoji-btn {
+.preview-pane .preview-placeholder { color: var(--text-faint); }
+.preview-pane pre { background: var(--bg-inset); }
+.preview-pane blockquote { margin: 0 0 1em; }
+
+/* Typora 风格菜单栏（层叠展开） */
+.editor-menubar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-s);
+  background: var(--bg-soft);
+  padding: 3px;
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+.editor-menubar .menu { position: relative; }
+.menu-trigger {
   border: none;
   background: transparent;
-  font-size: 1.25em;
-  padding: 2px 6px;
+  color: var(--text-soft);
+  border-radius: var(--radius-s);
+  padding: 6px 12px;
+  font-size: 0.88em;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-trigger:hover { background: var(--bg-inset); color: var(--text); }
+.menu-trigger.open { background: var(--accent-soft); color: var(--accent); }
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 190px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-2);
+  padding: 4px;
+}
+.menu-action {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--radius-s);
+  padding: 7px 12px;
+  font-size: 0.88em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-action:hover { background: var(--accent-soft); color: var(--accent); }
+.menu-action.menu-bold { font-weight: 700; }
+.menu-action.menu-italic { font-style: italic; }
+.menu-action.menu-strike { text-decoration: line-through; }
+.menu-action.menu-mono { font-family: var(--font-mono); }
+.menu-sep {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 5px 6px;
+}
+.menu-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 4px 2px;
+}
+.menu-emoji-grid .emoji-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.2em;
+  padding: 3px 4px;
   border-radius: var(--radius-s);
   cursor: pointer;
 }
-.emoji-btn:hover { background: var(--bg-inset); }
+.menu-emoji-grid .emoji-btn:hover { background: var(--bg-inset); }
 .editor-status {
   display: flex;
   justify-content: space-between;
@@ -369,9 +418,7 @@
 @media (max-width: 760px) {
   .connect-form input { flex: 1 1 100%; }
   .connect-form button { width: 100%; }
-  .admin-body { grid-template-columns: 1fr; }
-  .admin-side { position: static; }
-  .side-nav { flex-direction: row; overflow-x: auto; }
+  .side-nav { justify-content: flex-start; order: 3; flex-basis: 100%; overflow-x: auto; }
   .side-nav button { white-space: nowrap; }
   .field-row { grid-template-columns: 1fr; }
   .editor-grid { grid-template-columns: 1fr; }

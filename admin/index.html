@@ -8,14 +8,14 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786073647/base.css">
+  <link rel="stylesheet" href="../assets/v1786076557/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786073647/admin.css">
-  <script src="../assets/v1786073647/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786076557/admin.css">
+  <script src="../assets/v1786076557/theme.js"></script>
 </head>
-<body>
+<body class="admin-page">
 
   <!-- 连接横幅 -->
   <section class="connect-view" id="connectView" hidden>
@@ -56,6 +56,11 @@
           <span class="brand-icon">📝</span>
           <span>管理后台</span>
         </a>
+        <nav class="side-nav" aria-label="后台导航">
+          <button data-view="posts" class="active">文章</button>
+          <button data-view="categories">分类</button>
+          <button data-view="settings">设置</button>
+        </nav>
         <div class="topbar-right">
           <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题">🌗</button>
           <span class="repo-badge" id="repoBadge" hidden></span>
@@ -66,16 +71,7 @@
 
     <div class="repo-warn" id="repoWarn" role="alert" hidden></div>
 
-    <div class="admin-body container">
-      <aside class="admin-side">
-        <nav class="side-nav" aria-label="后台导航">
-          <button data-view="posts" class="active">文章</button>
-          <button data-view="categories">分类</button>
-          <button data-view="settings">设置</button>
-        </nav>
-      </aside>
-      <main class="admin-main" id="mainContent" tabindex="-1"></main>
-    </div>
+    <main class="admin-main container" id="mainContent" tabindex="-1"></main>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -84,8 +80,8 @@
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786073647/gh.js"></script>
-  <script src="../assets/v1786073647/md.js"></script>
-  <script src="../assets/v1786073647/admin.js"></script>
+  <script src="../assets/v1786076557/gh.js"></script>
+  <script src="../assets/v1786076557/md.js"></script>
+  <script src="../assets/v1786076557/admin.js"></script>
 </body>
 </html>
