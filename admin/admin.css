@@ -104,6 +104,9 @@
 }
 .connect-meta { margin: 0; color: var(--text-soft); }
 
+/* 保证 hidden 属性始终生效（防任何 display 规则覆盖导致元素仍占据空间） */
+[hidden] { display: none !important; }
+
 /* ---- 通用面板 ---- */
 .panel {
   background: var(--bg);
