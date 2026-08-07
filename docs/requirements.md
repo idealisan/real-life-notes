@@ -156,4 +156,9 @@
 - **完整性检查不补字数**：列表字数列依赖索引内嵌的 `content`，草稿/旧索引没有时显示空白。修复：`checkIntegrity` 本就逐个拉取文件，现顺带 `parseFrontmatter` 后写回 `p.content`，检查后列表即时补全字数。
 - 测试：`test-admin-layout.js`（预览 `../` 前缀、草稿无查看、检查前后字数对比），33 项全绿。
 
+### 连接表单支持浏览器保存 Token
+- **问题**：点「连接」后浏览器不弹「保存密码」，因为表单缺 `action` 且 token 用 `autocomplete="current-password"`（登录语义，只会在已存凭证时提示更新）。
+- **方案**：`<form action="./" method="post">`（**必须有 action**，Chrome 才把它当可保存密码的表单）；token 输入 `autocomplete="new-password"`（新建凭证语义，提交后必然弹「保存密码」）；另加一个 `visually-hidden` 的 `autocomplete="username"` 隐藏字段，提交时由 JS 填仓库 owner，让密码管理器把 Token 存到用户名下、提示更友好。
+- 验证：jsdom 全绿；浏览器实测点「连接」后弹保存密码提示（已推送 `f901696`）。
+
 
