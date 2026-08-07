@@ -332,8 +332,9 @@
   }
 
   function storeCredential(token) {
-    // 通过 Credential Management API 主动触发浏览器的「保存密码」提示（仅在 HTTPS 下可用）。
-    // 纯 SPA + preventDefault 时，浏览器原生启发式不会弹出保存框，必须显式调用 store()。
+    // 已放弃把此作为触发「保存密码」的主方案（见 docs/experiment-login-save-password.md）：
+    // PasswordCredential 为实验特性且正被 Web 标准移除，现代 Chrome 不再可靠触发。
+    // 仅作老浏览器最佳努力，静默失败；主方案是引导用户手动在密码管理器添加。
     if (!state.user || !window.PasswordCredential) return;
     if (!navigator.credentials || !navigator.credentials.store) return;
     try {

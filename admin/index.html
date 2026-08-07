@@ -8,12 +8,12 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786081086/base.css">
+  <link rel="stylesheet" href="../assets/v1786089450/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786081086/admin.css">
-  <script src="../assets/v1786081086/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786089450/admin.css">
+  <script src="../assets/v1786089450/theme.js"></script>
 </head>
 <body class="admin-page">
 
@@ -40,7 +40,7 @@
         <button type="submit" class="btn-primary" id="connectBtn">连接</button>
       </form>
       <div class="connect-msgs">
-        <p class="connect-tip">Token 仅在浏览器内存使用，不落盘，会自动交给浏览器密码管理器保管。</p>
+        <p class="connect-tip">Token 仅在浏览器内存使用，不落盘。若浏览器未自动弹出「保存密码」，可在浏览器密码管理器中手动添加：网址 = 本页面，用户名 = GitHub 用户名，密码 = Token。</p>
         <p class="connect-hint" id="connectRepoHint" hidden></p>
         <p class="connect-target" id="connectTarget" hidden>
           目标仓库：<code id="connectTargetText"></code>
@@ -48,7 +48,7 @@
         <p class="connect-error" id="connectError" hidden></p>
         <p class="connect-meta" id="connectMeta" hidden></p>
         <p class="connect-hint">
-          <a href="./login.html" class="connect-login-link">使用独立登录页登录（浏览器可保存 Token）</a>
+          <a href="./login.html" class="connect-login-link">使用独立登录页登录</a>
         </p>
       </div>
     </div>
@@ -86,8 +86,8 @@
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786081086/gh.js"></script>
-  <script src="../assets/v1786081086/md.js"></script>
-  <script src="../assets/v1786081086/admin.js"></script>
+  <script src="../assets/v1786089450/gh.js"></script>
+  <script src="../assets/v1786089450/md.js"></script>
+  <script src="../assets/v1786089450/admin.js"></script>
 </body>
 </html>
