@@ -299,6 +299,7 @@
       });
     }).then(function () {
       setBusy(false);
+      storeCredential(token);
       els.connectView.hidden = true;
       els.workspace.hidden = false;
       els.repoBadge.hidden = false;
@@ -316,6 +317,17 @@
       els.connectError.textContent = errMsg(err);
       els.connectError.hidden = false;
     });
+  }
+
+  function storeCredential(token) {
+    // 通过 Credential Management API 主动触发浏览器的「保存密码」提示（仅在 HTTPS 下可用）。
+    // 纯 SPA + preventDefault 时，浏览器原生启发式不会弹出保存框，必须显式调用 store()。
+    if (!state.user || !window.PasswordCredential) return;
+    if (!navigator.credentials || !navigator.credentials.store) return;
+    try {
+      var cred = new PasswordCredential({ id: state.user.login, password: token });
+      navigator.credentials.store(cred).catch(function () {});
+    } catch (e) { /* 浏览器不支持或策略拒绝时静默忽略 */ }
   }
 
   function fetchRepoConfig() {
@@ -1307,7 +1319,7 @@
       return categoryRow(key, c, count);
     });
 
-    var listPanel = el('section', { class: 'panel' }, [
+    var listChildren = [
       el('h2', { class: 'panel-title', text: '分类列表' }),
       el('div', { class: 'cat-head' }, [
         el('div', { text: '图标' }),
@@ -1315,9 +1327,11 @@
         el('div', { text: '描述' }),
         el('div', { text: '文章数' }),
         el('div', {})
-      ]),
-      rows.length ? rows : el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' })
-    ]);
+      ])
+    ];
+    if (rows.length) listChildren = listChildren.concat(rows);
+    else listChildren.push(el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' }));
+    var listPanel = el('section', { class: 'panel' }, listChildren);
 
     els.mainContent.appendChild(panel);
     els.mainContent.appendChild(listPanel);

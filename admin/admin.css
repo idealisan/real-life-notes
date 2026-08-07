@@ -2,6 +2,9 @@
 /* 管理后台用更宽的容器（覆盖 base.css 的 --maxw，仅影响后台页面） */
 .admin-page { --maxw: 1280px; }
 
+/* 始终保留垂直滚动条，避免各菜单页之间内容高度不同导致滚动条出现/消失、页面整体左右偏移 */
+html { overflow-y: scroll; }
+
 .admin-topbar {
   position: sticky;
   top: 0;
