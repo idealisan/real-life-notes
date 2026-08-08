@@ -951,25 +951,56 @@
     body.style.lineHeight = (s >= 1.1 ? 1.85 : 1.75).toFixed(2);
   }
   function renderFontCtl(body) {
-    var wrap = el('span', { class: 'read-ctl', 'aria-label': '阅读字号调整' }, [
-      el('button', { type: 'button', class: 'ctl-btn', text: 'A−', title: '减小字号', 'aria-label': '减小字号', onClick: function (e) {
-        e.preventDefault();
-        var steps = Math.max(-3, fontSteps() - 1);
-        try { localStorage.setItem(FONT_KEY, String(steps)); } catch (err) {}
+    var slider = el('input', {
+      type: 'range', class: 'read-slider', min: '-3', max: '5', step: '1',
+      value: String(fontSteps()), 'aria-label': '阅读字号',
+      onInput: function () {
+        var v = parseInt(slider.value, 10) || 0;
+        try { localStorage.setItem(FONT_KEY, String(v)); } catch (err) {}
         applyFontSize(body);
-      } }),
-      el('button', { type: 'button', class: 'ctl-btn', text: 'A+', title: '增大字号', 'aria-label': '增大字号', onClick: function (e) {
-        e.preventDefault();
-        var steps = Math.min(5, fontSteps() + 1);
-        try { localStorage.setItem(FONT_KEY, String(steps)); } catch (err) {}
-        applyFontSize(body);
-      } }),
-      el('button', { type: 'button', class: 'ctl-btn ctl-reset', text: '默认', title: '恢复默认字号', onClick: function (e) {
-        e.preventDefault();
+        updateLabel();
+      }
+    });
+    var label = el('span', { class: 'read-pop-label' });
+    function updateLabel() {
+      var s = Math.round((1.02 + fontSteps() * 0.05) * 100) / 100;
+      label.textContent = s.toFixed(2) + '×';
+    }
+    updateLabel();
+    var resetBtn = el('button', {
+      type: 'button', class: 'read-reset', 'aria-label': '恢复默认字号', title: '恢复默认字号', text: '↺',
+      onClick: function () {
         try { localStorage.removeItem(FONT_KEY); } catch (err) {}
+        slider.value = '0';
         applyFontSize(body);
-      } })
-    ]);
+        updateLabel();
+      }
+    });
+    var pop = el('div', { class: 'read-pop', hidden: '' }, [resetBtn, slider, label]);
+    var btn = el('button', {
+      type: 'button', class: 'read-ctl-btn', 'aria-label': '调整字号', 'aria-expanded': 'false', title: '调整字号',
+      onClick: function () { togglePop(); }
+    }, [el('span', { class: 'read-ctl-icon', text: 'Aa' })]);
+    var wrap = el('span', { class: 'read-ctl' }, [btn, pop]);
+    function setOpen(open) {
+      pop.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function outsideHandler(e) {
+      if (wrap.contains(e.target)) return;
+      setOpen(false);
+      document.removeEventListener('click', outsideHandler);
+    }
+    function togglePop() {
+      if (pop.hidden) {
+        setOpen(true);
+        document.addEventListener('click', outsideHandler);
+      } else {
+        setOpen(false);
+        document.removeEventListener('click', outsideHandler);
+      }
+    }
+    wrap.addEventListener('click', function (e) { e.stopPropagation(); });
     return el('div', { class: 'read-ctl-row' }, [wrap]);
   }
 
