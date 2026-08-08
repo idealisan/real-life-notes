@@ -507,6 +507,8 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   flex: 0 0 auto;
   width: 28px;
   height: 28px;
+  min-height: 0;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -668,7 +670,6 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 
 .detail-body img {
   max-width: 100%;
-  border-radius: var(--radius-m);
   cursor: zoom-in;
 }
 

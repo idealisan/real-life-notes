@@ -941,23 +941,34 @@
 
   /* ---------- 阅读字号 ---------- */
   var FONT_KEY = 'rln-fontsize';
+  var FONT_MIN = 0, FONT_MAX = 250, FONT_DEFAULT = 100;
   function fontSteps() {
-    var v = 0;
-    try { v = parseInt(localStorage.getItem(FONT_KEY), 10) || 0; } catch (e) { v = 0; }
-    return Math.max(-3, Math.min(5, v));
+    var v;
+    try { v = parseInt(localStorage.getItem(FONT_KEY), 10); } catch (e) { v = NaN; }
+    if (isNaN(v)) return FONT_DEFAULT;
+    if (v >= -3 && v <= 5) {
+      var oldS = Math.round((1.02 + v * 0.05) * 100) / 100;
+      var nv = Math.round((oldS - 0.5) * 100);
+      try { localStorage.setItem(FONT_KEY, String(nv)); } catch (err) {}
+      return Math.max(FONT_MIN, Math.min(FONT_MAX, nv));
+    }
+    return Math.max(FONT_MIN, Math.min(FONT_MAX, v));
+  }
+  function fontScale(v) {
+    return Math.round((0.5 + v / 100) * 100) / 100;
   }
   function applyFontSize(body) {
     if (!body) return;
-    var s = Math.round((1.02 + fontSteps() * 0.05) * 100) / 100;
+    var s = fontScale(fontSteps());
     body.style.fontSize = s + 'em';
-    body.style.lineHeight = (s >= 1.1 ? 1.85 : 1.75).toFixed(2);
+    body.style.lineHeight = Math.min(2.1, Math.round((1.5 + s * 0.15) * 100) / 100).toFixed(2);
   }
   function renderFontCtl(body) {
     var slider = el('input', {
-      type: 'range', class: 'read-slider', min: '-3', max: '5', step: '1',
+      type: 'range', class: 'read-slider', min: String(FONT_MIN), max: String(FONT_MAX), step: '1',
       value: String(fontSteps()), 'aria-label': '阅读字号',
       onInput: function () {
-        var v = parseInt(slider.value, 10) || 0;
+        var v = parseInt(slider.value, 10) || FONT_DEFAULT;
         try { localStorage.setItem(FONT_KEY, String(v)); } catch (err) {}
         applyFontSize(body);
         updateLabel();
@@ -965,15 +976,14 @@
     });
     var label = el('span', { class: 'read-label' });
     function updateLabel() {
-      var s = Math.round((1.02 + fontSteps() * 0.05) * 100) / 100;
-      label.textContent = s.toFixed(2) + '×';
+      label.textContent = fontScale(fontSteps()).toFixed(2) + '×';
     }
     updateLabel();
     var resetBtn = el('button', {
       type: 'button', class: 'read-reset', 'aria-label': '恢复默认字号', title: '恢复默认字号', text: '↺',
       onClick: function () {
         try { localStorage.removeItem(FONT_KEY); } catch (err) {}
-        slider.value = '0';
+        slider.value = String(FONT_DEFAULT);
         applyFontSize(body);
         updateLabel();
       }
