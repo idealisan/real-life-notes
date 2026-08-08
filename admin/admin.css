@@ -2,11 +2,18 @@
 
 /* 管理后台用更宽的容器（覆盖 base.css 的 --maxw，仅影响后台页面） */
 .admin-page { --maxw: 980px; }
-/* 防止个别宽元素（如表 min-width）导致页面横向漂移 */
-body.admin-page { overflow-x: hidden; }
 
-/* 始终保留垂直滚动条，避免各菜单页之间内容高度不同导致滚动条出现/消失、页面整体左右偏移 */
-html { overflow-y: scroll; }
+/* 始终保留垂直滚动条，避免各菜单页之间内容高度不同导致滚动条出现/消失、页面整体左右偏移。
+   同时硬性禁止横向滚动：overflow-y:scroll 会让 overflow-x 计算成 auto（等于可横向滚动），
+   而 body 上的 overflow-x:hidden 在 iOS Safari 上并不能阻止 html 视口横向拖拽，
+   必须在 html 层用 hidden / clip 才能根治（clip 不产生滚动容器，最彻底）。 */
+html {
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+@supports (overflow-x: clip) {
+  html { overflow-x: clip; }
+}
 
 /* 移动端固定底部导航高度 + 安全区：内容不被遮挡 */
 .admin-page { padding-bottom: calc(66px + var(--safe-bottom)); }
@@ -82,6 +89,8 @@ html { overflow-y: scroll; }
   transition: color 0.15s, background 0.15s;
 }
 .side-nav button .tab-icon { font-size: 1.4em; line-height: 1; }
+.side-nav .tab-icon { display: flex; align-items: center; justify-content: center; }
+.side-nav .tab-icon svg { width: 24px; height: 24px; }
 .side-nav button:hover { background: var(--bg-soft); color: var(--text); }
 .side-nav button.active { background: var(--accent-soft); color: var(--accent); }
 
@@ -245,6 +254,9 @@ html { overflow-y: scroll; }
 }
 .ios-icon-btn:hover { filter: brightness(1.04); }
 .ios-icon-btn-primary { background: var(--accent); color: #fff; }
+.ios-icon-btn .icon { display: inline-flex; align-items: center; justify-content: center; }
+.ios-icon-btn .icon svg { width: 20px; height: 20px; }
+.ios-icon-btn-primary .icon { color: #fff; }
 
 /* 搜索栏 */
 .search-bar {
@@ -566,15 +578,29 @@ html { overflow-y: scroll; }
   width: 100%;
   border: none;
   background: transparent;
-  color: var(--accent);
+  color: var(--text);
   text-align: left;
   font-weight: 500;
   font-size: 0.95em;
-  padding: 4px 0;
+  padding: 2px 0;
   min-height: 30px;
   border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
-.ios-cell-btn:hover { background: transparent; color: var(--accent); text-decoration: underline; }
+.ios-cell-btn:hover { background: transparent; color: var(--text); }
+.ios-cell-btn .chevron {
+  margin-left: auto;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.ios-cell-btn .chevron svg { width: 18px; height: 18px; }
+.ios-cell-btn.danger { color: var(--danger); }
+.ios-cell-btn.danger:hover { color: var(--danger); }
+.ios-cell-btn.danger .chevron { color: var(--danger); }
 .ios-wand {
   width: 34px;
   height: 34px;
@@ -590,6 +616,8 @@ html { overflow-y: scroll; }
   align-items: center;
   justify-content: center;
 }
+.ios-wand .icon { display: inline-flex; align-items: center; justify-content: center; }
+.ios-wand .icon svg { width: 18px; height: 18px; }
 .ios-save-row { padding: var(--space-2) 0 var(--space-6); }
 .ios-save-btn {
   width: 100%;
@@ -597,6 +625,26 @@ html { overflow-y: scroll; }
   font-size: 1em;
   border-radius: var(--radius-m);
 }
+
+/* ---- Token 加密存储（独立子页面） ---- */
+.ios-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  padding: 4px 2px;
+  min-height: 30px;
+  border-radius: var(--radius-s);
+}
+.ios-back .icon { display: inline-flex; }
+.ios-back .icon svg { width: 20px; height: 20px; }
+.ios-back:hover { background: transparent; color: var(--accent); }
+.ios-page .token-nav { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+.ios-page .token-title { font-size: 1.6em; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--space-1); line-height: 1.2; }
+.ios-page .ios-stack { margin-top: var(--space-4); }
+.ios-page .ios-stack-desc { padding: 10px var(--space-4) 14px; font-size: 0.82em; color: var(--text-faint); line-height: 1.5; }
 
 /* iOS 开关（UISwitch 风格） */
 .switch {
@@ -901,14 +949,17 @@ html { overflow-y: scroll; }
   /* 导航回到顶栏内居中（不再固定底部） */
   .side-nav {
     position: static;
-    flex: 1 1 auto;
+    flex: none;
+    width: 100%;
+    max-width: var(--maxw);
+    margin: 0 auto;
     justify-content: center;
     gap: 2px;
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-top: none;
-    padding: 0;
+    padding: 6px var(--space-2) 0;
   }
   .side-nav button {
     flex: 0 0 auto;
@@ -919,6 +970,7 @@ html { overflow-y: scroll; }
     font-size: 0.92em;
   }
   .side-nav button .tab-icon { font-size: 1.1em; }
+  .side-nav .tab-icon svg { width: 20px; height: 20px; }
 
   .admin-main { padding-top: var(--space-5); padding-bottom: var(--space-7); }
 

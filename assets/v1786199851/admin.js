@@ -77,6 +77,22 @@
     return node;
   }
 
+  /* 内联 SVG 图标（stroke=currentColor，跟随按钮/文字颜色）
+     统一尺寸由 CSS（.icon / .icon svg）控制，避免 emoji 在各平台字体差异。 */
+  var ICONS = {
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
+    wand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="M3 21l9-9"/><path d="M12.2 6.2L11 5"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>'
+  };
+  function icon(name, cls) {
+    return el('span', { class: 'icon' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true', html: ICONS[name] || '' });
+  }
+
   function toast(msg, type) {
     els.toast.textContent = msg;
     els.toast.className = 'toast' + (type ? ' toast-' + type : '');
@@ -186,7 +202,7 @@
       setBusy(false);
       state.encTokenSaved = true;
       toast('已加密保存到仓库 ✓ 之后输入密码即可解锁', 'ok');
-      renderSettings();
+      render();
     }).catch(function (err) {
       setBusy(false);
       toast('保存失败：' + errMsg(err), 'error');
@@ -201,7 +217,7 @@
       state.encTokenSaved = false;
       state.encryptedToken = null;
       toast('已删除 ✓', 'ok');
-      renderSettings();
+      render();
     }).catch(function (err) {
       setBusy(false);
       toast('删除失败：' + errMsg(err), 'error');
@@ -660,6 +676,7 @@
     else if (state.view === 'editor') renderEditor();
     else if (state.view === 'categories') renderCategories();
     else if (state.view === 'settings') renderSettings();
+    else if (state.view === 'token') renderTokenPage();
     updateRepoWarn();
   }
 
@@ -845,8 +862,8 @@
       el('h1', { class: 'ios-title' }, ['文章',
         posts.length ? el('span', { class: 'ios-title-count', text: '共 ' + posts.length + ' 篇' }) : null]),
       el('div', { class: 'ios-title-actions' }, [
-        el('button', { class: 'ios-icon-btn', type: 'button', 'aria-label': '筛选', title: '筛选', onClick: openFilterSheet }, ['🎚️']),
-        el('button', { class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建文章', title: '新建文章', onClick: startNewPost }, ['＋'])
+        el('button', { class: 'ios-icon-btn', type: 'button', 'aria-label': '筛选', title: '筛选', onClick: openFilterSheet }, [icon('sliders')]),
+        el('button', { class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建文章', title: '新建文章', onClick: startNewPost }, [icon('plus')])
       ])
     ]);
 
@@ -1717,7 +1734,7 @@
               var first = document.querySelector('.cat-add input');
               if (first) { first.focus(); first.scrollIntoView && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
             }
-          }, ['＋'])
+          }, [icon('plus')])
         ])
       ]),
       addCategoryFormMobile(),
@@ -1985,7 +2002,7 @@
         urlInput.value = 'https://' + state.cfg.github.owner + '.github.io/' + state.cfg.github.repo + '/';
         toast('已按当前仓库填入，保存后生效', 'ok');
       }
-    }, ['✨']);
+    }, [icon('wand')]);
 
     var comments = state.cfg.comments || {};
     var commentsToggle = iosToggle('setComments', !!comments.enabled, null, '启用评论');
@@ -2045,6 +2062,36 @@
       el('div', { class: 'ios-cell-desc', text: '仓库信息来自已连接的仓库，如需修改请直接更新 content/config.json。' })
     ]);
 
+    var tokRow = el('button', {
+      class: 'ios-cell-btn', type: 'button', 'aria-label': '管理 Token 加密存储',
+      onClick: function () {
+        state.view = 'token';
+        render();
+      }
+    }, [
+      el('span', { class: 'cell-label', text: 'Token 加密存储' }),
+      el('span', { class: 'chevron' }, [icon('chevron')])
+    ]);
+    var securityGroup = iosGroup('安全', [
+      el('div', { class: 'ios-cell' }, [tokRow]),
+      el('div', { class: 'ios-cell-desc', text: '把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' })
+    ]);
+
+    els.mainContent.appendChild(el('div', { class: 'settings-page' }, [
+      siteGroup,
+      urlGroup,
+      commentsGroup,
+      toolsGroup,
+      repoGroup,
+      securityGroup,
+      el('div', { class: 'ios-save-row' }, [saveBtn])
+    ]));
+  }
+
+  /* Token 加密存储子页面：独立页容纳密码输入 + 操作按钮，
+     不占用设置页的「标签-值」单元格（密码框在单元格里太挤）。 */
+  function renderTokenPage() {
+    var g = state.cfg.github;
     var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码', 'aria-label': '解锁密码' });
     var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认解锁密码' });
     var saveEncBtn = el('button', {
@@ -2061,26 +2108,33 @@
       class: 'btn-ghost', type: 'button', text: '清除已保存的加密 Token',
       onClick: clearEncryptedToken
     });
-    var encStatus = state.encTokenSaved
+    var statusEl = state.encTokenSaved
       ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
       : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
-    var encGroup = iosGroup('Token 加密存储', [
+
+    var passGroup = iosGroup('解锁密码', [
       iosCell('解锁密码', tokPass),
       iosCell('确认密码', tokPass2),
-      el('div', { class: 'ios-cell' }, [
-        el('div', { class: 'ios-cell-actions' }, [saveEncBtn, state.encTokenSaved ? clearEncBtn : null])
-      ]),
-      encStatus
+      statusEl
+    ]);
+    var actionGroup = iosGroup('操作', [
+      el('div', { class: 'ios-cell' }, [saveEncBtn]),
+      el('div', { class: 'ios-cell' }, [clearEncBtn])
     ]);
 
-    els.mainContent.appendChild(el('div', { class: 'settings-page' }, [
-      siteGroup,
-      urlGroup,
-      commentsGroup,
-      toolsGroup,
-      repoGroup,
-      encGroup,
-      el('div', { class: 'ios-save-row' }, [saveBtn])
+    els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
+      el('div', { class: 'token-nav' }, [
+        el('button', {
+          class: 'ios-back', type: 'button', 'aria-label': '返回设置', title: '返回设置',
+          onClick: function () {
+            state.view = 'settings';
+            render();
+          }
+        }, [icon('back'), el('span', { text: '设置' })])
+      ]),
+      el('h1', { class: 'token-title', text: 'Token 加密存储' }),
+      el('div', { class: 'ios-stack-desc', text: '当前仓库 ' + g.owner + '/' + g.repo + ' 的 Token 会用下面的密码加密后写入仓库。解密仅在浏览器内进行，密码不会上传，也永不写入磁盘。' }),
+      el('div', { class: 'ios-stack' }, [passGroup, actionGroup])
     ]));
   }
 

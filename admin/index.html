@@ -12,12 +12,12 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786197506/base.css">
+  <link rel="stylesheet" href="../assets/v1786199851/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786197506/admin.css">
-  <script src="../assets/v1786197506/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786199851/admin.css">
+  <script src="../assets/v1786199851/theme.js"></script>
 </head>
 <body class="admin-page">
 
@@ -76,12 +76,6 @@
           <span class="brand-icon">📝</span>
           <span>管理后台</span>
         </a>
-        <nav class="side-nav" aria-label="后台导航">
-          <button data-view="home"><span class="tab-icon" aria-hidden="true">🏠</span><span class="tab-label">主页</span></button>
-          <button data-view="posts" class="active"><span class="tab-icon" aria-hidden="true">📄</span><span class="tab-label">文章</span></button>
-          <button data-view="categories"><span class="tab-icon" aria-hidden="true">🗂️</span><span class="tab-label">分类</span></button>
-          <button data-view="settings"><span class="tab-icon" aria-hidden="true">⚙️</span><span class="tab-label">设置</span></button>
-        </nav>
         <div class="topbar-right">
           <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题">🌗</button>
           <span class="repo-badge" id="repoBadge" hidden></span>
@@ -89,6 +83,28 @@
         </div>
       </div>
     </header>
+
+    <!-- 底部 Tab 栏（iOS 原生）：主页 / 文章 / 分类 / 设置
+         注意：必须位于 .admin-topbar 之外，否则 topbar 的 backdrop-filter 会
+         成为 position:fixed 的包含块，导致「底部」Tab 栏钉在顶部。 -->
+    <nav class="side-nav" aria-label="后台导航">
+      <button data-view="home" class="tab-home">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+        <span class="tab-label">主页</span>
+      </button>
+      <button data-view="posts" class="active">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>
+        <span class="tab-label">文章</span>
+      </button>
+      <button data-view="categories">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="tab-label">分类</span>
+      </button>
+      <button data-view="settings">
+        <span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span class="tab-label">设置</span>
+      </button>
+    </nav>
 
     <div class="repo-warn" id="repoWarn" role="alert" hidden></div>
 
@@ -115,8 +131,8 @@
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786197506/gh.js"></script>
-  <script src="../assets/v1786197506/md.js"></script>
-  <script src="../assets/v1786197506/admin.js"></script>
+  <script src="../assets/v1786199851/gh.js"></script>
+  <script src="../assets/v1786199851/md.js"></script>
+  <script src="../assets/v1786199851/admin.js"></script>
 </body>
 </html>
