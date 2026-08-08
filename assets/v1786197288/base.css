@@ -197,7 +197,7 @@ hr {
 }
 
 input[type="text"], input[type="search"], input[type="password"],
-input[type="date"], input[type="datetime-local"], textarea, select {
+input[type="url"], input[type="date"], input[type="datetime-local"], textarea, select {
   font: inherit;
   color: var(--text);
   background: var(--bg-card);

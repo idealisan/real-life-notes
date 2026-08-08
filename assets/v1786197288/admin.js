@@ -49,7 +49,11 @@
     disconnectBtn: document.getElementById('disconnectBtn'),
     repoWarn: document.getElementById('repoWarn'),
     busyOverlay: document.getElementById('busyOverlay'),
-    toast: document.getElementById('toast')
+    toast: document.getElementById('toast'),
+    sheetRoot: document.getElementById('sheetRoot'),
+    sheetTitle: document.getElementById('sheetTitle'),
+    sheetBody: document.getElementById('sheetBody'),
+    sheetDone: document.getElementById('sheetDone')
   };
 
   /* ---------- 基础工具 ---------- */
@@ -79,6 +83,11 @@
     els.toast.hidden = false;
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { els.toast.hidden = true; }, type === 'error' ? 5000 : 2600);
+  }
+
+  /* 桌面端（≥761px）走表格布局；jsdom 等无 matchMedia 环境按移动端处理 */
+  function isDesktop() {
+    return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 761px)').matches;
   }
 
   function setBusy(b) {
@@ -593,10 +602,45 @@
       if (state.view === 'editor' && editor && editor.dirty) {
         if (!confirm('有未保存的修改，确定离开吗？')) return;
       }
-      state.view = btn.getAttribute('data-view');
+      var view = btn.getAttribute('data-view');
+      if (view === 'home') {
+        // 「主页」Tab：回到站点前台
+        window.location.href = '../';
+        return;
+      }
+      state.view = view;
       editor = null;
       render();
     });
+  });
+
+  /* ---------- 底部筛选 Sheet ---------- */
+  var sheetDoneCb = null;
+  function openSheet(title, bodyEl, onDone) {
+    if (!els.sheetRoot) return;
+    sheetDoneCb = onDone || null;
+    els.sheetTitle.textContent = title;
+    els.sheetBody.textContent = '';
+    els.sheetBody.appendChild(bodyEl);
+    els.sheetRoot.hidden = false;
+    requestAnimationFrame(function () { els.sheetRoot.classList.add('open'); });
+  }
+  function closeSheet() {
+    if (!els.sheetRoot) return;
+    els.sheetRoot.classList.remove('open');
+    els.sheetRoot.hidden = true;
+    sheetDoneCb = null;
+  }
+  els.sheetDone.addEventListener('click', function () {
+    var cb = sheetDoneCb;
+    closeSheet();
+    if (cb) cb();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sheet-close]'), function (m) {
+    m.addEventListener('click', closeSheet);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !els.sheetRoot.hidden) closeSheet();
   });
 
   window.addEventListener('beforeunload', function (e) {
@@ -708,6 +752,167 @@
 
     if (filterInputEl && document.activeElement !== filterInputEl && filterInputEl.value !== listFilter.q) filterInputEl.value = listFilter.q;
 
+    var notices = [];
+    if (state.emptyRepo) {
+      notices.push(el('div', { class: 'notice notice-error' }, [
+        el('strong', { text: '这是一个空仓库。' }),
+        el('span', { text: ' 发布文章前需要先初始化（把本站程序文件提交进来）。' }),
+        el('button', { class: 'btn-primary', style: 'margin-left:8px', text: '去初始化 →', onClick: function () { state.view = 'settings'; render(); } })
+      ]));
+    }
+    if (state.integrity && state.integrity.length) {
+      notices.push(el('div', { class: 'notice notice-error' }, [
+        el('strong', { text: '以下索引中的文件缺失：' }),
+        state.integrity.map(function (p) { return el('div', { class: 'integrity-item', text: p }); })
+      ]));
+    }
+
+    if (isDesktop()) els.mainContent.appendChild(renderPostsDesktop(posts, cats, notices));
+    else els.mainContent.appendChild(renderPostsMobile(posts, cats, notices));
+  }
+
+  function chip(val, label, active) {
+    return el('button', {
+      class: 'chip' + (active ? ' active' : ''), type: 'button',
+      'aria-pressed': active ? 'true' : 'false',
+      onClick: function () { if (listFilter.cat === val) return; listFilter.cat = val; renderPosts(); }
+    }, [label]);
+  }
+
+  function bulkBar(posts, cats) {
+    var selCount = Object.keys(state.listSel).length;
+    if (!selCount) return null;
+    var bar = el('div', { class: 'bulk-bar' }, [
+      el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }),
+      el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
+      el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
+      el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
+        el('select', {
+          id: 'bulkMoveCat', 'aria-label': '选择目标分类',
+          value: '',
+          onChange: function () { bar.dataset.movedone = '1'; }
+        }, cats.map(function (c) {
+          return el('option', { value: c, text: state.cfg.categories[c].label || c });
+        }))
+      ]),
+      el('button', { text: '移动', onClick: function () {
+        var sel = document.getElementById('bulkMoveCat');
+        if (!sel || !sel.value) { toast('请先选择目标分类', 'error'); return; }
+        bulkMoveCategory(Object.keys(state.listSel), sel.value);
+      } }),
+      el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
+      el('span', { class: 'spacer' }),
+      el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
+    ]);
+    return bar;
+  }
+
+  function openFilterSheet() {
+    var statuses = [['all', '全部状态'], ['pub', '已发布'], ['draft', '草稿'], ['pin', '置顶']];
+    var seg = el('div', { class: 'sheet-segment' }, statuses.map(function (s) {
+      return el('button', {
+        class: 'seg-btn' + (listFilter.status === s[0] ? ' active' : ''), type: 'button',
+        'aria-pressed': listFilter.status === s[0] ? 'true' : 'false',
+        onClick: function () { listFilter.status = s[0]; }
+      }, [s[1]]);
+    }));
+    var tools = el('div', { class: 'sheet-actions' }, [
+      el('button', { class: 'btn', text: '完整性检查', onClick: function () { closeSheet(); setTimeout(checkIntegrity, 0); } }),
+      el('button', { class: 'btn-ghost', text: '重置筛选', onClick: function () {
+        listFilter.cat = '';
+        listFilter.status = 'all';
+        listFilter.q = '';
+        if (filterInputEl) filterInputEl.value = '';
+      } })
+    ]);
+    openSheet('筛选', el('div', {}, [
+      el('div', { class: 'sheet-section' }, [el('div', { class: 'sheet-label', text: '状态' }), seg]),
+      el('div', { class: 'sheet-section' }, [el('div', { class: 'sheet-label', text: '工具' }), tools])
+    ]), function () { renderPosts(); });
+  }
+
+  /* 移动端：iOS 列表式文章页（大标题 + 搜索栏 + 分类标签 + 列表） */
+  function renderPostsMobile(posts, cats, notices) {
+    var head = el('div', { class: 'ios-titlebar' }, [
+      el('h1', { class: 'ios-title' }, ['文章',
+        posts.length ? el('span', { class: 'ios-title-count', text: '共 ' + posts.length + ' 篇' }) : null]),
+      el('div', { class: 'ios-title-actions' }, [
+        el('button', { class: 'ios-icon-btn', type: 'button', 'aria-label': '筛选', title: '筛选', onClick: openFilterSheet }, ['🎚️']),
+        el('button', { class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建文章', title: '新建文章', onClick: startNewPost }, ['＋'])
+      ])
+    ]);
+
+    var search = el('div', { class: 'search-bar' }, [
+      el('span', { class: 'search-bar-icon', 'aria-hidden': 'true', text: '🔍' }),
+      filterInputElement()
+    ]);
+    search.appendChild(el('button', {
+      class: 'search-clear', type: 'button', 'aria-label': '清除搜索',
+      onClick: function () { if (!filterInputEl) return; filterInputEl.value = ''; listFilter.q = ''; renderPosts(); }
+    }, ['✕']));
+    var clearBtn = search.querySelector('.search-clear');
+    if (clearBtn) clearBtn.hidden = !listFilter.q;
+
+    var chips = el('div', { class: 'filter-chips', 'aria-label': '分类筛选' }, [
+      chip('', '全部', listFilter.cat === '')
+    ].concat(cats.map(function (c) {
+      return chip(c, state.cfg.categories[c].label || c, listFilter.cat === c);
+    })));
+
+    var list = el('div', { class: 'post-list' }, []);
+    if (!posts.length) {
+      list.appendChild(el('div', { class: 'notice notice-info', text: '没有匹配的文章。点击右上角「＋」新建，或调整筛选条件。' }));
+    } else {
+      var bar = bulkBar(posts, cats);
+      if (bar) list.appendChild(bar);
+      posts.forEach(function (p) { list.appendChild(postCell(p)); });
+    }
+
+    return el('section', { class: 'ios-page' }, [head, search, chips].concat(notices, [list]));
+  }
+
+  function postCell(p) {
+    var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
+    var sel = !!state.listSel[p.path];
+    var meta = [catLabel, md.formatDate(p.date)];
+    if (typeof p.content === 'string' && p.content.trim()) meta.push(wordCount(p.content) + ' 字');
+    return el('div', { class: 'post-cell' + (sel ? ' sel' : '') }, [
+      el('label', { class: 'cell-check', 'aria-label': '选择《' + p.title + '》' }, [
+        el('input', {
+          type: 'checkbox',
+          checked: sel ? '' : null,
+          onChange: function (e) {
+            if (e.target.checked) state.listSel[p.path] = true;
+            else delete state.listSel[p.path];
+            renderPosts();
+          }
+        })
+      ]),
+      el('div', {
+        class: 'cell-main', role: 'button', tabindex: '0', 'aria-label': '编辑《' + p.title + '》',
+        onClick: function () { startEditPost(p); },
+        onKeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEditPost(p); } }
+      }, [
+        el('div', { class: 'cell-title' }, [
+          p.title,
+          p.pinned ? el('span', { class: 'pin-badge', text: '置顶' }) : null,
+          p.draft ? el('span', { class: 'draft-badge', text: '草稿' }) : null
+        ]),
+        el('div', { class: 'cell-sub', text: meta.join(' · ') })
+      ]),
+      el('div', { class: 'cell-right' }, [
+        el('span', { class: p.draft ? 'status-draft' : 'status-pub', text: p.draft ? '草稿' : '已发布' }),
+        el('div', { class: 'row-actions' }, [
+          el('button', { text: '编辑', onClick: function (e) { e.stopPropagation(); startEditPost(p); } }),
+          p.draft ? null : el('button', { text: '查看', onClick: function (e) { e.stopPropagation(); if (!assertRepoTargets()) return; window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
+          el('button', { class: 'btn-danger', text: '删除', onClick: function (e) { e.stopPropagation(); deletePost(p); } })
+        ])
+      ])
+    ]);
+  }
+
+  /* 桌面端：表格 + 工具栏（保持原有功能） */
+  function renderPostsDesktop(posts, cats, notices) {
     var toolbar = el('div', { class: 'panel-toolbar' }, [
       el('button', { class: 'btn-primary', text: '＋ 新建文章', onClick: startNewPost }),
       el('select', {
@@ -733,47 +938,11 @@
     ]);
 
     var body;
-    if (state.emptyRepo) {
-      els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
-        el('strong', { text: '这是一个空仓库。' }),
-        el('span', { text: ' 发布文章前需要先初始化（把本站程序文件提交进来）。' }),
-        el('button', { class: 'btn-primary', style: 'margin-left:8px', text: '去初始化 →', onClick: function () { state.view = 'settings'; render(); } })
-      ]));
-    }
-    if (state.integrity && state.integrity.length) {
-      els.mainContent.appendChild(el('div', { class: 'notice notice-error' }, [
-        el('strong', { text: '以下索引中的文件缺失：' }),
-        state.integrity.map(function (p) { return el('div', { class: 'integrity-item', text: p }); })
-      ]));
-    }
     if (!posts.length) {
       body = el('div', { class: 'notice notice-info', text: '还没有文章。点击「新建文章」开始记录。' });
     } else {
-      var selCount = Object.keys(state.listSel).length;
       var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
-      var bulkBar = selCount ? el('div', { class: 'bulk-bar' }, [
-        el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }),
-        el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
-        el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
-        el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
-          el('select', {
-            id: 'bulkMoveCat', 'aria-label': '选择目标分类',
-            value: '',
-            onChange: function () { bulkBar.dataset.movedone = '1'; }
-          }, cats.map(function (c) {
-            return el('option', { value: c, text: state.cfg.categories[c].label || c });
-          }))
-        ]),
-        el('button', { text: '移动', onClick: function () {
-          var sel = document.getElementById('bulkMoveCat');
-          if (!sel || !sel.value) { toast('请先选择目标分类', 'error'); return; }
-          bulkMoveCategory(Object.keys(state.listSel), sel.value);
-        } }),
-        el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
-        el('span', { class: 'spacer' }),
-        el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
-      ]) : null;
-
+      var bar = bulkBar(posts, cats);
       var rows = posts.map(function (p) {
         var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
         return el('tr', {}, [
@@ -810,7 +979,7 @@
         ]);
       });
       body = el('div', {}, [
-        bulkBar,
+        bar,
         el('div', { class: 'table-scroll' }, [
           el('table', { class: 'posts-table' }, [
             el('thead', {}, [el('tr', {}, [
@@ -836,10 +1005,12 @@
       ]);
     }
 
-    els.mainContent.appendChild(el('section', { class: 'panel' }, [
+    var root = el('div', {}, notices.slice());
+    root.appendChild(el('section', { class: 'panel' }, [
       el('h2', { class: 'panel-title', text: '文章管理' }),
       toolbar, body
     ]));
+    return root;
   }
 
   function checkIntegrity() {
@@ -1484,33 +1655,105 @@
 
   /* ---------- 分类管理 ---------- */
   function renderCategories() {
-    var panel = el('section', { class: 'panel' }, [
-      el('h2', { class: 'panel-title', text: '分类管理' }),
-      addCategoryForm()
-    ]);
+    els.mainContent.textContent = '';
+    if (isDesktop()) {
+      var panel = el('section', { class: 'panel' }, [
+        el('h2', { class: 'panel-title', text: '分类管理' }),
+        addCategoryForm()
+      ]);
 
-    var rows = Object.keys(state.cfg.categories).map(function (key) {
+      var rows = Object.keys(state.cfg.categories).map(function (key) {
+        var c = state.cfg.categories[key];
+        var count = state.index.posts.filter(function (p) { return p.category === key; }).length;
+        return categoryRow(key, c, count);
+      });
+
+      var listChildren = [
+        el('h2', { class: 'panel-title', text: '分类列表' }),
+        el('div', { class: 'cat-head' }, [
+          el('div', { text: '图标' }),
+          el('div', { class: 'cat-label-s', text: 'ID / 名称' }),
+          el('div', { text: '描述' }),
+          el('div', { text: '文章数' }),
+          el('div', {})
+        ])
+      ];
+      if (rows.length) listChildren = listChildren.concat(rows);
+      else listChildren.push(el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' }));
+
+      els.mainContent.appendChild(panel);
+      els.mainContent.appendChild(el('section', { class: 'panel' }, listChildren));
+      return;
+    }
+    renderCategoriesMobile();
+  }
+
+  /* 移动端：iOS 分组列表式分类管理 */
+  function renderCategoriesMobile() {
+    var items = Object.keys(state.cfg.categories).map(function (key) {
       var c = state.cfg.categories[key];
       var count = state.index.posts.filter(function (p) { return p.category === key; }).length;
-      return categoryRow(key, c, count);
+      return categoryMobileRow(key, c, count);
     });
+    var listBody = items.length
+      ? el('div', { class: 'cat-list' }, items)
+      : el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' });
 
-    var listChildren = [
-      el('h2', { class: 'panel-title', text: '分类列表' }),
-      el('div', { class: 'cat-head' }, [
-        el('div', { text: '图标' }),
-        el('div', { class: 'cat-label-s', text: 'ID / 名称' }),
-        el('div', { text: '描述' }),
-        el('div', { text: '文章数' }),
-        el('div', {})
+    els.mainContent.appendChild(el('section', { class: 'ios-page' }, [
+      el('div', { class: 'ios-titlebar' }, [
+        el('h1', { class: 'ios-title', text: '分类' }),
+        el('div', { class: 'ios-title-actions' }, [
+          el('button', {
+            class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建分类', title: '新建分类',
+            onClick: function () {
+              var first = document.querySelector('.cat-add input');
+              if (first) { first.focus(); first.scrollIntoView && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+            }
+          }, ['＋'])
+        ])
+      ]),
+      addCategoryFormMobile(),
+      listBody
+    ]));
+  }
+
+  function addCategoryFormMobile() {
+    var nameInput = el('input', { type: 'text', placeholder: '分类 id（小写字母/数字/-/_）', id: 'newCatName', 'aria-label': '分类 id' });
+    var labelInput = el('input', { type: 'text', placeholder: '显示名称', id: 'newCatLabel', 'aria-label': '显示名称' });
+    var iconInput = el('input', { type: 'text', placeholder: '图标（可选）', id: 'newCatIcon', maxlength: 8, 'aria-label': '图标' });
+    var descInput = el('input', { type: 'text', placeholder: '描述（可选）', id: 'newCatDesc', 'aria-label': '描述' });
+    return el('div', { class: 'cat-add' }, [
+      el('div', { class: 'cat-add-head', text: '新建分类' }),
+      el('div', { class: 'cat-add-grid' }, [nameInput, labelInput, iconInput, descInput]),
+      el('button', { class: 'btn-primary cat-add-btn', text: '添加', onClick: function () {
+        addCategory(nameInput.value.trim(), labelInput.value.trim(), iconInput.value.trim(), descInput.value.trim());
+      } })
+    ]);
+  }
+
+  function categoryMobileRow(key, c, count) {
+    var labelInput = el('input', { type: 'text', value: c.label || key, 'aria-label': '显示名称' });
+    var iconInput = el('input', { type: 'text', value: c.icon || '', maxlength: 8, 'aria-label': '图标' });
+    var descInput = el('input', { type: 'text', value: c.description || '', 'aria-label': '描述' });
+    return el('div', { class: 'cat-cell' }, [
+      el('div', { class: 'cell-main' }, [
+        el('span', { class: 'cat-icon', text: c.icon || '📁' }),
+        el('div', { class: 'cell-main-text' }, [
+          el('div', { class: 'cell-title', text: c.label || key }),
+          el('div', { class: 'cell-sub' }, [
+            el('code', { text: key }),
+            el('span', { text: ' · ' + count + ' 篇' })
+          ])
+        ])
+      ]),
+      el('div', { class: 'cat-cell-fields' }, [labelInput, iconInput, descInput]),
+      el('div', { class: 'cat-cell-actions' }, [
+        el('button', { text: '保存', onClick: function () {
+          saveCategory(key, labelInput.value.trim(), iconInput.value.trim(), descInput.value.trim());
+        } }),
+        el('button', { class: 'btn-danger', text: '删除', onClick: function () { deleteCategory(key, count); } })
       ])
-    ];
-    if (rows.length) listChildren = listChildren.concat(rows);
-    else listChildren.push(el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' }));
-    var listPanel = el('section', { class: 'panel' }, listChildren);
-
-    els.mainContent.appendChild(panel);
-    els.mainContent.appendChild(listPanel);
+    ]);
   }
 
   function addCategoryForm() {
@@ -1691,79 +1934,111 @@
   }
 
   /* ---------- 设置 ---------- */
+  /* iOS 设置页小组件 */
+  function iosGroup(title, children) {
+    return el('section', { class: 'ios-group' }, [
+      el('h2', { class: 'ios-group-title', text: title }),
+      el('div', { class: 'ios-group-box' }, children.filter(Boolean))
+    ]);
+  }
+  function iosCell(labelText, control) {
+    return el('div', { class: 'ios-cell' }, [
+      el('span', { class: 'cell-label', text: labelText }),
+      control
+    ]);
+  }
+  function iosToggle(id, checked, onChange) {
+    var input = el('input', { type: 'checkbox', id: id, role: 'switch', checked: checked ? '' : null, 'aria-label': '启用' });
+    var label = el('label', { class: 'switch' }, [input, el('span', { class: 'track' }, [el('span', { class: 'thumb' })])]);
+    if (onChange) input.addEventListener('change', onChange);
+    return label;
+  }
+
   function renderSettings() {
+    els.mainContent.textContent = '';
     if (state.emptyRepo) {
       els.mainContent.appendChild(initPanel());
     }
     var site = state.cfg.site;
     var g = state.cfg.github;
 
-    var titleInput = el('input', { type: 'text', value: site.title || '', id: 'setTitle', maxlength: 60 });
-    var subtitleInput = el('input', { type: 'text', value: site.subtitle || '', id: 'setSubtitle', maxlength: 200 });
-    var authorInput = el('input', { type: 'text', value: site.author || '', id: 'setAuthor', maxlength: 60 });
-    var footerInput = el('input', { type: 'text', value: site.footer || '', id: 'setFooter', maxlength: 200 });
+    var titleInput = el('input', { type: 'text', value: site.title || '', id: 'setTitle', maxlength: 60, 'aria-label': '站点标题' });
+    var subtitleInput = el('input', { type: 'text', value: site.subtitle || '', id: 'setSubtitle', maxlength: 200, 'aria-label': '副标题' });
+    var authorInput = el('input', { type: 'text', value: site.author || '', id: 'setAuthor', maxlength: 60, 'aria-label': '作者' });
+    var footerInput = el('input', { type: 'text', value: site.footer || '', id: 'setFooter', maxlength: 200, 'aria-label': '页脚文字' });
     var urlInput = el('input', {
       type: 'url', value: site.url || '', id: 'setUrl', maxlength: 200,
-      placeholder: 'https://<用户名>.github.io/<仓库>/（留空则用相对路径）'
+      placeholder: 'https://<用户名>.github.io/<仓库>/',
+      'aria-label': '站点地址'
     });
-    var pagesFillBtn = el('button', {
-      class: 'btn', type: 'button', text: '填入 GitHub Pages 地址',
+    var wandBtn = el('button', {
+      class: 'ios-wand', type: 'button', 'aria-label': '填入 GitHub Pages 地址', title: '填入 GitHub Pages 地址',
       onClick: function () {
-        var g = state.cfg.github;
-        urlInput.value = 'https://' + g.owner + '.github.io/' + g.repo + '/';
+        urlInput.value = 'https://' + state.cfg.github.owner + '.github.io/' + state.cfg.github.repo + '/';
         toast('已按当前仓库填入，保存后生效', 'ok');
       }
-    });
-    var comments = state.cfg.comments || {};
-    var commentsOn = el('input', { type: 'checkbox', id: 'setComments', checked: comments.enabled ? 'checked' : null });
-    var commentsLabel = el('input', { type: 'text', id: 'setCommentsLabel', value: comments.label || '评论', maxlength: 30 });
+    }, ['✨']);
 
-    var saveBtn = el('button', { class: 'btn-primary', text: '保存设置', onClick: function () {
+    var comments = state.cfg.comments || {};
+    var commentsToggle = iosToggle('setComments', !!comments.enabled);
+    var commentsLabel = el('input', { type: 'text', id: 'setCommentsLabel', value: comments.label || '评论', maxlength: 30, 'aria-label': '评论标签' });
+
+    var saveBtn = el('button', { class: 'btn-primary ios-save-btn', text: '保存设置', onClick: function () {
       if (!titleInput.value.trim()) { toast('站点标题不能为空', 'error'); return; }
       site.title = titleInput.value.trim();
       site.subtitle = subtitleInput.value.trim();
       site.author = authorInput.value.trim();
       site.footer = footerInput.value.trim();
       site.url = urlInput.value.trim();
-      state.cfg.comments = { enabled: commentsOn.checked, label: commentsLabel.value.trim() || '评论' };
+      state.cfg.comments = { enabled: commentsToggle.querySelector('input').checked, label: commentsLabel.value.trim() || '评论' };
       saveConfig('更新站点设置', function () {
         updateRepoWarn();
         renderSettings();
       });
     } });
 
-    els.mainContent.appendChild(el('section', { class: 'panel' }, [
-      el('h2', { class: 'panel-title', text: '站点设置' }),
-      el('div', { class: 'field' }, [el('label', { for: 'setTitle', text: '站点标题' }), titleInput]),
-      el('div', { class: 'field' }, [el('label', { for: 'setSubtitle', text: '副标题' }), subtitleInput]),
-      el('div', { class: 'field' }, [el('label', { for: 'setAuthor', text: '作者（用于结构化数据）' }), authorInput]),
-      el('div', { class: 'field' }, [el('label', { for: 'setUrl', text: '站点地址（RSS 链接用）' }), urlInput]),
-      el('div', { class: 'hint', style: 'margin-top:-6px' }, [
-        pagesFillBtn,
-        el('span', { text: ' 站点地址必须是「当前管理仓库」的站点；留空时预览链接按相对路径指向后台所在站点。' })
+    var urlGroup = iosGroup('访问地址', [
+      el('div', { class: 'ios-cell' }, [
+        el('span', { class: 'cell-label', text: '站点地址' }),
+        urlInput,
+        wandBtn
       ]),
-      el('div', { class: 'field' }, [el('label', { for: 'setFooter', text: '页脚文字' }), footerInput]),
-      el('div', { class: 'field' }, [el('label', { for: 'setComments', text: '启用评论（GitHub Issues）' }), commentsOn]),
-      el('div', { class: 'field' }, [el('label', { for: 'setCommentsLabel', text: '评论标签' }), commentsLabel]),
-      el('div', { class: 'hint', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' }),
-      saveBtn,
-      el('button', { class: 'btn', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles })
-    ]));
+      el('div', { class: 'ios-cell-desc', text: '留空时预览链接按相对路径指向后台所在站点；点魔法棒可自动填入当前仓库的 GitHub Pages 地址。' })
+    ]);
 
-    els.mainContent.appendChild(el('section', { class: 'panel' }, [
-      el('h2', { class: 'panel-title', text: '仓库信息' }),
-      el('div', { class: 'field' }, [
-        el('div', { class: 'hint', text: '以下信息来自已连接的仓库，如需修改请直接更新 content/config.json。' }),
-        el('div', { class: 'repo-badge', style: 'display:inline-block;margin-top:8px', text: g.owner + '/' + g.repo + ' @' + g.branch })
+    var siteGroup = iosGroup('站点信息', [
+      iosCell('站点标题', titleInput),
+      iosCell('副标题', subtitleInput),
+      iosCell('作者（结构化数据）', authorInput),
+      iosCell('页脚文字', footerInput)
+    ]);
+
+    var commentsGroup = iosGroup('评论', [
+      el('div', { class: 'ios-cell' }, [
+        el('span', { class: 'cell-label', text: '启用评论（GitHub Issues）' }),
+        commentsToggle
       ]),
-      state.user ? el('div', { class: 'field' }, [
-        el('label', { text: '当前登录用户' }),
-        el('div', { text: state.user.login + '（' + state.user.name + '）' })
-      ]) : null
-    ]));
+      iosCell('评论标签', commentsLabel),
+      el('div', { class: 'ios-cell-desc', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' })
+    ]);
 
-    var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码' });
-    var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认' });
+    var regenBtn = el('button', { class: 'ios-cell-btn', type: 'button', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles });
+    var toolsGroup = iosGroup('维护', [el('div', { class: 'ios-cell' }, [regenBtn])]);
+
+    var repoGroup = iosGroup('仓库信息', [
+      el('div', { class: 'ios-cell' }, [
+        el('span', { class: 'cell-label', text: '当前仓库' }),
+        el('span', { class: 'repo-badge', text: g.owner + '/' + g.repo + ' @' + g.branch })
+      ]),
+      state.user ? el('div', { class: 'ios-cell' }, [
+        el('span', { class: 'cell-label', text: '当前登录用户' }),
+        el('span', { class: 'ios-value', text: state.user.login + '（' + state.user.name + '）' })
+      ]) : null,
+      el('div', { class: 'ios-cell-desc', text: '仓库信息来自已连接的仓库，如需修改请直接更新 content/config.json。' })
+    ]);
+
+    var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码', 'aria-label': '解锁密码' });
+    var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认解锁密码' });
     var saveEncBtn = el('button', {
       class: 'btn-primary', type: 'button', text: state.encTokenSaved ? '更新加密 Token' : '加密保存 Token 到仓库',
       onClick: function () {
@@ -1779,17 +2054,25 @@
       onClick: clearEncryptedToken
     });
     var encStatus = state.encTokenSaved
-      ? el('div', { class: 'hint', style: 'margin-top:8px', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
-      : el('div', { class: 'hint', style: 'margin-top:8px', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
-    els.mainContent.appendChild(el('section', { class: 'panel' }, [
-      el('h2', { class: 'panel-title', text: 'Token 加密存储' }),
-      el('div', { class: 'field' }, [
-        el('label', { for: 'tokPass', text: '解锁密码（AES-256-GCM + PBKDF2 加密 Token 后存入仓库）' }),
-        tokPass
+      ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
+      : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
+    var encGroup = iosGroup('Token 加密存储', [
+      iosCell('解锁密码', tokPass),
+      iosCell('确认密码', tokPass2),
+      el('div', { class: 'ios-cell' }, [
+        el('div', { class: 'ios-cell-actions' }, [saveEncBtn, state.encTokenSaved ? clearEncBtn : null])
       ]),
-      el('div', { class: 'field' }, [tokPass2]),
-      el('div', { style: 'display:flex;gap:8px' }, [saveEncBtn, state.encTokenSaved ? clearEncBtn : null]),
       encStatus
+    ]);
+
+    els.mainContent.appendChild(el('div', { class: 'settings-page' }, [
+      siteGroup,
+      urlGroup,
+      commentsGroup,
+      toolsGroup,
+      repoGroup,
+      encGroup,
+      el('div', { class: 'ios-save-row' }, [saveBtn])
     ]));
   }
 

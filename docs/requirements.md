@@ -140,7 +140,17 @@
 - **影响**：RSS/站点地图/robots 从根路径移到 `content/`；爬虫默认抓取根 `/robots.txt` 会 404（视为不限制，可接受）；`initRepo` 复制源仓库时 `content/` 整体跳过（本来就是用户内容）。
 - 验证：jsdom 集成测试全绿；代理线上 `content/config.json`、`content/images/`、版本化资源均 200，旧根路径 404。
 
-### 管理后台布局改版（侧栏上移 / 预览下移 / 工具菜单化）
+### 管理后台 iOS 原生化改版（Tab 栏 / 列表管理 / 设置分组）
+- **问题**：后台在手机上仍是"桌面页面缩水"——文章/分类为原生 select 过滤 + 横向表格、设置页字段排版乱（站点地址 `input[type=url]` 未纳入 base.css 样式导致输入框极小、GitHub Pages 填入按钮过大、评论是原生 checkbox、保存/重新生成按钮堆一起），设置页宽度不适配视口（左右留白/漂移）。
+- **方案**：
+  - **底部 Tab 栏**：`.side-nav` 改 iOS 图标+文字的 tab（🏠主页 / 📄文章 / 🗂️分类 / ⚙️设置）；最左「主页」点击跳回站点前台 `../`（编辑器 dirty 时先确认）；桌面端（≥761px）恢复为顶栏内横向文字导航。
+  - **文章页**：iOS 大标题「文章」+ 计数；右上角「＋」圆形新建按钮与「🎚️」筛选按钮；iOS 圆角搜索栏；分类过滤改为可左右横滚的标签行（「全部」最左，`.chip` 激活态高亮）；列表为 iOS 分组卡片（`.post-list`/`.post-cell`：勾选 + 点击行进入编辑 + 分类·日期·字数副行 + 状态/编辑/查看/删除）；筛选按钮弹出**底部 Sheet**（`.bottom-sheet`：状态分段「全部/已发布/草稿/置顶」+ 完整性检查/重置筛选）。桌面端保留原表格 + 工具栏（select 过滤、批量操作）。
+  - **分类页**：移动端 iOS 分组列表（`.cat-cell`：图标+名称+id·文章数 + 内联编辑字段 + 保存/删除）；「＋」新建分类聚焦 `.cat-add` 表单。桌面端保留 `.cat-head`/`.cat-row` 网格。
+  - **设置页**：改为 iOS 分组表单（`.settings-page` max-width 680px 居中自适应）——「站点信息 / 访问地址 / 评论 / 维护 / 仓库信息 / Token 加密存储」分组卡片，单元格 label 左、输入右对齐；**评论开关改 iOS Toggle**（`.switch`，UISwitch 风格，`role="switch"`）；**GitHub Pages 地址按钮改魔法棒 ✨ 图标**（`.ios-wand`，`aria-label="填入 GitHub Pages 地址"`）并配说明文字；保存设置为全宽主按钮置底。
+  - **宽度修复**：`input[type="url"]` 补入 base.css 样式清单（修复 URL 输入框过小）；`.admin-page --maxw` 1280→980px，`body.admin-page { overflow-x: hidden }` 防横向漂移；设置页 680px 居中。
+- 测试：`test-admin-layout.js` 重写为 58 项（Tab 4 个、iOS 大标题/搜索栏/标签行、`post-cell` 列表、筛选 Sheet 打开/分段/完整性检查、分类 `cat-cell`、设置分组/魔法棒/Toggle/保存按钮）；新增 `dbg-admin-desktop.js` 验证桌面端表格分支 8 项；`test-enc-token`/`test-login-flow`/`test-repo-mismatch` 同步更新后全绿。
+
+
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
 - **方案**：
   - **导航上移**：`.admin-side` 左侧栏删除，`.side-nav` 移入顶部 `.admin-topbar`（品牌 / 导航居中 / 操作按钮右置），顶栏保持 sticky。

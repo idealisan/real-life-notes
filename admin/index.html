@@ -12,12 +12,12 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786195514/base.css">
+  <link rel="stylesheet" href="../assets/v1786197288/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786195514/admin.css">
-  <script src="../assets/v1786195514/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786197288/admin.css">
+  <script src="../assets/v1786197288/theme.js"></script>
 </head>
 <body class="admin-page">
 
@@ -77,9 +77,10 @@
           <span>管理后台</span>
         </a>
         <nav class="side-nav" aria-label="后台导航">
-          <button data-view="posts" class="active">文章</button>
-          <button data-view="categories">分类</button>
-          <button data-view="settings">设置</button>
+          <button data-view="home"><span class="tab-icon" aria-hidden="true">🏠</span><span class="tab-label">主页</span></button>
+          <button data-view="posts" class="active"><span class="tab-icon" aria-hidden="true">📄</span><span class="tab-label">文章</span></button>
+          <button data-view="categories"><span class="tab-icon" aria-hidden="true">🗂️</span><span class="tab-label">分类</span></button>
+          <button data-view="settings"><span class="tab-icon" aria-hidden="true">⚙️</span><span class="tab-label">设置</span></button>
         </nav>
         <div class="topbar-right">
           <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换主题">🌗</button>
@@ -96,12 +97,26 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+  <!-- 底部筛选 Sheet -->
+  <div class="sheet-root" id="sheetRoot" hidden>
+    <div class="sheet-mask" data-sheet-close></div>
+    <section class="bottom-sheet" role="dialog" aria-modal="true" aria-label="筛选">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <button type="button" class="sheet-cancel" data-sheet-close>取消</button>
+        <span class="sheet-title" id="sheetTitle">筛选</span>
+        <button type="button" class="sheet-done" id="sheetDone">完成</button>
+      </div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </section>
+  </div>
+
   <script src="../assets/vendor/marked.min.js"></script>
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786195514/gh.js"></script>
-  <script src="../assets/v1786195514/md.js"></script>
-  <script src="../assets/v1786195514/admin.js"></script>
+  <script src="../assets/v1786197288/gh.js"></script>
+  <script src="../assets/v1786197288/md.js"></script>
+  <script src="../assets/v1786197288/admin.js"></script>
 </body>
 </html>
