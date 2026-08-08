@@ -39,7 +39,7 @@ const SOURCES = [
 ];
 
 const BASENAMES = SOURCES.map((s) => path.basename(s));
-const HTML_FILES = ['index.html', 'post.html', '404.html', 'admin/index.html'];
+const HTML_FILES = ['index.html', 'post.html', '404.html', 'admin/index.html', 'admin/login.html'];
 
 function readFile(rel) {
   return fs.readFileSync(path.join(ROOT, rel));

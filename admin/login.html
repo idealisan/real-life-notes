@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+  <meta name="robots" content="noindex">
+  <title>连接 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/v1786188327/base.css">
+  <link rel="stylesheet" href="../assets/v1786188327/admin.css">
+  <script src="../assets/v1786188327/theme.js"></script>
+</head>
+<body class="admin-page">
+  <main class="container" style="max-width:560px;padding-top:56px;padding-bottom:56px">
+    <section class="panel">
+      <h2 class="panel-title">📝 连接管理后台</h2>
+      <p class="hint" style="margin:0 0 16px">
+        填写 GitHub Token 后点击提交进入后台。若浏览器未自动弹出「保存密码」，可手动在浏览器密码管理器中添加本页面（网址 / GitHub 用户名 / Token）。
+      </p>
+      <!-- GET 真实提交：纯静态托管无需后端也能跳转；敏感输入不带 name，Token 不会进入 URL -->
+      <form id="loginForm" action="./index.html" method="get" autocomplete="on">
+        <input type="text" id="adminUser" name="adminUser" autocomplete="username"
+               class="visually-hidden" aria-hidden="true" tabindex="-1">
+        <div class="field">
+          <label for="adminToken">GitHub Token（fine-grained PAT，仅授权本仓库 Contents 读写）</label>
+          <input id="adminToken" type="password" autocomplete="current-password"
+                 placeholder="github_pat_…" required spellcheck="false" autocapitalize="off">
+        </div>
+        <div class="field">
+          <label for="adminRepo">目标仓库 URL（可选）</label>
+          <input id="adminRepo" type="text" autocomplete="off"
+                 placeholder="https://github.com/owner/repo" spellcheck="false" autocapitalize="off">
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%">连接并进入后台</button>
+      </form>
+    </section>
+  </main>
+  <script>
+    (function () {
+      'use strict';
+      var form = document.getElementById('loginForm');
+      var userEl = document.getElementById('adminUser');
+      var tokenEl = document.getElementById('adminToken');
+      var repoEl = document.getElementById('adminRepo');
+      try {
+        var savedRepo = sessionStorage.getItem('adminRepo');
+        if (savedRepo) repoEl.value = savedRepo;
+      } catch (e) {}
+      form.addEventListener('submit', function () {
+        try {
+          sessionStorage.setItem('adminToken', tokenEl.value.trim());
+          sessionStorage.setItem('adminRepo', repoEl.value.trim());
+          var s = repoEl.value.trim().replace(/\/+$/, '');
+          var parts = s ? s.split('/').filter(Boolean) : [];
+          userEl.value = parts.length >= 2 ? parts[parts.length - 2] : 'github';
+        } catch (e) {}
+        // 不调用 preventDefault：让表单以 GET 真实提交并跳转到 index.html，
+        // 通过真实页面跳转触发浏览器「保存密码」提示。敏感输入无 name，Token 不会进 URL。
+      });
+    })();
+  </script>
+</body>
+</html>

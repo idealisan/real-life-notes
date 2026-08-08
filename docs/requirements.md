@@ -157,14 +157,40 @@
 - 测试：`test-admin-layout.js`（预览 `../` 前缀、草稿无查看、检查前后字数对比），33 项全绿。
 
 ### 连接表单支持浏览器保存 Token
+> **已放弃自动保存**（2026-08-07）：见 `docs/experiment-login-save-password.md`。`navigator.credentials.store` 因 `PasswordCredential` 被 Web 标准移除而不可靠；改为引导用户手动在浏览器密码管理器添加 Token。
 - **问题**：点「连接」后浏览器不弹「保存密码」。纯 SPA 里 `preventDefault` + fetch 登录时，Chrome/Firefox 的原生启发式**根本不会**弹出保存框——它需要真实导航/页面跳转，`action` + `autocomplete` 属性只是必要条件而非充分条件。
-- **方案**：两条腿走路——
-  - 表单属性：`<form action="./" method="post">` + token `autocomplete="current-password"` + `visually-hidden` 的 `autocomplete="username"` 隐藏字段（提交时 JS 填仓库 owner）。供不支持 API 的浏览器做原生兜底。
+- **曾用方案**（保留为老浏览器最佳努力，不作主方案）：
+  - 表单属性：`<form action="./" method="get">` + token `autocomplete="current-password"` + `visually-hidden` 的 `autocomplete="username"` 隐藏字段（提交时 JS 填仓库 owner）。供不支持 API 的浏览器做原生兜底。
   - **程序化触发（主力）**：连接成功后显式调用 Credential Management API —— `navigator.credentials.store(new PasswordCredential({ id: state.user.login, password: token }))`。该 API 已跨浏览器稳定（MDN：2020-01 起全支持；caniuse Chrome 57–152 ✅），仅限 HTTPS 与顶层上下文，成功后浏览器弹出「保存密码」。失败/不支持时静默忽略（store() 里 catch）。
 - 验证：jsdom 全绿；浏览器实测 HTTPS 下连接成功即弹保存提示（已推送 `86b3f9f`）。
 
-### 分类页空白 + 设置页左右偏移
-- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
+### 独立登录页（已放弃「自动保存 Token」，保留登录入口）
+> **已放弃**（2026-08-07）：目标改为引导用户**手动**在浏览器密码管理器添加 Token。完整尝试记录与根因见 `docs/experiment-login-save-password.md`，**勿再重复尝试**。
+- **问题**：后台登录若用 `method="post"`，静态托管（GitHub Pages / 任意静态服务器）没有后端接收 POST，不可行。
+- **已做的实验**：新增 `admin/login.html` 独立登录页，`method="get"` + `action="./index.html"` 真实表单提交跳转，Token/仓库输入不带 `name`（不进 URL），隐藏 `adminUser` 字段保留 `name="adminUser"` + `autocomplete="username"`；提交处理器写 `sessionStorage`（`adminToken`/`adminRepo`）后不 preventDefault，后台 `boot()` 读 sessionStorage 自动连接。jsdom `test-login-flow.js` 16 项全绿。
+- **结论**：GET 跳转在静态托管可完成、连接流程正常，但浏览器**不会**为无后端应答的 GET 提交弹「保存密码」；`navigator.credentials.store` 等程序化方案也随 Web 标准移除而不可靠。故放弃自动保存。
+- **保留**：`admin/login.html` 作为登录入口（连接流程正常），文案引导手动保存。
+
+### Token 加密存储到仓库（密码解锁，替代长 Token 粘贴）
+- **问题**：Token 很长，每次打开后台都要粘贴一次；浏览器密码管理器自动保存不可靠（见前节）。
+- **方案**：设置页新增「Token 加密存储」面板——用户自定义一个解锁密码，把当前 Token 用 **AES-256-GCM**（密钥由 **PBKDF2-SHA256** 12 万次迭代从密码派生）加密后写入仓库 `content/.admin-token`（密文结构 `{v,kdf,iter,algo,salt,iv,ct}`，Web Crypto `crypto.subtle`）。
+  - **保存**：`encryptToken(token, password)` → `gh.commitFiles` 提交 `content/.admin-token`；已保存时按钮变「更新加密 Token」，另提供「清除已保存的加密 Token」。
+  - **解锁**：`boot()` 先本地 `fetch('../content/.admin-token')`（后台与内容同仓库部署），失败则 `gh.getContentPublic` 读公开仓库；探测到密文即显示「输入密码解锁」模式（隐藏手动 Token 表单），`decryptToken(payload, password)` 成功即 `connect(token, addr)` 自动连接；可切换回手动 Token 登录。
+  - **安全**：密码只在内存、不落盘；密文可放心放仓库（公开也需暴力破解 PBKDF2+AES）。仅 HTTPS 可用（`crypto.subtle` 需安全上下文）。
+- 测试：`test-enc-token.js` 14 项（解锁模式显示、错误密码失败、正确密码自动连接、设置页保存提交密文、无密文走手动模式、模式切换往返）。
+- 验证：jsdom 全绿；版本目录更新，代理线上 `/admin/` 正常。
+
+### 全站 iOS 风格响应式 UI 重构（前台 + 后台）
+- **问题**：前台与后台 UI 偏"网页卡片"风格，移动端触控目标偏小、无原生应用质感；后台文章表在窄屏不可读。
+- **方案（纯样式 + 结构微调，API 与交互全部保持不变）**：
+  - **设计系统（base.css）**：改为 iOS 系统蓝 `--accent: #007AFF`（暗色 `#0A84FF`）、分组灰背景 `--bg-page`（亮 `#F2F2F7` / 暗 `#000`）、卡片白 `--bg-card`（亮 `#fff` / 暗 `#1C1C1E`）、更大圆角（卡片 ~16px）、`env(safe-area-inset-*)` 安全区变量、≥44px 触控目标、`-webkit-tap-highlight-color: transparent`。
+  - **前台（site.css）**：分组列表卡片（灰底白卡）、毛玻璃 sticky 导航栏（含安全区）、移动端底部固定 tab-bar（首页/归档/标签/管理，桌面隐藏）、iOS 大标题、分段式分类胶囊、文章正文白卡阅读区、iOS 样式分页与按钮。
+  - **后台（admin.css）**：iOS 顶部导航栏；移动端 `.side-nav` 转底部固定 tab（文章/分类/设置，桌面仍居中在顶栏）；面板/表单 iOS 分组样式、主按钮全宽大触控；文章表窄屏横向滚动（`.table-scroll` 包裹）。
+  - **HTML**：各页 `viewport-fit=cover`、`apple-mobile-web-app-*` meta、`theme-color`、公共页新增静态 `<nav class="tab-bar">`；`site.js` 增加 tab-bar 激活态高亮（纯 UI，不改 API）。
+- 测试：`test-admin-layout.js` 适配（新增 `.table-scroll`、tab-bar、安全区 class 断言）。
+- 验证：jsdom 全绿；`node tools/version-bump.js` 更新版本目录；代理线上前台/后台移动视口与桌面视口均正常。
+
+### 分类页空白 + 设置页左右偏移- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
 - **设置页偏移**：文章/分类页内容高、出现垂直滚动条；设置页内容矮、无滚动条 → 切换时滚动条出现/消失，页面左右轻微晃动。修复：admin.css 加 `html { overflow-y: scroll; }`（admin 专属），始终保留滚动条，各页布局稳定一致。
 - 测试：`test-admin-layout.js` 新增分类/设置页渲染断言（分类 2 行、设置两面板+保存按钮）。
 

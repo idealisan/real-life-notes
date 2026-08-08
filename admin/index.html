@@ -2,18 +2,23 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f7">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="管理后台">
   <meta name="robots" content="noindex, nofollow">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.github.com; font-src 'self'; base-uri 'self'; form-action 'self'">
   <title>管理后台 · Real Life Notes</title>
-  <link rel="stylesheet" href="../assets/v1786080149/base.css">
+  <link rel="stylesheet" href="../assets/v1786188327/base.css">
   <link rel="stylesheet" href="../assets/vendor/katex/katex.min.css">
   <link rel="stylesheet" href="../assets/vendor/hljs/github.min.css" data-hljs="light" media="(prefers-color-scheme: light)">
   <link rel="stylesheet" href="../assets/vendor/hljs/github-dark.min.css" data-hljs="dark" media="(prefers-color-scheme: dark)">
-  <link rel="stylesheet" href="../assets/v1786080149/admin.css">
-  <script src="../assets/v1786080149/theme.js"></script>
+  <link rel="stylesheet" href="../assets/v1786188327/admin.css">
+  <script src="../assets/v1786188327/theme.js"></script>
 </head>
 <body class="admin-page">
 
@@ -24,30 +29,43 @@
         <span class="connect-logo">📝</span>
         <span class="connect-title">管理后台</span>
       </div>
-      <form id="connectForm" class="connect-form" action="./" method="post" autocomplete="on">
-        <!-- 供密码管理器识别用户名的隐藏字段：提交时由 JS 填仓库 owner，让浏览器能正确提示保存 Token -->
-        <input id="adminUser" name="adminUser" type="text" autocomplete="username"
-               aria-hidden="true" tabindex="-1" class="visually-hidden">
-        <input id="adminToken" name="adminToken" type="password"
-               aria-label="GitHub Token"
-               autocomplete="current-password" placeholder="GitHub Token (github_pat_…)"
-               required spellcheck="false" autocapitalize="off">
-        <input id="adminRepo" name="adminRepo" type="text"
-               aria-label="目标仓库 URL（可选）"
-               autocomplete="off"
-               placeholder="目标仓库 URL（可选）"
-               spellcheck="false" autocapitalize="off">
-        <button type="submit" class="btn-primary" id="connectBtn">连接</button>
-      </form>
-      <div class="connect-msgs">
-        <p class="connect-tip">Token 仅在浏览器内存使用，不落盘，会自动交给浏览器密码管理器保管。</p>
-        <p class="connect-hint" id="connectRepoHint" hidden></p>
-        <p class="connect-target" id="connectTarget" hidden>
-          目标仓库：<code id="connectTargetText"></code>
-        </p>
-        <p class="connect-error" id="connectError" hidden></p>
-        <p class="connect-meta" id="connectMeta" hidden></p>
-      </div>
+        <form id="connectForm" class="connect-form" action="./" method="get" autocomplete="on">
+          <!-- 供密码管理器识别用户名的隐藏字段：提交时由 JS 填仓库 owner，让浏览器能正确提示保存 Token -->
+          <input id="adminUser" name="adminUser" type="text" autocomplete="username"
+                 aria-hidden="true" tabindex="-1" class="visually-hidden">
+          <input id="adminToken" name="adminToken" type="password"
+                 aria-label="GitHub Token"
+                 autocomplete="current-password" placeholder="GitHub Token (github_pat_…)"
+                 required spellcheck="false" autocapitalize="off">
+          <input id="adminRepo" name="adminRepo" type="text"
+                 aria-label="目标仓库 URL（可选）"
+                 autocomplete="off"
+                 placeholder="目标仓库 URL（可选）"
+                 spellcheck="false" autocapitalize="off">
+          <button type="submit" class="btn-primary" id="connectBtn">连接</button>
+        </form>
+        <form id="unlockForm" class="connect-form" autocomplete="on" hidden>
+          <input id="unlockPass" name="unlockPass" type="password"
+                 aria-label="解锁密码" autocomplete="current-password"
+                 placeholder="解锁密码" required spellcheck="false">
+          <button type="submit" class="btn-primary" id="unlockBtn">解锁并连接</button>
+        </form>
+        <div class="connect-msgs">
+          <p class="connect-tip" id="connectTip">Token 仅在浏览器内存使用，不落盘。若浏览器未自动弹出「保存密码」，可在浏览器密码管理器中手动添加：网址 = 本页面，用户名 = GitHub 用户名，密码 = Token。</p>
+          <p class="connect-tip" id="unlockTip" hidden>检测到仓库中已保存的加密 Token，输入密码解锁后连接，无需再粘贴 Token。</p>
+          <p class="connect-hint" id="connectRepoHint" hidden></p>
+          <p class="connect-target" id="connectTarget" hidden>
+            目标仓库：<code id="connectTargetText"></code>
+          </p>
+          <p class="connect-error" id="connectError" hidden></p>
+          <p class="connect-meta" id="connectMeta" hidden></p>
+          <p class="connect-hint">
+            <a href="#" id="modeToggle" hidden></a>
+          </p>
+          <p class="connect-hint">
+            <a href="./login.html" class="connect-login-link">使用独立登录页登录</a>
+          </p>
+        </div>
     </div>
   </section>
 
@@ -83,8 +101,8 @@
   <script src="../assets/vendor/purify.min.js"></script>
   <script src="../assets/vendor/katex/katex.min.js"></script>
   <script src="../assets/vendor/hljs/highlight.min.js"></script>
-  <script src="../assets/v1786080149/gh.js"></script>
-  <script src="../assets/v1786080149/md.js"></script>
-  <script src="../assets/v1786080149/admin.js"></script>
+  <script src="../assets/v1786188327/gh.js"></script>
+  <script src="../assets/v1786188327/md.js"></script>
+  <script src="../assets/v1786188327/admin.js"></script>
 </body>
 </html>

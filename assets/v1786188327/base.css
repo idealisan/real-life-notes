@@ -1,32 +1,44 @@
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
 
-  --bg: #ffffff;
-  --bg-soft: #f6f7f9;
-  --bg-inset: #eef0f3;
-  --text: #1f2328;
-  --text-soft: #57606a;
-  --text-faint: #8b949e;
-  --border: #d0d7de;
-  --border-soft: #e6e9ee;
+  /* iOS 安全区（刘海屏/全面屏），未支持的浏览器回退为 0 */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 
-  --accent: #1f6feb;
+  /* iOS 分组样式：页面灰底 + 白色圆角卡片 */
+  --bg: #f2f2f7;
+  --bg-page: #f2f2f7;
+  --bg-card: #ffffff;
+  --bg-soft: #ebebf0;
+  --bg-inset: #e0e0e6;
+  --text: #1c1c1e;
+  --text-soft: #6c6c70;
+  --text-faint: #8e8e93;
+  --border: #d1d1d6;
+  --border-soft: #e5e5ea;
+
+  /* iOS 系统蓝 */
+  --accent: #007aff;
   --accent-text: #ffffff;
-  --accent-soft: #dbeafe;
-  --danger: #cf222e;
-  --danger-soft: #ffebe9;
-  --warning: #9a6700;
-  --warning-soft: #fff8c5;
-  --ok: #1a7f37;
-  --ok-soft: #dafbe1;
+  --accent-soft: #e3f0ff;
+  --danger: #ff3b30;
+  --danger-soft: #ffebea;
+  --warning: #b25000;
+  --warning-soft: #fff4e6;
+  --ok: #34c759;
+  --ok-soft: #e8f9ee;
 
-  --radius-s: 6px;
-  --radius-m: 10px;
-  --radius-l: 14px;
-  --shadow-1: 0 1px 2px rgba(31, 35, 40, 0.08);
-  --shadow-2: 0 4px 16px rgba(31, 35, 40, 0.12);
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 18px;
+  --radius-xl: 24px;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-2: 0 4px 18px rgba(0, 0, 0, 0.08);
+  --shadow-3: 0 12px 36px rgba(0, 0, 0, 0.14);
 
   --maxw: 860px;
   --space-1: 4px;
@@ -40,54 +52,60 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: #0d1117;
-    --bg-soft: #161b22;
-    --bg-inset: #1c2128;
-    --text: #e6edf3;
-    --text-soft: #9198a1;
-    --text-faint: #6e7681;
-    --border: #30363d;
-    --border-soft: #21262d;
+    --bg: #000000;
+    --bg-page: #000000;
+    --bg-card: #1c1c1e;
+    --bg-soft: #2c2c2e;
+    --bg-inset: #38383a;
+    --text: #f2f2f7;
+    --text-soft: #98989f;
+    --text-faint: #636366;
+    --border: #38383a;
+    --border-soft: #2c2c2e;
 
-    --accent: #58a6ff;
-    --accent-text: #0d1117;
-    --accent-soft: #12253f;
-    --danger: #f85149;
-    --danger-soft: #3a1c1e;
-    --warning: #d29922;
-    --warning-soft: #3a2c12;
-    --ok: #3fb950;
-    --ok-soft: #12291b;
+    --accent: #0a84ff;
+    --accent-text: #ffffff;
+    --accent-soft: #1e3a5c;
+    --danger: #ff453a;
+    --danger-soft: #4a1f1d;
+    --warning: #ff9f0a;
+    --warning-soft: #4a3412;
+    --ok: #30d158;
+    --ok-soft: #1a3322;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-2: 0 4px 18px rgba(0, 0, 0, 0.5);
+    --shadow-3: 0 12px 36px rgba(0, 0, 0, 0.6);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #0d1117;
-  --bg-soft: #161b22;
-  --bg-inset: #1c2128;
-  --text: #e6edf3;
-  --text-soft: #9198a1;
-  --text-faint: #6e7681;
-  --border: #30363d;
-  --border-soft: #21262d;
+  --bg: #000000;
+  --bg-page: #000000;
+  --bg-card: #1c1c1e;
+  --bg-soft: #2c2c2e;
+  --bg-inset: #38383a;
+  --text: #f2f2f7;
+  --text-soft: #98989f;
+  --text-faint: #636366;
+  --border: #38383a;
+  --border-soft: #2c2c2e;
 
-  --accent: #58a6ff;
-  --accent-text: #0d1117;
-  --accent-soft: #12253f;
-  --danger: #f85149;
-  --danger-soft: #3a1c1e;
-  --warning: #d29922;
-  --warning-soft: #3a2c12;
-  --ok: #3fb950;
-  --ok-soft: #12291b;
+  --accent: #0a84ff;
+  --accent-text: #ffffff;
+  --accent-soft: #1e3a5c;
+  --danger: #ff453a;
+  --danger-soft: #4a1f1d;
+  --warning: #ff9f0a;
+  --warning-soft: #4a3412;
+  --ok: #30d158;
+  --ok-soft: #1a3322;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 4px 18px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 12px 36px rgba(0, 0, 0, 0.6);
 }
 
 :root[data-theme="light"] { color-scheme: light; }
@@ -99,12 +117,18 @@ html, body {
   padding: 0;
 }
 
+/* iOS 风格：点按无高亮色块，文字可选 */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.7;
   color: var(--text);
-  background: var(--bg);
+  background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -112,7 +136,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.3;
   margin: 0 0 0.5em;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 p { margin: 0 0 1em; }
@@ -175,10 +199,10 @@ input[type="text"], input[type="search"], input[type="password"],
 input[type="date"], input[type="datetime-local"], textarea, select {
   font: inherit;
   color: var(--text);
-  background: var(--bg);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-s);
-  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  padding: 10px 12px;
   width: 100%;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -192,12 +216,13 @@ label { font-size: 0.85em; color: var(--text-soft); }
 
 button, .btn {
   font: inherit;
-  font-weight: 550;
+  font-weight: 600;
   color: var(--text);
   background: var(--bg-soft);
   border: 1px solid var(--border);
-  border-radius: var(--radius-s);
-  padding: 8px 16px;
+  border-radius: var(--radius-m);
+  padding: 10px 18px;
+  min-height: 40px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, filter 0.15s;
 }
@@ -218,7 +243,8 @@ button:disabled, .btn:disabled {
 }
 .btn-primary:hover {
   background: var(--accent);
-  filter: brightness(1.08);
+  border-color: var(--accent);
+  filter: brightness(1.06);
 }
 
 .btn-danger {
@@ -231,9 +257,9 @@ button:disabled, .btn:disabled {
 .btn-ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--text-soft);
+  color: var(--accent);
 }
-.btn-ghost:hover { background: var(--bg-inset); color: var(--text); }
+.btn-ghost:hover { background: var(--bg-soft); color: var(--accent); }
 
 .container {
   max-width: var(--maxw);
@@ -264,5 +290,5 @@ button:disabled, .btn:disabled {
 
 @media (max-width: 640px) {
   body { font-size: 15px; }
-  .container { padding: 0 var(--space-3); }
+  .container { padding: 0 var(--space-4); }
 }
