@@ -678,6 +678,7 @@
       });
     }
 
+    var fontCtl = renderFontCtl(body);
     els.view.textContent = '';
     els.view.appendChild(el('div', { class: 'detail-head' }, [
       el('h1', { class: 'detail-title', text: meta.title }),
@@ -686,11 +687,12 @@
           : el('span', { class: 'cat-badge', text: '未分类' }),
         el('time', { datetime: meta.date, text: md.formatDate(meta.date) }),
         meta.updated ? el('span', { text: '· 更新于 ' + md.fullDate(meta.updated) }) : null,
-        counts.words ? el('span', { text: '· ' + counts.words + ' 字 · 约 ' + counts.minutes + ' 分钟' }) : null
+        counts.words ? el('span', { text: '· ' + counts.words + ' 字 · 约 ' + counts.minutes + ' 分钟' }) : null,
+        fontCtl.btn
       ]),
       tags
     ]));
-    els.view.appendChild(renderFontCtl(body));
+    els.view.appendChild(fontCtl.row);
     els.view.appendChild(body);
     els.view.appendChild(renderDetailNav(path));
     var related = relatedPosts(path);
@@ -961,7 +963,7 @@
         updateLabel();
       }
     });
-    var label = el('span', { class: 'read-pop-label' });
+    var label = el('span', { class: 'read-label' });
     function updateLabel() {
       var s = Math.round((1.02 + fontSteps() * 0.05) * 100) / 100;
       label.textContent = s.toFixed(2) + '×';
@@ -976,32 +978,17 @@
         updateLabel();
       }
     });
-    var pop = el('div', { class: 'read-pop', hidden: '' }, [resetBtn, slider, label]);
+    var row = el('div', { class: 'read-slider-row', hidden: '' }, [resetBtn, slider, label]);
     var btn = el('button', {
       type: 'button', class: 'read-ctl-btn', 'aria-label': '调整字号', 'aria-expanded': 'false', title: '调整字号',
-      onClick: function () { togglePop(); }
-    }, [el('span', { class: 'read-ctl-icon', text: 'Aa' })]);
-    var wrap = el('span', { class: 'read-ctl' }, [btn, pop]);
-    function setOpen(open) {
-      pop.hidden = !open;
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-    function outsideHandler(e) {
-      if (wrap.contains(e.target)) return;
-      setOpen(false);
-      document.removeEventListener('click', outsideHandler);
-    }
-    function togglePop() {
-      if (pop.hidden) {
-        setOpen(true);
-        document.addEventListener('click', outsideHandler);
-      } else {
-        setOpen(false);
-        document.removeEventListener('click', outsideHandler);
+      onClick: function () {
+        var open = row.hidden;
+        row.hidden = !open;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) slider.focus();
       }
-    }
-    wrap.addEventListener('click', function (e) { e.stopPropagation(); });
-    return el('div', { class: 'read-ctl-row' }, [wrap]);
+    }, [el('span', { class: 'read-ctl-icon', text: 'Aa' })]);
+    return { btn: btn, row: row };
   }
 
   /* ---------- 目录 TOC ---------- */

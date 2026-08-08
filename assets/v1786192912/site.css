@@ -473,12 +473,6 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   padding: var(--space-4);
   font-size: 1.02em;
 }
-.read-ctl-row {
-  display: flex;
-  justify-content: flex-end;
-  margin: var(--space-3) 0 var(--space-2);
-}
-.read-ctl { position: relative; }
 .read-ctl-btn {
   display: inline-flex;
   align-items: center;
@@ -487,36 +481,31 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   background: var(--bg-card);
   color: var(--text);
   border-radius: 999px;
-  min-width: 48px;
-  min-height: 40px;
-  padding: 0 16px;
+  min-width: 40px;
+  min-height: 30px;
+  padding: 0 12px;
   font-weight: 700;
-  font-size: 0.95em;
-  box-shadow: var(--shadow-1);
+  font-size: 0.9em;
+  line-height: 1;
+  margin-left: auto;
   cursor: pointer;
 }
 .read-ctl-btn:hover { background: var(--bg-soft); color: var(--text); }
 .read-ctl-icon { letter-spacing: 0.02em; }
-.read-pop {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 30;
+.read-slider-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-l);
-  box-shadow: var(--shadow-3);
-  padding: var(--space-3) var(--space-4);
-  min-width: 240px;
-  max-width: calc(100vw - 2 * var(--space-4));
+  border-radius: var(--radius-m);
 }
 .read-reset {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -524,7 +513,7 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   border-radius: 50%;
   background: var(--bg-soft);
   color: var(--text);
-  font-size: 1.2em;
+  font-size: 1.15em;
   cursor: pointer;
 }
 .read-reset:hover { background: var(--bg-inset); color: var(--accent); }
@@ -537,7 +526,7 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 }
 .read-slider:focus { outline: none; box-shadow: none; }
 .read-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.read-pop-label {
+.read-label {
   flex: 0 0 auto;
   min-width: 3.4em;
   text-align: right;

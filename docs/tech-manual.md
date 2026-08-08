@@ -121,7 +121,7 @@ docs/                 设计文档
   - `attachLightbox`：正文图片点击放大（`loading=lazy`/`decoding=async`），Esc 关闭。
   - `attachCodeCopy`：每个 `pre` 右上角「复制」按钮（取 `textContent`）。
   - `addCodeLines`：多行代码块按行包裹 `.cline`（CSS counter 行号），**保留 hljs 高亮 span**；先 `slice` 快照 childNodes 再分组，避免 live NodeList 迭代跳坑；单行不加行号；每行末补 `\n`（末行除外）保证复制内容完整。
-  - `renderFontCtl`：单个「Aa」按钮，点击弹出 `.read-pop`（含 `input[type=range]` 滑动条 + 一端「↺」重置按钮 + 当前倍数标签），`.detail-body` 设 `fontSize`；点击外部自动收起，支持 `aria-expanded`。
+  - `renderFontCtl`：返回 `{ btn, row }`；「Aa」按钮内嵌进 `.detail-meta`（flex-wrap，宽度不足自动换行），点击显示 `.read-slider-row`（含 `input[type=range]` 滑动条 + 左端「↺」重置按钮 + 倍数标签，默认 `hidden`），该行位于 `.detail-head` 之后、正文之前，随文档流排布不覆盖正文；`.detail-body` 设 `fontSize`。
   - `buildToc` + `setupTocSpy`：正文目录 + 滚动高亮。
   - `relatedPosts`：按共享标签数推荐；`renderDetailNav`：上一篇/下一篇（同分类按日期）。
 - SEO：`setStructuredData`（JSON-LD `BlogPosting`）、og/twitter 元数据、`article:published_time/modified_time`、摘要 → `meta description`。
