@@ -502,6 +502,7 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-m);
 }
+.read-slider-row[hidden] { display: none; }
 .read-reset {
   flex: 0 0 auto;
   width: 36px;
