@@ -924,13 +924,13 @@
       pre.style.position = 'relative';
       var btn = el('button', {
         type: 'button', class: 'code-copy', 'aria-label': '复制代码',
-        text: '复制',
+        text: '📋',
         onClick: function (e) {
           var self = e.currentTarget;
           var text = code.textContent.replace(/\n$/, '');
           copyText(text).then(function () {
-            self.textContent = '已复制 ✓';
-            setTimeout(function () { self.textContent = '复制'; }, 2000);
+            self.textContent = '✓';
+            setTimeout(function () { self.textContent = '📋'; }, 2000);
           }).catch(function () {});
         }
       });
