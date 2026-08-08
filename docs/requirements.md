@@ -180,6 +180,16 @@
 - 测试：`test-enc-token.js` 14 项（解锁模式显示、错误密码失败、正确密码自动连接、设置页保存提交密文、无密文走手动模式、模式切换往返）。
 - 验证：jsdom 全绿；版本目录更新，代理线上 `/admin/` 正常。
 
+### 全站 iOS 风格响应式 UI 重构（前台 + 后台）
+- **问题**：前台与后台 UI 偏"网页卡片"风格，移动端触控目标偏小、无原生应用质感；后台文章表在窄屏不可读。
+- **方案（纯样式 + 结构微调，API 与交互全部保持不变）**：
+  - **设计系统（base.css）**：改为 iOS 系统蓝 `--accent: #007AFF`（暗色 `#0A84FF`）、分组灰背景 `--bg-page`（亮 `#F2F2F7` / 暗 `#000`）、卡片白 `--bg-card`（亮 `#fff` / 暗 `#1C1C1E`）、更大圆角（卡片 ~16px）、`env(safe-area-inset-*)` 安全区变量、≥44px 触控目标、`-webkit-tap-highlight-color: transparent`。
+  - **前台（site.css）**：分组列表卡片（灰底白卡）、毛玻璃 sticky 导航栏（含安全区）、移动端底部固定 tab-bar（首页/归档/标签/管理，桌面隐藏）、iOS 大标题、分段式分类胶囊、文章正文白卡阅读区、iOS 样式分页与按钮。
+  - **后台（admin.css）**：iOS 顶部导航栏；移动端 `.side-nav` 转底部固定 tab（文章/分类/设置，桌面仍居中在顶栏）；面板/表单 iOS 分组样式、主按钮全宽大触控；文章表窄屏横向滚动（`.table-scroll` 包裹）。
+  - **HTML**：各页 `viewport-fit=cover`、`apple-mobile-web-app-*` meta、`theme-color`、公共页新增静态 `<nav class="tab-bar">`；`site.js` 增加 tab-bar 激活态高亮（纯 UI，不改 API）。
+- 测试：`test-admin-layout.js` 适配（新增 `.table-scroll`、tab-bar、安全区 class 断言）。
+- 验证：jsdom 全绿；`node tools/version-bump.js` 更新版本目录；代理线上前台/后台移动视口与桌面视口均正常。
+
 ### 分类页空白 + 设置页左右偏移- **分类页空白**：`renderCategories` 把 `rows`（元素数组）当作单个 child 传给 `el()`，内部 `appendChild(数组)` 抛 TypeError → 整页空白（有分类才触发）。修复：列表 children 用 `concat(rows)` 摊平。
 - **设置页偏移**：文章/分类页内容高、出现垂直滚动条；设置页内容矮、无滚动条 → 切换时滚动条出现/消失，页面左右轻微晃动。修复：admin.css 加 `html { overflow-y: scroll; }`（admin 专属），始终保留滚动条，各页布局稳定一致。
 - 测试：`test-admin-layout.js` 新增分类/设置页渲染断言（分类 2 行、设置两面板+保存按钮）。

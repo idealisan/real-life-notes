@@ -245,6 +245,18 @@
     });
   }
 
+  /* 底部 tab bar 激活态（纯 UI 增强，不影响导航行为） */
+  function updateTabBar() {
+    var bar = document.querySelector('.tab-bar');
+    if (!bar) return;
+    var active = 'home';
+    if (MODE === 'list' && state.view === 'archive') active = 'archive';
+    else if (MODE === 'list' && state.view === 'tags') active = 'tags';
+    Array.prototype.forEach.call(bar.querySelectorAll('.tab-bar-item'), function (a) {
+      a.classList.toggle('is-active', a.getAttribute('data-tab') === active);
+    });
+  }
+
   /* ---------- 列表 ---------- */
   function searchScore(p, q) {
     var s = 0;
@@ -1240,6 +1252,7 @@
 
   function render() {
     renderCats();
+    updateTabBar();
     if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
     if (MODE === 'list' && navigator.userAgent.indexOf('jsdom') === -1) window.scrollTo(0, 0);
     updateReadingProgress();

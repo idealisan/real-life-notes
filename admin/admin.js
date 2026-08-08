@@ -811,25 +811,27 @@
       });
       body = el('div', {}, [
         bulkBar,
-        el('table', { class: 'posts-table' }, [
-          el('thead', {}, [el('tr', {}, [
-            el('th', {}, [
-              el('input', {
-                type: 'checkbox', 'aria-label': '全选当前列表',
-                checked: allChecked ? '' : null,
-                onChange: function (e) {
-                  state.listSel = {};
-                  if (e.target.checked) {
-                    posts.forEach(function (p) { state.listSel[p.path] = true; });
+        el('div', { class: 'table-scroll' }, [
+          el('table', { class: 'posts-table' }, [
+            el('thead', {}, [el('tr', {}, [
+              el('th', {}, [
+                el('input', {
+                  type: 'checkbox', 'aria-label': '全选当前列表',
+                  checked: allChecked ? '' : null,
+                  onChange: function (e) {
+                    state.listSel = {};
+                    if (e.target.checked) {
+                      posts.forEach(function (p) { state.listSel[p.path] = true; });
+                    }
+                    renderPosts();
                   }
-                  renderPosts();
-                }
-              })
-            ]),
-            el('th', { text: '标题' }), el('th', { text: '分类' }),
-            el('th', { text: '日期' }), el('th', { text: '字数' }), el('th', { text: '状态' }), el('th', {})
-          ])]),
-          el('tbody', {}, rows)
+                })
+              ]),
+              el('th', { text: '标题' }), el('th', { text: '分类' }),
+              el('th', { text: '日期' }), el('th', { text: '字数' }), el('th', { text: '状态' }), el('th', {})
+            ])]),
+            el('tbody', {}, rows)
+          ])
         ])
       ]);
     }
