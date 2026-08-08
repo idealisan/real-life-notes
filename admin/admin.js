@@ -812,8 +812,16 @@
     var seg = el('div', { class: 'sheet-segment' }, statuses.map(function (s) {
       return el('button', {
         class: 'seg-btn' + (listFilter.status === s[0] ? ' active' : ''), type: 'button',
+        'data-s': s[0],
         'aria-pressed': listFilter.status === s[0] ? 'true' : 'false',
-        onClick: function () { listFilter.status = s[0]; }
+        onClick: function (e) {
+          listFilter.status = s[0];
+          Array.prototype.forEach.call(seg.querySelectorAll('.seg-btn'), function (b) {
+            var on = b.getAttribute('data-s') === s[0];
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
+        }
       }, [s[1]]);
     }));
     var tools = el('div', { class: 'sheet-actions' }, [
