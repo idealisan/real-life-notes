@@ -148,7 +148,12 @@
   - **分类页**：移动端 iOS 分组列表（`.cat-cell`：图标+名称+id·文章数 + 内联编辑字段 + 保存/删除）；「＋」新建分类聚焦 `.cat-add` 表单。桌面端保留 `.cat-head`/`.cat-row` 网格。
   - **设置页**：改为 iOS 分组表单（`.settings-page` max-width 680px 居中自适应）——「站点信息 / 访问地址 / 评论 / 维护 / 仓库信息 / Token 加密存储」分组卡片，单元格 label 左、输入右对齐；**评论开关改 iOS Toggle**（`.switch`，UISwitch 风格，`role="switch"`）；**GitHub Pages 地址按钮改魔法棒 ✨ 图标**（`.ios-wand`，`aria-label="填入 GitHub Pages 地址"`）并配说明文字；保存设置为全宽主按钮置底。
   - **宽度修复**：`input[type="url"]` 补入 base.css 样式清单（修复 URL 输入框过小）；`.admin-page --maxw` 1280→980px，`body.admin-page { overflow-x: hidden }` 防横向漂移；设置页 680px 居中。
-- 测试：`test-admin-layout.js` 重写为 58 项（Tab 4 个、iOS 大标题/搜索栏/标签行、`post-cell` 列表、筛选 Sheet 打开/分段/完整性检查、分类 `cat-cell`、设置分组/魔法棒/Toggle/保存按钮）；新增 `dbg-admin-desktop.js` 验证桌面端表格分支 8 项；`test-enc-token`/`test-login-flow`/`test-repo-mismatch` 同步更新后全绿。
+- **后续修复（iPhone 实测）**：
+  - **底部 Tab 栏钉在页面顶部**：根因 `.side-nav` 内嵌在带 `backdrop-filter` 的 `.admin-topbar` 里，`backdrop-filter` 会让该元素成为 `position:fixed` 后代的**包含块**，于是 `bottom:0` 相对的是 topbar 而不是视口。对策：把 `.side-nav` 移出 `.admin-topbar`，成为 `#workspace` 直接子元素；桌面 media 改为独立居中导航行。
+  - **iPhone 上仍可左右滑动**：`html { overflow-y: scroll }` 会让 `overflow-x` 计算为 `auto`（等于可横向滚动），而 body 上的 `overflow-x: hidden` 在 iOS Safari 无法阻止 html 视口横向拖拽。对策：`html { overflow-y: scroll; overflow-x: hidden }`，并在 `@supports (overflow-x: clip)` 下改用 `overflow-x: clip`（不产生滚动容器，最彻底）。
+  - **emoji 图标换内联 SVG**：Tab 栏（主页/文章/分类/设置）、「＋」新建、筛选 🎚️、魔法棒 ✨ 全部改为 `icon()/ICONS` 内联 SVG（`stroke=currentColor` 跟随文字颜色，尺寸由 `.icon svg` 控制），消除 emoji 各平台字体差异与潜在溢出。
+  - **Token 加密存储改为独立子页**：设置页不再直接放密码输入（单元格里太挤），改在「安全」分组留「Token 加密存储」入口行（chevron），点击进入 token 视图（`.ios-back` 返回 + 大标题 + 密码/确认/保存/清除 + 状态说明）；保存/清除后 `render()` 停留在该页刷新状态与按钮文案（`更新加密 Token`）。
+- 测试：`test-admin-layout.js` 重写为 65 项（Tab 4 个、iOS 大标题/搜索栏/标签行、`post-cell` 列表、筛选 Sheet 打开/分段/完整性检查、分类 `cat-cell`、设置分组/魔法棒/Toggle/保存按钮、Token 入口行与独立子页往返）；`dbg-admin-desktop.js` 8 项；`test-enc-token.js` 17 项；`test-login-flow`/`test-repo-mismatch` 同步更新后全绿。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
