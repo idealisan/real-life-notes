@@ -1955,11 +1955,11 @@
       control
     ]);
   }
-  function iosToggle(id, checked, onChange) {
-    var input = el('input', { type: 'checkbox', id: id, role: 'switch', checked: checked ? '' : null, 'aria-label': '启用' });
-    var label = el('label', { class: 'switch' }, [input, el('span', { class: 'track' }, [el('span', { class: 'thumb' })])]);
+  function iosToggle(id, checked, onChange, label) {
+    var input = el('input', { type: 'checkbox', id: id, role: 'switch', checked: checked ? '' : null, 'aria-label': label || '启用' });
+    var labelEl = el('label', { class: 'switch' }, [input, el('span', { class: 'track' }, [el('span', { class: 'thumb' })])]);
     if (onChange) input.addEventListener('change', onChange);
-    return label;
+    return labelEl;
   }
 
   function renderSettings() {
@@ -1988,7 +1988,7 @@
     }, ['✨']);
 
     var comments = state.cfg.comments || {};
-    var commentsToggle = iosToggle('setComments', !!comments.enabled);
+    var commentsToggle = iosToggle('setComments', !!comments.enabled, null, '启用评论');
     var commentsLabel = el('input', { type: 'text', id: 'setCommentsLabel', value: comments.label || '评论', maxlength: 30, 'aria-label': '评论标签' });
 
     var saveBtn = el('button', { class: 'btn-primary ios-save-btn', text: '保存设置', onClick: function () {

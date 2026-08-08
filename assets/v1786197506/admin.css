@@ -527,13 +527,15 @@ html { overflow-y: scroll; }
 .ios-cell + .ios-cell-desc,
 .ios-cell-desc + .ios-cell { border-top: 0.5px solid var(--border-soft); }
 .ios-cell > .cell-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   font-size: 0.95em;
   font-weight: 400;
   color: var(--text);
   overflow-wrap: break-word;
 }
+/* 值（输入框/开关/徽标等）靠右：非输入控件用 margin-left:auto 顶到最右 */
+.ios-cell > :last-child:not(.cell-label) { margin-left: auto; }
 .ios-cell input[type="text"],
 .ios-cell input[type="url"],
 .ios-cell input[type="password"] {
