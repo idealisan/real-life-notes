@@ -211,6 +211,39 @@ html {
 .field .hint { font-size: 0.82em; color: var(--text-faint); margin-top: var(--space-1); }
 .field-row { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
 .field input[type="checkbox"] { width: auto; }
+/* 编辑器单行控件（标题/分类/日期/文件名）统一样式：同一高度、同一内边距、铺满列宽 */
+.field input[type="text"],
+.field input[type="date"],
+.field input[type="datetime-local"],
+.field select {
+  height: 46px;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.field select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  padding-right: 34px;
+}
+/* iOS Switch 开关行（草稿/置顶） */
+.ios-check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 2px 0;
+}
+.ios-check-row .cell-label {
+  font-weight: 550;
+  font-size: 0.95em;
+  color: var(--text);
+}
 
 /* ---- iOS 页面（大标题 + 搜索栏 + 标签 + 列表） ---- */
 .ios-page { padding: var(--space-2) 0 var(--space-6); }
@@ -350,6 +383,14 @@ html {
 .post-cell.sel { background: var(--accent-soft); }
 .cell-check { flex: 0 0 auto; display: inline-flex; align-items: center; }
 .cell-check input { width: 20px; height: 20px; accent-color: var(--accent); }
+.cell-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+.cell-chevron svg { width: 18px; height: 18px; }
 .cell-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -375,19 +416,49 @@ html {
 .cell-right .row-actions button { padding: 4px 10px; min-height: 32px; font-size: 0.82em; }
 .cell-right .status-pub, .cell-right .status-draft { font-size: 0.75em; }
 
-/* ---- 分类（移动端 iOS 列表） ---- */
-.cat-list { margin-top: var(--space-2); }
-.cat-cell {
+/* 批量操作条：全选 + 计数 + 批量按钮（移动端 iOS 列表顶部） */
+.bulk-bar { align-items: center; }
+.bulk-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.bulk-all input { width: 20px; height: 20px; accent-color: var(--accent); }
+.bulk-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+.bulk-actions button { padding: 6px 12px; min-height: 36px; font-size: 0.86em; }
+
+/* ---- 分类（移动端 iOS 列表：简洁行 + chevron，点击进详情页） ---- */
+.cat-list {
   background: var(--bg-card);
   border-radius: var(--radius-l);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-3);
+  overflow: hidden;
+  margin-top: var(--space-2);
   box-shadow: var(--shadow-1);
 }
-.cat-cell .cell-main { display: flex; align-items: center; gap: var(--space-3); cursor: default; }
-.cat-cell .cat-icon { font-size: 1.5em; line-height: 1; flex: 0 0 auto; }
-.cat-cell .cell-main-text { min-width: 0; flex: 1 1 auto; }
-.cat-cell .cell-sub code {
+.cat-list .cat-cell {
+  background: transparent;
+  border-radius: 0;
+  padding: var(--space-3);
+  margin: 0;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 62px;
+}
+.cat-list .cat-cell + .cat-cell { border-top: 0.5px solid var(--border-soft); }
+.cat-list .cell-main { display: flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+.cat-list .cat-icon { font-size: 1.5em; line-height: 1; flex: 0 0 auto; }
+.cat-list .cell-main-text { min-width: 0; flex: 1 1 auto; }
+.cat-list .cell-sub code {
   font-size: 0.82em;
   background: var(--bg-soft);
   padding: 1px 6px;
@@ -645,6 +716,37 @@ html {
 .ios-page .token-title { font-size: 1.6em; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--space-1); line-height: 1.2; }
 .ios-page .ios-stack { margin-top: var(--space-4); }
 .ios-page .ios-stack-desc { padding: 10px var(--space-4) 14px; font-size: 0.82em; color: var(--text-faint); line-height: 1.5; }
+
+/* 详情页（文章/分类/token）底部操作：全宽大按钮，清除/删除用红色 */
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.detail-actions button,
+.detail-actions a {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.detail-draft-hint {
+  color: var(--text-faint);
+  font-size: 0.85em;
+  text-align: center;
+  padding: 6px 0;
+}
+.cat-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.cat-detail-head .cat-icon { font-size: 2em; line-height: 1; flex: 0 0 auto; }
+.cat-detail-head .token-title { margin: 0; }
 
 /* iOS 开关（UISwitch 风格） */
 .switch {

@@ -27,6 +27,8 @@
     emptyRepo: false,
     sourceRepo: null,
     listSel: {},
+    detailPost: null,
+    detailCat: null,
     encryptedToken: null,
     encTokenSaved: false
   };
@@ -677,6 +679,8 @@
     else if (state.view === 'categories') renderCategories();
     else if (state.view === 'settings') renderSettings();
     else if (state.view === 'token') renderTokenPage();
+    else if (state.view === 'post-detail') renderPostDetail();
+    else if (state.view === 'cat-detail') renderCategoryDetail();
     updateRepoWarn();
   }
 
@@ -798,9 +802,24 @@
 
   function bulkBar(posts, cats) {
     var selCount = Object.keys(state.listSel).length;
-    if (!selCount) return null;
+    var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
     var bar = el('div', { class: 'bulk-bar' }, [
-      el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }),
+      el('label', { class: 'bulk-all', 'aria-label': '全选当前列表' }, [
+        el('input', {
+          type: 'checkbox',
+          checked: allChecked ? '' : null,
+          onChange: function (e) {
+            state.listSel = {};
+            if (e.target.checked) posts.forEach(function (p) { state.listSel[p.path] = true; });
+            renderPosts();
+          }
+        }),
+        el('span', { text: '全选' })
+      ]),
+      el('span', { class: 'bulk-count', text: selCount ? '已选 ' + selCount + ' 篇' : '' })
+    ]);
+    if (!selCount) return bar;
+    var actions = el('div', { class: 'bulk-actions' }, [
       el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
       el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
       el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
@@ -821,6 +840,7 @@
       el('span', { class: 'spacer' }),
       el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
     ]);
+    bar.appendChild(actions);
     return bar;
   }
 
@@ -914,9 +934,9 @@
         })
       ]),
       el('div', {
-        class: 'cell-main', role: 'button', tabindex: '0', 'aria-label': '编辑《' + p.title + '》',
-        onClick: function () { startEditPost(p); },
-        onKeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEditPost(p); } }
+        class: 'cell-main', role: 'button', tabindex: '0', 'aria-label': '查看《' + p.title + '》详情',
+        onClick: function () { openPostDetail(p); },
+        onKeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPostDetail(p); } }
       }, [
         el('div', { class: 'cell-title' }, [
           p.title,
@@ -925,15 +945,53 @@
         ]),
         el('div', { class: 'cell-sub', text: meta.join(' · ') })
       ]),
-      el('div', { class: 'cell-right' }, [
-        el('span', { class: p.draft ? 'status-draft' : 'status-pub', text: p.draft ? '草稿' : '已发布' }),
-        el('div', { class: 'row-actions' }, [
-          el('button', { text: '编辑', onClick: function (e) { e.stopPropagation(); startEditPost(p); } }),
-          p.draft ? null : el('button', { text: '查看', onClick: function (e) { e.stopPropagation(); if (!assertRepoTargets()) return; window.open(publicUrl('post.html?p=' + encodeURIComponent(p.path)), '_blank'); } }),
-          el('button', { class: 'btn-danger', text: '删除', onClick: function (e) { e.stopPropagation(); deletePost(p); } })
-        ])
-      ])
+      el('span', { class: 'cell-chevron', 'aria-hidden': 'true' }, [icon('chevron')])
     ]);
+  }
+
+  /* 文章详情页：iOS 列表行点击后进入，集中提供查看/编辑/删除 */
+  function openPostDetail(p) {
+    state.detailPost = p;
+    state.view = 'post-detail';
+    render();
+  }
+
+  function renderPostDetail() {
+    var p = state.detailPost;
+    if (!p) { state.view = 'posts'; render(); return; }
+    var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
+    var isDraft = !!p.draft;
+    var previewUrl = publicUrl('post.html?p=' + encodeURIComponent(p.path));
+    var wordCountStr = (typeof p.content === 'string' && p.content.trim()) ? wordCount(p.content) + ' 字' : '—';
+
+    var meta = [
+      iosCell('分类', el('span', { class: 'ios-value', text: catLabel })),
+      iosCell('状态', el('span', { class: 'ios-value ' + (isDraft ? 'status-draft' : 'status-pub'), text: isDraft ? '草稿（仅自己可见）' : '已发布' })),
+      iosCell('日期', el('span', { class: 'ios-value', text: md.formatDate(p.date) + (p.updated ? ' · 更新 ' + md.formatDate(p.updated) : '') })),
+      iosCell('字数', el('span', { class: 'ios-value', text: wordCountStr })),
+      iosCell('标签', el('span', { class: 'ios-value', text: (p.tags || []).join('、') || '（无）' })),
+      iosCell('文件', el('span', { class: 'ios-value', text: p.path }))
+    ];
+
+    els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
+      el('div', { class: 'token-nav' }, [
+        el('button', {
+          class: 'ios-back', type: 'button', 'aria-label': '返回文章列表', title: '返回文章列表',
+          onClick: function () { state.view = 'posts'; render(); }
+        }, [icon('back'), el('span', { text: '文章' })])
+      ]),
+      el('h1', { class: 'token-title', text: p.title }),
+      el('div', { class: 'ios-stack' }, [iosGroup('文章信息', meta)]),
+      el('div', { class: 'detail-actions' }, [
+        isDraft
+          ? el('div', { class: 'detail-draft-hint', text: '草稿仅自己可见，无法预览' })
+          : el('a', { class: 'btn-ghost', href: previewUrl, target: '_blank', rel: 'noopener', text: '查看页面 ↗' }),
+        el('button', { class: 'btn-primary', text: '进入编辑', onClick: function () { startEditPost(p); } }),
+        el('button', { class: 'btn-danger', text: '删除文章', onClick: function () {
+          deletePost(p);
+        } })
+      ])
+    ]));
   }
 
   /* 桌面端：表格 + 工具栏（保持原有功能） */
@@ -1150,13 +1208,13 @@
     ]);
 
     var draftField = el('div', { class: 'field' }, [
-      el('label', { for: 'edDraft', style: 'display:inline-flex;align-items:center;gap:8px;font-weight:550;color:var(--text)' }, [
-        el('input', { id: 'edDraft', type: 'checkbox', checked: ed.draft ? 'checked' : null, onChange: markDirty }),
-        '草稿（仅自己可见，不公开显示）'
+      el('div', { class: 'ios-check-row' }, [
+        el('span', { class: 'cell-label', text: '草稿（仅自己可见，不公开显示）' }),
+        iosToggle('edDraft', !!ed.draft, markDirty, '草稿')
       ]),
-      el('label', { for: 'edPinned', style: 'display:inline-flex;align-items:center;gap:8px;font-weight:550;color:var(--text)' }, [
-        el('input', { id: 'edPinned', type: 'checkbox', checked: ed.pinned ? 'checked' : null, onChange: markDirty }),
-        '置顶（列表与归档优先展示）'
+      el('div', { class: 'ios-check-row' }, [
+        el('span', { class: 'cell-label', text: '置顶（列表与归档优先展示）' }),
+        iosToggle('edPinned', !!ed.pinned, markDirty, '置顶')
       ])
     ]);
 
@@ -1198,6 +1256,10 @@
         render();
       } }),
       el('div', { class: 'spacer' }),
+      ed.mode === 'edit' ? el('button', { text: '查看页面 ↗', onClick: function () {
+        if (!assertRepoTargets()) return;
+        window.open(publicUrl('post.html?p=' + encodeURIComponent(ed.path)), '_blank');
+      } }) : null,
       ed.mode === 'edit' ? el('button', { class: 'btn-danger', text: '删除文章', onClick: function () { deletePostByPath(ed.path, ed.title); } }) : null,
       el('button', { text: '保存草稿', onClick: function () { savePost(true); } }),
       el('button', { class: 'btn-primary', text: '发布', onClick: function () { savePost(false); } })
@@ -1323,10 +1385,29 @@
         e.stopPropagation();
         var willOpen = dd.hidden;
         closeAllMenus();
-        if (willOpen) { dd.hidden = false; trigger.classList.add('open'); }
+        if (willOpen) {
+          dd.hidden = false;
+          trigger.classList.add('open');
+          positionMenuDropdown(dd, trigger);
+        }
       }
     });
     return el('div', { class: 'menu' }, [trigger, dd]);
+  }
+
+  /* 菜单下拉在手机上可能超出屏幕右/下边缘：改为 fixed 并按触发器位置钳制到视口内 */
+  function positionMenuDropdown(dd, trigger) {
+    var rect = trigger.getBoundingClientRect();
+    var vw = document.documentElement.clientWidth;
+    var vh = window.innerHeight || document.documentElement.clientHeight;
+    dd.style.position = 'fixed';
+    dd.style.left = 'auto';
+    dd.style.right = 'auto';
+    dd.style.top = 'auto';
+    var w = dd.offsetWidth;
+    var h = dd.offsetHeight;
+    dd.style.top = Math.max(6, Math.min(rect.bottom + 4, vh - h - 8)) + 'px';
+    dd.style.left = Math.max(6, Math.min(rect.left, vw - w - 6)) + 'px';
   }
 
   function buildEditorToolbar(imageInput) {
@@ -1569,7 +1650,10 @@
       setBusy(false);
       state.index = { schema: 1, posts: posts };
       toast('已删除 ✓', 'ok');
-      if (state.view === 'editor') state.view = 'posts';
+      if (state.view === 'editor' || state.view === 'post-detail') {
+        state.view = 'posts';
+        state.detailPost = null;
+      }
       render();
     }).catch(function (err) {
       setBusy(false);
@@ -1713,7 +1797,7 @@
     renderCategoriesMobile();
   }
 
-  /* 移动端：iOS 分组列表式分类管理 */
+  /* 移动端：iOS 分组列表式分类管理（简洁行 + chevron，点击进详情页） */
   function renderCategoriesMobile() {
     var items = Object.keys(state.cfg.categories).map(function (key) {
       var c = state.cfg.categories[key];
@@ -1757,11 +1841,12 @@
   }
 
   function categoryMobileRow(key, c, count) {
-    var labelInput = el('input', { type: 'text', value: c.label || key, 'aria-label': '显示名称' });
-    var iconInput = el('input', { type: 'text', value: c.icon || '', maxlength: 8, 'aria-label': '图标' });
-    var descInput = el('input', { type: 'text', value: c.description || '', 'aria-label': '描述' });
     return el('div', { class: 'cat-cell' }, [
-      el('div', { class: 'cell-main' }, [
+      el('div', {
+        class: 'cell-main', role: 'button', tabindex: '0', 'aria-label': '查看分类 ' + key + ' 详情',
+        onClick: function () { openCategoryDetail(key, c, count); },
+        onKeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCategoryDetail(key, c, count); } }
+      }, [
         el('span', { class: 'cat-icon', text: c.icon || '📁' }),
         el('div', { class: 'cell-main-text' }, [
           el('div', { class: 'cell-title', text: c.label || key }),
@@ -1771,14 +1856,62 @@
           ])
         ])
       ]),
-      el('div', { class: 'cat-cell-fields' }, [labelInput, iconInput, descInput]),
-      el('div', { class: 'cat-cell-actions' }, [
-        el('button', { text: '保存', onClick: function () {
+      el('span', { class: 'cell-chevron', 'aria-hidden': 'true' }, [icon('chevron')])
+    ]);
+  }
+
+  /* 分类详情/编辑页：列表行点击后进入，集中提供编辑与删除 */
+  function openCategoryDetail(key, c, count) {
+    state.detailCat = { key: key, count: count };
+    state.view = 'cat-detail';
+    render();
+  }
+
+  function renderCategoryDetail() {
+    var d = state.detailCat;
+    if (!d || !state.cfg.categories[d.key]) { state.view = 'categories'; render(); return; }
+    var key = d.key;
+    var c = state.cfg.categories[key];
+    var count = d.count;
+    var labelInput = el('input', { type: 'text', value: c.label || key, id: 'catDetailLabel', 'aria-label': '显示名称' });
+    var iconInput = el('input', { type: 'text', value: c.icon || '', maxlength: 8, id: 'catDetailIcon', 'aria-label': '图标' });
+    var descInput = el('input', { type: 'text', value: c.description || '', id: 'catDetailDesc', 'aria-label': '描述' });
+
+    els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
+      el('div', { class: 'token-nav' }, [
+        el('button', {
+          class: 'ios-back', type: 'button', 'aria-label': '返回分类列表', title: '返回分类列表',
+          onClick: function () { state.view = 'categories'; render(); }
+        }, [icon('back'), el('span', { text: '分类' })])
+      ]),
+      el('div', { class: 'cat-detail-head' }, [
+        el('span', { class: 'cat-icon', text: c.icon || '📁' }),
+        el('h1', { class: 'token-title', text: c.label || key })
+      ]),
+      el('div', { class: 'ios-stack' }, [
+        iosGroup('分类信息', [
+          el('div', { class: 'ios-cell' }, [
+            el('span', { class: 'cell-label', text: '分类 id' }),
+            el('code', { class: 'ios-value', text: key })
+          ]),
+          el('div', { class: 'ios-cell' }, [
+            el('span', { class: 'cell-label', text: '文章数' }),
+            el('span', { class: 'ios-value', text: count + ' 篇' })
+          ])
+        ]),
+        iosGroup('编辑', [
+          iosCell('显示名称', labelInput),
+          iosCell('图标（可选）', iconInput),
+          iosCell('描述（可选）', descInput)
+        ])
+      ]),
+      el('div', { class: 'detail-actions' }, [
+        el('button', { class: 'btn-primary', text: '保存修改', onClick: function () {
           saveCategory(key, labelInput.value.trim(), iconInput.value.trim(), descInput.value.trim());
         } }),
-        el('button', { class: 'btn-danger', text: '删除', onClick: function () { deleteCategory(key, count); } })
+        el('button', { class: 'btn-danger', text: '删除分类', onClick: function () { deleteCategory(key, count); } })
       ])
-    ]);
+    ]));
   }
 
   function addCategoryForm() {
@@ -2105,9 +2238,10 @@
       }
     });
     var clearEncBtn = el('button', {
-      class: 'btn-ghost', type: 'button', text: '清除已保存的加密 Token',
+      class: 'btn-danger', type: 'button', text: '清除已保存的加密 Token',
       onClick: clearEncryptedToken
     });
+    if (!state.encTokenSaved) clearEncBtn.disabled = true;
     var statusEl = state.encTokenSaved
       ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
       : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
@@ -2116,10 +2250,6 @@
       iosCell('解锁密码', tokPass),
       iosCell('确认密码', tokPass2),
       statusEl
-    ]);
-    var actionGroup = iosGroup('操作', [
-      el('div', { class: 'ios-cell' }, [saveEncBtn]),
-      el('div', { class: 'ios-cell' }, [clearEncBtn])
     ]);
 
     els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
@@ -2134,7 +2264,8 @@
       ]),
       el('h1', { class: 'token-title', text: 'Token 加密存储' }),
       el('div', { class: 'ios-stack-desc', text: '当前仓库 ' + g.owner + '/' + g.repo + ' 的 Token 会用下面的密码加密后写入仓库。解密仅在浏览器内进行，密码不会上传，也永不写入磁盘。' }),
-      el('div', { class: 'ios-stack' }, [passGroup, actionGroup])
+      el('div', { class: 'ios-stack' }, [passGroup]),
+      el('div', { class: 'detail-actions' }, [saveEncBtn, clearEncBtn])
     ]));
   }
 

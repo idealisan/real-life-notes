@@ -154,6 +154,15 @@
   - **emoji 图标换内联 SVG**：Tab 栏（主页/文章/分类/设置）、「＋」新建、筛选 🎚️、魔法棒 ✨ 全部改为 `icon()/ICONS` 内联 SVG（`stroke=currentColor` 跟随文字颜色，尺寸由 `.icon svg` 控制），消除 emoji 各平台字体差异与潜在溢出。
   - **Token 加密存储改为独立子页**：设置页不再直接放密码输入（单元格里太挤），改在「安全」分组留「Token 加密存储」入口行（chevron），点击进入 token 视图（`.ios-back` 返回 + 大标题 + 密码/确认/保存/清除 + 状态说明）；保存/清除后 `render()` 停留在该页刷新状态与按钮文案（`更新加密 Token`）。
 - 测试：`test-admin-layout.js` 重写为 65 项（Tab 4 个、iOS 大标题/搜索栏/标签行、`post-cell` 列表、筛选 Sheet 打开/分段/完整性检查、分类 `cat-cell`、设置分组/魔法棒/Toggle/保存按钮、Token 入口行与独立子页往返）；`dbg-admin-desktop.js` 8 项；`test-enc-token.js` 17 项；`test-login-flow`/`test-repo-mismatch` 同步更新后全绿。
+- **第二批（iOS 交互规范）**：
+  - **编辑器菜单下拉超屏**：`.menu-dropdown` 原来是 `absolute; left:0`，触发按钮靠右时下拉会超出屏幕右/下边缘。改为展开时按触发器位置用 `fixed` 定位并钳制到视口内（`positionMenuDropdown`，右缘 ≥6px、下缘 ≥8px）。
+  - **编辑器输入框不统一**：标题/分类/日期/文件名等圆角矩形宽度高度不一（`select`/`datetime-local` 原生外观差异）。统一为 `height:46px`、同一内边距、`width:100%` 铺满；`select` 用 `appearance:none` + 自定义 SVG 下拉箭头，`datetime-local` 保持原生但高度统一。
+  - **编辑器复选框改 iOS Switch**：草稿/置顶两个 checkbox 改为 `.switch` Toggle（`iosToggle`，`role="switch"`），行内 label 左、开关右（`.ios-check-row`）。
+  - **文章列表行去掉操作按钮**：`.post-cell` 不再直接放 编辑/查看/删除，右侧改为 chevron（`>`），点击整行进入**详情页**（`post-detail` 视图：返回 + 大标题 + 文章信息分组（分类/状态/日期/字数/标签/文件）+ 查看页面链接 / 进入编辑主按钮 / 底部红色「删除文章」）；草稿详情不提供预览、显示「仅自己可见」提示。桌面端表格保留原操作按钮。
+  - **文章列表全选/多选**：`.bulk-bar` 顶部常驻「全选」复选框 + 已选计数，勾选后出现批量发布/存草稿/移动/删除/取消选择。
+  - **分类页改简洁列表**：`.cat-cell` 不再内联展开编辑字段，改为「图标 + 名称 + id·文章数 + chevron」的紧凑行（同一卡片分组、行间分隔线），点击进入**分类详情/编辑页**（`cat-detail` 视图：分类信息 + 编辑字段（名称/图标/描述）+ 保存修改主按钮 + 红色「删除分类」）。
+  - **Token 子页操作按钮移出卡片**：`加密保存 Token 到仓库` 与 `清除已保存的加密 Token` 不再放进白色圆角分组卡片，改为页面底部 `.detail-actions` 全宽大按钮（左右保持正常边距），清除按钮红色（`.btn-danger`），未保存时置灰。
+  - 测试：`test-admin-layout.js` 扩至 84 项（菜单 fixed 定位、编辑器 Switch、行 chevron + 详情页往返、全选、分类详情页、Token 按钮在卡片外）。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
