@@ -119,6 +119,7 @@ html, body {
 
 /* iOS 风格：点按无高亮色块，文字可选 */
 html {
+  background: var(--bg-page);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }

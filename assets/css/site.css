@@ -147,7 +147,7 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
   bottom: 0;
   z-index: 45;
   display: flex;
-  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-page) 88%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 1px solid var(--border-soft);
@@ -716,10 +716,13 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   opacity: 0;
   transition: opacity 0.15s;
 }
-.detail-body pre:hover .code-copy { opacity: 1; }
+@media (hover: hover) {
+  .detail-body pre:hover .code-copy,
+  .detail-body pre:focus-within .code-copy { opacity: 1; }
+}
+.detail-body pre.code-open .code-copy { opacity: 1; }
 .code-copy:hover { background: var(--bg-inset); color: var(--text); }
 .code-copy:focus { opacity: 1; }
-@media (hover: none) { .code-copy { opacity: 1; } }
 
 .lightbox {
   position: fixed;

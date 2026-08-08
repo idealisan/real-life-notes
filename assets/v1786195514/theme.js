@@ -22,6 +22,8 @@
     var root = document.documentElement;
     if (t === 'auto') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', t);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#000000' : '#f2f2f7');
     Array.prototype.forEach.call(document.querySelectorAll('link[data-hljs]'), function (link) {
       link.media = (link.getAttribute('data-hljs') === 'dark') === dark ? 'all' : 'not all';
     });

@@ -917,11 +917,23 @@
     });
   }
 
+  var touchCopy = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+  var copyPres = [];
+  if (touchCopy) {
+    document.addEventListener('click', function (e) {
+      for (var i = copyPres.length - 1; i >= 0; i--) {
+        var p = copyPres[i];
+        if (!p.isConnected || !p.contains(e.target)) p.classList.remove('code-open');
+      }
+    });
+  }
   function attachCodeCopy(root) {
+    copyPres.length = 0;
     Array.prototype.forEach.call(root.querySelectorAll('pre code'), function (code) {
       var pre = code.parentNode;
       if (!pre || pre._copyBtn) return;
       pre.style.position = 'relative';
+      pre.tabIndex = 0;
       var btn = el('button', {
         type: 'button', class: 'code-copy', 'aria-label': '复制代码',
         text: '📋',
@@ -931,11 +943,19 @@
           copyText(text).then(function () {
             self.textContent = '✓';
             setTimeout(function () { self.textContent = '📋'; }, 2000);
+            if (touchCopy) pre.classList.remove('code-open');
           }).catch(function () {});
         }
       });
       pre._copyBtn = btn;
       pre.appendChild(btn);
+      if (touchCopy) {
+        pre.addEventListener('click', function (e) {
+          if (e.target === btn) return;
+          pre.classList.add('code-open');
+        });
+        copyPres.push(pre);
+      }
     });
   }
 

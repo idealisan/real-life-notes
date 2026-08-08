@@ -155,6 +155,8 @@ docs/                 设计文档
 ### 4.5 theme.js — 主题切换
 
 - `prefers-color-scheme` 跟随系统；手动切换存 localStorage（`theme` key）；全站页面生效。
+- **浏览器 Chrome 颜色（Safari/沉浸式）**：单一 `<meta name="theme-color">`（无 media）由 `Theme.apply()` 按**页面当前主题**动态写入（亮 `#f2f2f7` / 暗 `#000000`），而非跟随系统，避免"OS 暗色 + 页面亮色"时浏览器控件仍是黑色。
+- **iOS 26 Safari 忽略 theme-color**：改为采样 `body`/`html` 背景色 + 视口边缘的 fixed/sticky 元素（≥80% 宽、≥3px 高）。对策：`html` 显式 `background: var(--bg-page)`；`tab-bar` 底色从 `--bg-card` 改为 `--bg-page`，使顶部（sticky header）与底部控件颜色与页面背景一致，暗色下上下均为纯黑、沉浸无接缝。
 
 ## 5. 关键数据流
 
