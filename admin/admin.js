@@ -370,6 +370,8 @@
     if (err.status === 401) return 'Token 无效或已被撤销';
     if (err.status === 403) return '没有权限（403）。请确认 Token 已授权本仓库的 Contents: Read and write，并开启了写权限';
     if (err.status === 404) return '资源不存在（404）。请确认仓库名与所有者正确';
+    if (err.status === 422) return 'GitHub 拒绝了这次提交（422）。请检查文件路径与内容是否合法';
+    if (err.status === 429) return 'GitHub API 请求过频（429），请稍等一分钟再试';
     return (err.message || String(err)) + (err.status ? '（HTTP ' + err.status + '）' : '');
   }
 
