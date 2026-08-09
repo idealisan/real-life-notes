@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://idealisan.github.io/real-life-notes/content/sitemap.xml
+Sitemap: content/sitemap.xml
