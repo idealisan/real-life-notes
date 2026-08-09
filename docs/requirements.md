@@ -171,6 +171,13 @@
   - **进入子页先回到顶部（修复"空白需滚动"）**：从长页面底部（如设置页滚到底再点 Token 加密存储）切到短子页时，iOS Safari 保留滚动位置导致新页面上方空白、必须滚动才出现。修复：`render()` 里记录 `lastRenderedView`，视图切换时 `window.scrollTo(0,0)`（加一帧保险），同视图重渲染不跳顶。
   - 测试：`test-admin-layout.js` 扩至 94 项（胶囊 Tab 样式断言、title 栏全选按钮位置/全选反选往返/批量条、分类表单默认隐藏与＋展开收起、进入 Token 子页 scrollTo 被调用）；`dbg-admin-desktop.js` 恢复 8 项全绿。
 
+- **小屏视口自适应（iPhone SE 320px 无横向滚动）**：
+  - **查证**：iPhone SE（1 代）竖屏 CSS 视口宽 = **320px**（iPhone 5s 同尺寸，DPR 2），SE（2/3 代）= **375px**（[firt.dev/viewports](https://firt.dev/notes/viewports/)）。`<meta viewport width=device-width,initial-scale=1>` 已在，故页面必须在不缩放、不左右滚动的前提下塞进 320px。
+  - **双层横向溢出封锁**：`base.css` 增加 `html, body { overflow-x: hidden }` + `@supports (overflow-x: clip) { html, body { overflow-x: clip } }`；`admin.css` 对 `body.admin-page` 同规则（`.admin-page { overflow-x: hidden }` + clip 支持时 `clip`，clip 不产生滚动容器、对 sticky/fixed 最干净）。之前只封 html，个别子元素仍可能撑大 body，需两层一起。
+  - **容器与栅格收紧**：`.container` 显式 `width:100%`；`.field-row` / `.cat-add-grid` 的 `1fr` 改为 `minmax(0,1fr)`（长选项的 select、原生 datetime-local 的 min-content 不再把栅格列撑破容器）；`.editor-menubar` 加 `width:100%`。
+  - **长文本断行兜底**：`.ios-title / .token-title / .cell-title / .cell-sub / .ios-value / .ios-cell-desc / .ios-stack-desc / .detail-draft-hint / .notice / .integrity-item / .connect-target code / .ios-check-row .cell-label` 加 `overflow-wrap:anywhere`，长标题/文件路径/URL 断行而不溢出；`.ios-titlebar` 加 `flex-wrap:wrap` 且子项 `min-width:0`；`.ios-cell .repo-badge` 改可收缩 + 省略号截断。
+  - 测试：`test-admin-layout.js` 扩至 101 项（新增 7 项 320px 防线断言：container 100%、html/body 双层 overflow、admin body clip、minmax(0,1fr)、anywhere、titlebar wrap），全绿。
+
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
 - **方案**：

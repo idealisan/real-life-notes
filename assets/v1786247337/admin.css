@@ -15,6 +15,13 @@ html {
   html { overflow-x: clip; }
 }
 
+/* 双保险：body 层也禁止横向溢出（有些子元素会逃出 html 的 clip 范围）。
+   clip 不产生滚动容器（配合 sticky/fixed 最干净），旧 iOS 回退 hidden。 */
+.admin-page { overflow-x: hidden; }
+@supports (overflow-x: clip) {
+  .admin-page { overflow-x: clip; }
+}
+
 /* 移动端固定底部导航高度 + 安全区：内容不被遮挡 */
 .admin-page { padding-bottom: calc(66px + var(--safe-bottom)); }
 /* ---- 顶部导航栏（毛玻璃 + 安全区） ---- */
@@ -171,7 +178,7 @@ html {
 .connect-tip { margin: 0; color: var(--text-faint); }
 .connect-hint { margin: 0; color: var(--accent); }
 .connect-target { margin: 0; color: var(--text-soft); }
-.connect-target code { font-size: 0.95em; color: var(--accent); }
+.connect-target code { font-size: 0.95em; color: var(--accent); overflow-wrap: anywhere; }
 .connect-error {
   margin: 0;
   color: var(--danger);
@@ -213,7 +220,7 @@ html {
 .field { margin-bottom: var(--space-4); }
 .field label { display: block; margin-bottom: var(--space-1); font-weight: 600; font-size: 0.9em; color: var(--text); }
 .field .hint { font-size: 0.82em; color: var(--text-faint); margin-top: var(--space-1); }
-.field-row { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
+.field-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
 .field input[type="checkbox"] { width: auto; }
 /* 编辑器单行控件（标题/分类/日期/文件名）统一样式：同一高度、同一内边距、铺满列宽 */
 .field input[type="text"],
@@ -247,6 +254,8 @@ html {
   font-weight: 550;
   font-size: 0.95em;
   color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ---- iOS 页面（大标题 + 搜索栏 + 标签 + 列表） ---- */
@@ -257,13 +266,16 @@ html {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2) 0 var(--space-1);
+  flex-wrap: wrap;
 }
+.ios-titlebar > * { min-width: 0; }
 .ios-title {
   font-size: 2.05em;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
   line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 .ios-title-count {
   font-size: 0.42em;
@@ -271,8 +283,9 @@ html {
   color: var(--text-faint);
   margin-left: var(--space-2);
   vertical-align: middle;
+  white-space: nowrap;
 }
-.ios-title-actions { display: flex; gap: var(--space-2); align-items: center; }
+.ios-title-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .ios-icon-btn {
   width: 38px;
   height: 38px;
@@ -401,14 +414,14 @@ html {
   min-width: 0;
   cursor: pointer;
 }
-.cell-title { font-weight: 600; line-height: 1.4; overflow-wrap: break-word; }
+.cell-title { font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .cell-title .pin-badge { margin-left: var(--space-1); }
 .cell-title .draft-badge { margin-left: var(--space-1); }
 .cell-sub {
   font-size: 0.82em;
   color: var(--text-faint);
   margin-top: 2px;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 .cell-right {
   flex: 0 0 auto;
@@ -471,7 +484,7 @@ html {
 }
 .cat-cell-fields {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
@@ -497,7 +510,7 @@ html {
 }
 .cat-add-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 .cat-add-btn { width: 100%; margin-top: var(--space-3); }
@@ -640,13 +653,14 @@ html {
 }
 .ios-cell input:focus { box-shadow: none; }
 .ios-cell input::placeholder { color: var(--text-faint); }
-.ios-cell .ios-value { color: var(--text-soft); font-size: 0.9em; flex: 0 1 auto; text-align: right; }
-.ios-cell .repo-badge { flex: 0 0 auto; }
+.ios-cell .ios-value { color: var(--text-soft); font-size: 0.9em; flex: 0 1 auto; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.ios-cell .repo-badge { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .ios-cell-desc {
   padding: 10px var(--space-4) 14px;
   font-size: 0.82em;
   color: var(--text-faint);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .ios-cell-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; width: 100%; }
 .ios-cell-actions button { flex: 1 1 auto; }
@@ -718,9 +732,9 @@ html {
 .ios-back .icon svg { width: 20px; height: 20px; }
 .ios-back:hover { background: transparent; color: var(--accent); }
 .ios-page .token-nav { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
-.ios-page .token-title { font-size: 1.6em; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--space-1); line-height: 1.2; }
+.ios-page .token-title { font-size: 1.6em; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--space-1); line-height: 1.2; overflow-wrap: anywhere; }
 .ios-page .ios-stack { margin-top: var(--space-4); }
-.ios-page .ios-stack-desc { padding: 10px var(--space-4) 14px; font-size: 0.82em; color: var(--text-faint); line-height: 1.5; }
+.ios-page .ios-stack-desc { padding: 10px var(--space-4) 14px; font-size: 0.82em; color: var(--text-faint); line-height: 1.5; overflow-wrap: anywhere; }
 
 /* 详情页（文章/分类/token）底部操作：全宽大按钮，清除/删除用红色 */
 .detail-actions {
@@ -743,6 +757,7 @@ html {
   font-size: 0.85em;
   text-align: center;
   padding: 6px 0;
+  overflow-wrap: anywhere;
 }
 .cat-detail-head {
   display: flex;
@@ -898,6 +913,7 @@ html {
   margin-bottom: var(--space-2);
   flex-wrap: wrap;
   max-width: 100%;
+  width: 100%;
 }
 .editor-menubar .menu { position: relative; }
 .menu-trigger {
@@ -1029,10 +1045,10 @@ html {
 .toast.toast-error { background: var(--danger); color: #fff; }
 .toast.toast-ok { background: var(--ok); color: #fff; }
 
-.notice { padding: var(--space-4); border-radius: var(--radius-m); margin-bottom: var(--space-4); background: var(--bg-card); }
+.notice { padding: var(--space-4); border-radius: var(--radius-m); margin-bottom: var(--space-4); background: var(--bg-card); overflow-wrap: anywhere; }
 .notice-error { background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
 .notice-info { background: var(--bg-card); color: var(--text-soft); border: 1px solid var(--border-soft); }
-.integrity-item { font-family: var(--font-mono); font-size: 0.9em; margin-top: 4px; }
+.integrity-item { font-family: var(--font-mono); font-size: 0.9em; margin-top: 4px; overflow-wrap: anywhere; }
 
 .spinner {
   display: inline-block;
@@ -1092,7 +1108,7 @@ html {
   .connect-form button { width: auto; }
 
   .panel { padding: var(--space-5); margin-bottom: var(--space-4); }
-  .field-row { grid-template-columns: 1fr 1fr; }
+  .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .editor-pane textarea { min-height: 320px; }
   .editor-footer button { flex: 0 0 auto; }
   .toast { bottom: 24px; }
