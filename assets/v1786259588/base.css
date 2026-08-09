@@ -178,6 +178,15 @@ pre {
 }
 pre code { background: none; padding: 0; }
 
+/* 代码块必须保持整行不换行：body 的 word-break:break-word 继承进来会把 pre 的最小内容
+   宽度压到容器宽，导致长代码行被裁剪且无法横向滚动（实测 WebKit scrollable=false）。
+   显式复位让长行按原样溢出，交给 pre 的 overflow-x:auto 滚动查看。 */
+pre, pre code {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 blockquote {
   margin: 0 0 1em;
   padding: 0.2em 1em;
