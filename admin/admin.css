@@ -228,7 +228,7 @@ html { overflow-y: scroll; }
 .panel-toolbar .spacer { flex: 1; }
 .panel-toolbar input[type="search"], .panel-toolbar select { width: auto; }
 
-.field { margin-bottom: var(--space-4); }
+.field { margin-bottom: var(--space-4); min-width: 0; }
 .field label { display: block; margin-bottom: var(--space-1); font-weight: 600; font-size: 0.9em; color: var(--text); }
 .field .hint { font-size: 0.82em; color: var(--text-faint); margin-top: var(--space-1); }
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
@@ -239,6 +239,7 @@ html { overflow-y: scroll; }
 .field input[type="datetime-local"],
 .field select {
   width: 100%;
+  min-width: 0;
   height: 46px;
   min-height: 46px;
   box-sizing: border-box;
