@@ -1181,6 +1181,54 @@
   /* ---------- 编辑器 ---------- */
   var editor = null;
 
+  /* 编辑草稿自动保存：写内容中途意外退出/刷新/崩溃时，下次打开可恢复，避免丢稿 */
+  var ED_DRAFT_KEY = 'rln-editor-draft';
+  var edDraftTimer = null;
+  function readEditorDraft() {
+    try { var v = localStorage.getItem(ED_DRAFT_KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+  }
+  function clearEditorDraft() {
+    try { localStorage.removeItem(ED_DRAFT_KEY); } catch (e) {}
+  }
+  function editorDraftSnapshot() {
+    if (!editor) return null;
+    var ed = state.editing;
+    return {
+      mode: ed.mode,
+      path: ed.path || null,
+      title: editor.title.value,
+      category: editor.category.value,
+      date: editor.date.value,
+      tags: editor.tags.value,
+      body: editor.body.value,
+      draft: !!(editor.draft && editor.draft.checked),
+      pinned: !!(editor.pinned && editor.pinned.checked),
+      savedAt: Date.now()
+    };
+  }
+  function persistEditorDraft() {
+    if (!editor || !editor.dirty) return;
+    var snap = editorDraftSnapshot();
+    if (!snap) return;
+    try { localStorage.setItem(ED_DRAFT_KEY, JSON.stringify(snap)); } catch (e) { return; }
+    var st = document.getElementById('edAutoSave');
+    if (st) {
+      var d = new Date();
+      var t = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+      st.textContent = '已自动保存 ' + t;
+    }
+  }
+  function scheduleAutoSave() {
+    if (!editor) return;
+    if (edDraftTimer) clearTimeout(edDraftTimer);
+    edDraftTimer = setTimeout(persistEditorDraft, 800);
+  }
+  function draftMatches(snap) {
+    if (!snap) return false;
+    var ed = state.editing;
+    return snap.mode === ed.mode && (ed.mode === 'new' || snap.path === ed.path);
+  }
+
   function computeSlug(over) {
     var title = over ? over.title : editor.title.value;
     var base = md.slugify(title) || 'post';
@@ -1258,6 +1306,7 @@
       el('textarea', { id: 'edBody', 'aria-label': '正文', oninput: updatePreview }),
       el('div', { class: 'editor-status' }, [
         el('span', { id: 'edStats', text: '0 字' }),
+        el('span', { id: 'edAutoSave', class: 'hint' }),
         el('span', { class: 'hint', text: '快捷键：Ctrl+B 加粗 · Ctrl+I 斜体 · Ctrl+K 链接 · Ctrl+E 代码 · Ctrl+Shift+E 代码块 · Tab 缩进' })
       ])
     ]);
@@ -1329,15 +1378,60 @@
     updateSlug();
     updatePreview();
     editor.dirty = false;
+
+    /* 恢复上次未保存的编辑草稿 */
+    var edDraft = readEditorDraft();
+    if (edDraft && draftMatches(edDraft)) {
+      var pristine = {
+        title: ed.title || '', category: ed.category || '', date: ed.date ? fmtLocalInput(ed.date) : '',
+        tags: (ed.tags || []).join(', '), body: ed.body || '',
+        draft: !!ed.draft, pinned: !!ed.pinned
+      };
+      var changed = edDraft.title !== pristine.title || edDraft.body !== pristine.body
+        || edDraft.tags !== pristine.tags || edDraft.category !== pristine.category
+        || edDraft.date !== pristine.date || !!edDraft.draft !== pristine.draft
+        || !!edDraft.pinned !== pristine.pinned;
+      if (changed) {
+        var when = new Date(edDraft.savedAt || Date.now());
+        var stamp = ('0' + when.getMonth()).slice(-2) + '/' + ('0' + when.getDate()).slice(-2) + ' ' +
+          ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
+        var bar = el('div', { class: 'editor-restore', role: 'status' }, [
+          el('span', { class: 'editor-restore-text', text: '检测到未保存的编辑（' + stamp + ' 自动保存），是否恢复？' }),
+          el('div', { class: 'editor-restore-actions' }, [
+            el('button', { class: 'btn-primary', text: '恢复', onClick: function () {
+              editor.title.value = edDraft.title;
+              editor.category.value = edDraft.category;
+              editor.date.value = edDraft.date;
+              editor.tags.value = edDraft.tags;
+              editor.body.value = edDraft.body;
+              editor.draft.checked = !!edDraft.draft;
+              if (editor.pinned) editor.pinned.checked = !!edDraft.pinned;
+              editor.dirty = true;
+              autoGrowTextarea(editor.body);
+              updateSlug();
+              updatePreview();
+              bar.remove();
+            } }),
+            el('button', { text: '丢弃', onClick: function () {
+              clearEditorDraft();
+              bar.remove();
+            } })
+          ])
+        ]);
+        els.mainContent.insertBefore(bar, els.mainContent.firstChild);
+      }
+    }
   }
 
   function markDirty() {
     if (editor) editor.dirty = true;
+    scheduleAutoSave();
   }
 
   function updateSlug() {
     if (!editor) return;
     editor.dirty = true;
+    scheduleAutoSave();
     var ed = state.editing;
     var dateVal = editor.date.value || md.isoNow().slice(0, 10);
     var slug = md.slugify(editor.title.value) || 'post';
@@ -1492,6 +1586,7 @@
   function updatePreview() {
     if (!editor || !editor.preview) return;
     editor.dirty = true;
+    scheduleAutoSave();
     var meta = {
       title: editor.title.value || '（无标题）',
       tags: editor.tags.value.split(/[,，\s]+/).filter(Boolean),
@@ -1647,6 +1742,8 @@
     }).then(function (commit) {
       setBusy(false);
       state.index = { schema: 1, posts: posts };
+      if (edDraftTimer) clearTimeout(edDraftTimer);
+      clearEditorDraft();
       toast(action + '成功 ✓' + (commit.sha ? '（' + commit.sha.slice(0, 7) + '）' : ''), 'ok');
       state.view = 'posts';
       render();
@@ -1677,6 +1774,8 @@
     }).then(function () {
       setBusy(false);
       state.index = { schema: 1, posts: posts };
+      if (edDraftTimer) clearTimeout(edDraftTimer);
+      clearEditorDraft();
       toast('已删除 ✓', 'ok');
       if (state.view === 'editor' || state.view === 'post-detail') {
         state.view = 'posts';

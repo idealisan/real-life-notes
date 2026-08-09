@@ -1002,6 +1002,23 @@ html { overflow-y: scroll; }
   font-size: 0.83em;
 }
 .editor-status .hint { margin: 0; }
+#edAutoSave { color: var(--accent); }
+
+.editor-restore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-m);
+}
+.editor-restore-text { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.editor-restore-actions { display: flex; gap: var(--space-2); flex: 0 0 auto; }
+.editor-restore-actions button { flex: 0 0 auto; }
 
 .editor-footer {
   display: flex;
