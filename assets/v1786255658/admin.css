@@ -4,23 +4,9 @@
 .admin-page { --maxw: 980px; }
 
 /* 始终保留垂直滚动条，避免各菜单页之间内容高度不同导致滚动条出现/消失、页面整体左右偏移。
-   同时硬性禁止横向滚动：overflow-y:scroll 会让 overflow-x 计算成 auto（等于可横向滚动），
-   而 body 上的 overflow-x:hidden 在 iOS Safari 上并不能阻止 html 视口横向拖拽，
-   必须在 html 层用 hidden / clip 才能根治（clip 不产生滚动容器，最彻底）。 */
-html {
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-@supports (overflow-x: clip) {
-  html { overflow-x: clip; }
-}
-
-/* 双保险：body 层也禁止横向溢出（有些子元素会逃出 html 的 clip 范围）。
-   clip 不产生滚动容器（配合 sticky/fixed 最干净），旧 iOS 回退 hidden。 */
-.admin-page { overflow-x: hidden; }
-@supports (overflow-x: clip) {
-  .admin-page { overflow-x: clip; }
-}
+   横向不做任何 hidden/clip 掩藏：布局必须真正适配到视口宽度（见 base.css 系统级适配）。
+   若仍有元素溢出，会以横向滚动条暴露出来，方便定位与修复——而不是用裁剪把它藏起来。 */
+html { overflow-y: scroll; }
 
 /* 移动端固定底部导航高度 + 安全区：内容不被遮挡 */
 .admin-page { padding-bottom: calc(66px + var(--safe-bottom)); }
@@ -171,7 +157,7 @@ html {
   min-width: 0;
   flex-wrap: wrap;
 }
-.connect-form input { width: 100%; flex: 1 1 100%; padding: 11px 12px; }
+.connect-form input:not(.visually-hidden) { width: 100%; flex: 1 1 100%; padding: 11px 12px; }
 .connect-form input#adminRepo { flex: 1 1 100%; }
 .connect-form button { white-space: nowrap; width: 100%; }
 .connect-msgs { width: 100%; font-size: 0.85em; }

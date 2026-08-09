@@ -173,10 +173,13 @@
 
 - **小屏视口自适应（iPhone SE 320px 无横向滚动）**：
   - **查证**：iPhone SE（1 代）竖屏 CSS 视口宽 = **320px**（iPhone 5s 同尺寸，DPR 2），SE（2/3 代）= **375px**（[firt.dev/viewports](https://firt.dev/notes/viewports/)）。`<meta viewport width=device-width,initial-scale=1>` 已在，故页面必须在不缩放、不左右滚动的前提下塞进 320px。
-  - **双层横向溢出封锁**：`base.css` 增加 `html, body { overflow-x: hidden }` + `@supports (overflow-x: clip) { html, body { overflow-x: clip } }`；`admin.css` 对 `body.admin-page` 同规则（`.admin-page { overflow-x: hidden }` + clip 支持时 `clip`，clip 不产生滚动容器、对 sticky/fixed 最干净）。之前只封 html，个别子元素仍可能撑大 body，需两层一起。
-  - **容器与栅格收紧**：`.container` 显式 `width:100%`；`.field-row` / `.cat-add-grid` 的 `1fr` 改为 `minmax(0,1fr)`（长选项的 select、原生 datetime-local 的 min-content 不再把栅格列撑破容器）；`.editor-menubar` 加 `width:100%`。
-  - **长文本断行兜底**：`.ios-title / .token-title / .cell-title / .cell-sub / .ios-value / .ios-cell-desc / .ios-stack-desc / .detail-draft-hint / .notice / .integrity-item / .connect-target code / .ios-check-row .cell-label` 加 `overflow-wrap:anywhere`，长标题/文件路径/URL 断行而不溢出；`.ios-titlebar` 加 `flex-wrap:wrap` 且子项 `min-width:0`；`.ios-cell .repo-badge` 改可收缩 + 省略号截断。
-  - 测试：`test-admin-layout.js` 扩至 101 项（新增 7 项 320px 防线断言：container 100%、html/body 双层 overflow、admin body clip、minmax(0,1fr)、anywhere、titlebar wrap），全绿。
+  - **系统性做法（不再用 overflow-x 掩盖）**：`overflow-x: hidden/clip` 只能把溢出裁掉、看不到根因，且不能算"适配"。改为让布局真正塞进视口：
+    - `base.css` 系统级块：`html { width:100% }`；`body { width:100%; max-width:100%; word-break:break-word }`（word-break 是**继承属性**，一条规则覆盖全部后代文本，长 URL/长路径自然断行）；`img, video, iframe, canvas, svg { max-width:100%; height:auto }`（媒体永不撑破容器）。
+    - 栅格/弹性统一收紧：`.field-row`/`.cat-add-grid` 用 `minmax(0,1fr)`；`.ios-titlebar` 等 flex 容器子项 `min-width:0`；`.editor-menubar` `width:100%`；`.container` 显式 `width:100%`。
+    - 具体组件仍保留 `overflow-wrap:anywhere`（其能影响 min-content 收缩，与 word-break 互补）。
+  - **根因修复（真实溢出点）**：实测（WebKitGTK 320px 逐视图扫 `scrollWidth`）唯一把 body 撑到 335px 的元素是连接表单里给密码管理器用的隐藏用户名输入框 `#adminUser.visually-hidden`：base.css 的 `input[type="text"] { width:100% }` 特异性高于 `.visually-hidden`，把 1px 隐藏框撑成 320px，绝对定位后探出右缘 15px。修复：`.visually-hidden` 改为带 `!important` 的标准 a11y 写法（保底 1px），并把 `.connect-form input` 全宽规则收窄为 `:not(.visually-hidden)`。
+  - **实测验证**（本机 WebKitGTK 渲染引擎，320×800）：admin 的 posts / categories / settings / token / post-detail / editor 六视图 + 站点 index/post/404 三页，`docScrollWidth == clientWidth == 320`，零溢出。筛选 chips 行内横向滚动属预期（`overflow-x:auto` 轮播），不产生页面级横滚。
+  - 测试：`test-admin-layout.js` 扩至 104 项（320px 防线断言改为：系统级块存在、**断言不再依赖 overflow-x 掩盖**、`.visually-hidden` !important、`:not(.visually-hidden)` 根因修复、minmax(0,1fr)、anywhere、titlebar wrap），全绿。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
