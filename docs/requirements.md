@@ -192,6 +192,8 @@
   - **登录页主题切换**：登录页也加载 theme.js 但缺按钮，补 `<button id="themeToggle" class="theme-toggle">`（base.css 圆形样式），`.admin-page > .theme-toggle` 定位为右上角固定悬浮（避让安全区）；后台 index 顶栏内那个不受影响（非 body 直接子级）。
   - **代码块 word-break 复位**：见上文"小屏视口自适应"一节。
 - **SEO 修复：sitemap/rss/robots 必须用绝对 URL**：sitemaps.org 协议要求 `<loc>` 为绝对地址（Google 拒绝相对 `index.html` 这类 `<loc>`）。此前 `config.json` 未设 `site.url`，admin 的 `absUrl()` 退化为返回相对路径，提交的 `content/sitemap.xml`/`rss.xml`/`robots.txt` 全是相对地址。修复：`config.json` 补 `site.url`（本站 `https://idealisan.github.io/real-life-notes`），并用 admin 同款逻辑（`md.render` + `absolutizeRss`）重新生成三个文件；之后每次发布 admin 都会按绝对地址重建。
+- **编辑器草稿自动保存**：写正文中途意外退出/刷新/崩溃会丢稿。现在输入（标题/分类/日期/标签/正文/草稿/置顶）触发 **800ms 防抖**自动保存到 `localStorage['rln-editor-draft']`，状态栏显示「已自动保存 HH:mm:ss」；再次进入编辑器（新建或编辑**同一篇**文章）检测到未保存草稿时，顶部出现恢复横幅（恢复 / 丢弃）。发布/存草稿/删除成功即清除草稿与挂起定时器（避免残留旧草稿被下次误恢复）。草稿按 `mode`+`path` 匹配（新建匹配任意 new、编辑只匹配同 path），不会把 A 文章的草稿错给 B 文章。测试 `test-editor-autosave.js` 15 项全绿。
+
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
