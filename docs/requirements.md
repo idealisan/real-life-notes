@@ -180,6 +180,14 @@
   - **根因修复（真实溢出点）**：实测（WebKitGTK 320px 逐视图扫 `scrollWidth`）唯一把 body 撑到 335px 的元素是连接表单里给密码管理器用的隐藏用户名输入框 `#adminUser.visually-hidden`：base.css 的 `input[type="text"] { width:100% }` 特异性高于 `.visually-hidden`，把 1px 隐藏框撑成 320px，绝对定位后探出右缘 15px。修复：`.visually-hidden` 改为带 `!important` 的标准 a11y 写法（保底 1px），并把 `.connect-form input` 全宽规则收窄为 `:not(.visually-hidden)`。
   - **实测验证**（本机 WebKitGTK 渲染引擎，320×800）：admin 的 posts / categories / settings / token / post-detail / editor 六视图 + 站点 index/post/404 三页，`docScrollWidth == clientWidth == 320`，零溢出。筛选 chips 行内横向滚动属预期（`overflow-x:auto` 轮播），不产生页面级横滚。
   - 测试：`test-admin-layout.js` 扩至 104 项（320px 防线断言改为：系统级块存在、**断言不再依赖 overflow-x 掩盖**、`.visually-hidden` !important、`:not(.visually-hidden)` 根因修复、minmax(0,1fr)、anywhere、titlebar wrap），全绿。
+- **iOS 表单聚焦自动放大（输入框字号 ≥16px）**：iOS Safari 对**计算字号（Computed）<16px** 的 `input/textarea/select`，点击聚焦唤起软键盘时会把整页放大（iOS 10+ 已无视 `user-scalable=no`/`maximum-scale=1`，唯一根治是字号 ≥16px，[css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom](https://css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom/)）。
+  - 实测（真实 WebKitGTK 320px 驱动后台九视图逐个取计算字号）发现几乎全部表单控件超标：连接/解锁输入 **15px**（`.ios-cell` 容器 `font-size:0.95em` 把继承自 `body{font-size:16px}` 的值压到 15px/14.25px）、搜索框 15px、checkbox 13px、编辑器正文 textarea 13.8px 等。
+  - **修复**：`base.css` 加系统级规则 `input, select, textarea { font-size: 16px !important; font-size: max(16px, 1em) !important; }`。16px 保底、`max(16px,1em)` 保留设计上更大的字号，`!important` 压过 `.ios-cell input{font-size:.95em}` 等局部规则（**不含 `button`**——按钮不触发软键盘放大，无需改字号）。效果：全部可编辑控件计算字号 ≥16px，小屏也不再出现聚焦放大。
+  - 验证：`drive.js` 九视图 `smallFontInputs` 全部清零；`test-admin-layout.js` 扩至 113 项（断言系统级规则存在、选择器不含 button、`.theme-toggle` 定义于 base.css、断开锁链符号、Token 页按钮新文案）。
+- **后台细节打磨**：
+  - **主题切换按钮与站点一致**：`.theme-toggle` 圆形样式（`border-radius:999px; min-width/min-height:44px` 等）从 `site.css` 移入 `base.css` 两处共用——后台只加载 base.css+admin.css（不加载 site.css），原来因此走普通圆角矩形按钮。
+  - **断开连接按钮**：去掉文字「断开」，改用断开的锁链符号 `⛓️‍💥`（U+26D3 FE0F 200D 1F4A5）圆形图标按钮（`.ios-disconnect`，38px，与主题切换观感一致），保留 `title`/`aria-label="断开连接"`。
+  - **更新加密 Token 按钮文案**：原「更新加密 Token」误导——该按钮实际不更新 Token，而是用新密码重新加密**当前已保存**的 Token（换解锁密码）。已保存时改为「更新解锁密码（重新加密保存）」，状态说明补充「Token 本身不会改变」。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
