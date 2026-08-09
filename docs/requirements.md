@@ -189,6 +189,9 @@
   - **主题切换按钮与站点一致**：`.theme-toggle` 圆形样式（`border-radius:999px; min-width/min-height:44px` 等）从 `site.css` 移入 `base.css` 两处共用——后台只加载 base.css+admin.css（不加载 site.css），原来因此走普通圆角矩形按钮。
   - **断开连接按钮**：去掉文字「断开」，改用断开的锁链符号 `⛓️‍💥`（U+26D3 FE0F 200D 1F4A5）圆形图标按钮（`.ios-disconnect`，38px，与主题切换观感一致），保留 `title`/`aria-label="断开连接"`。
   - **更新加密 Token 按钮文案**：原「更新加密 Token」误导——该按钮实际不更新 Token，而是用新密码重新加密**当前已保存**的 Token（换解锁密码）。已保存时改为「更新解锁密码（重新加密保存）」，状态说明补充「Token 本身不会改变」。
+  - **登录页主题切换**：登录页也加载 theme.js 但缺按钮，补 `<button id="themeToggle" class="theme-toggle">`（base.css 圆形样式），`.admin-page > .theme-toggle` 定位为右上角固定悬浮（避让安全区）；后台 index 顶栏内那个不受影响（非 body 直接子级）。
+  - **代码块 word-break 复位**：见上文"小屏视口自适应"一节。
+- **SEO 修复：sitemap/rss/robots 必须用绝对 URL**：sitemaps.org 协议要求 `<loc>` 为绝对地址（Google 拒绝相对 `index.html` 这类 `<loc>`）。此前 `config.json` 未设 `site.url`，admin 的 `absUrl()` 退化为返回相对路径，提交的 `content/sitemap.xml`/`rss.xml`/`robots.txt` 全是相对地址。修复：`config.json` 补 `site.url`（本站 `https://idealisan.github.io/real-life-notes`），并用 admin 同款逻辑（`md.render` + `absolutizeRss`）重新生成三个文件；之后每次发布 admin 都会按绝对地址重建。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
