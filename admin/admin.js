@@ -1192,7 +1192,7 @@
     state.editing = {
       mode: 'new', path: null,
       title: '', category: Object.keys(state.cfg.categories)[0] || '',
-      date: md.isoNow(), tags: [], draft: false, pinned: false, body: ''
+      date: md.isoNow(), tags: [], draft: false, pinned: false, cover: '', body: ''
     };
     state.view = 'editor';
     render();
@@ -1209,6 +1209,7 @@
         tags: parsed.meta.tags.length ? parsed.meta.tags : (p.tags || []),
         draft: parsed.meta.draft !== undefined ? parsed.meta.draft : !!p.draft,
         pinned: parsed.meta.pinned !== undefined ? parsed.meta.pinned : !!p.pinned,
+        cover: parsed.meta.cover || p.cover || '',
         body: parsed.body
       };
       state.view = 'editor';
@@ -1241,6 +1242,7 @@
       date: editor.date.value,
       tags: editor.tags.value,
       body: editor.body.value,
+      cover: editor.cover ? editor.cover.value : '',
       draft: !!(editor.draft && editor.draft.checked),
       pinned: !!(editor.pinned && editor.pinned.checked),
       savedAt: Date.now()
@@ -1323,6 +1325,12 @@
       el('div', { class: 'hint', text: '多个标签用逗号分隔' })
     ]);
 
+    var coverField = el('div', { class: 'field' }, [
+      el('label', { for: 'edCover', text: '封面图（可选）' }),
+      el('input', { id: 'edCover', type: 'text', value: ed.cover || '', placeholder: '图片 URL 或仓库内路径 content/images/xxx.png', oninput: markDirty }),
+      el('div', { class: 'hint', text: '列表卡片与详情页顶部展示；留空则取正文首图' })
+    ]);
+
     var draftField = el('div', { class: 'field' }, [
       el('div', { class: 'ios-check-row' }, [
         el('span', { class: 'cell-label', text: '草稿（仅自己可见，不公开显示）' }),
@@ -1359,6 +1367,7 @@
     editor.category = fieldRow.querySelector('#edCategory');
     editor.date = fieldRow.querySelector('#edDate');
     editor.tags = tagsField.querySelector('#edTags');
+    editor.cover = coverField.querySelector('#edCover');
     editor.draft = draftField.querySelector('#edDraft');
     editor.pinned = draftField.querySelector('#edPinned');
     editor.body = bodyField.querySelector('#edBody');
@@ -1382,7 +1391,7 @@
     ]);
 
     var grid = el('div', { class: 'editor-grid' }, [
-      el('div', { class: 'editor-pane' }, [titleField, fieldRow, slugField, tagsField, draftField, bodyField]),
+      el('div', { class: 'editor-pane' }, [titleField, fieldRow, slugField, tagsField, coverField, draftField, bodyField]),
       el('div', { class: 'preview-wrap' }, [el('label', { text: '预览' }), preview])
     ]);
 
@@ -1424,12 +1433,12 @@
       var pristine = {
         title: ed.title || '', category: ed.category || '', date: ed.date ? fmtLocalInput(ed.date) : '',
         tags: (ed.tags || []).join(', '), body: ed.body || '',
-        draft: !!ed.draft, pinned: !!ed.pinned
+        cover: ed.cover || '', draft: !!ed.draft, pinned: !!ed.pinned
       };
       var changed = edDraft.title !== pristine.title || edDraft.body !== pristine.body
         || edDraft.tags !== pristine.tags || edDraft.category !== pristine.category
-        || edDraft.date !== pristine.date || !!edDraft.draft !== pristine.draft
-        || !!edDraft.pinned !== pristine.pinned;
+        || edDraft.date !== pristine.date || edDraft.cover !== pristine.cover
+        || !!edDraft.draft !== pristine.draft || !!edDraft.pinned !== pristine.pinned;
       if (changed) {
         var when = new Date(edDraft.savedAt || Date.now());
         var stamp = ('0' + when.getMonth()).slice(-2) + '/' + ('0' + when.getDate()).slice(-2) + ' ' +
@@ -1443,6 +1452,7 @@
               editor.date.value = edDraft.date;
               editor.tags.value = edDraft.tags;
               editor.body.value = edDraft.body;
+              editor.cover.value = edDraft.cover || '';
               editor.draft.checked = !!edDraft.draft;
               if (editor.pinned) editor.pinned.checked = !!edDraft.pinned;
               editor.dirty = true;
@@ -1665,7 +1675,8 @@
       tags: editor.tags.value.split(/[,，\s]+/).filter(Boolean),
       date: editor.date.value ? fmtToIso(editor.date.value) : md.isoNow(),
       updated: state.editing.mode === 'edit' ? md.isoNow() : null,
-      draft: editor.draft.checked
+      draft: editor.draft.checked,
+      cover: editor.cover ? editor.cover.value.trim() : ''
     };
     var content = md.buildFrontmatter(meta) + '\n' + editor.body.value;
     editor.preview.innerHTML = '<div class="preview-head"></div><div class="preview-body">' + md.render(content) + '</div>';
@@ -1754,11 +1765,13 @@
 
     var dateIso = editor.date.value ? fmtToIso(editor.date.value) : md.isoNow();
     var pinned = !!(editor.pinned && editor.pinned.checked);
+    var cover = editor.cover ? editor.cover.value.trim() : '';
     var meta = {
       title: title,
       tags: tags,
       date: dateIso,
       updated: ed.mode === 'edit' ? md.isoNow() : null,
+      cover: cover,
       draft: draft,
       pinned: pinned
     };
@@ -1783,7 +1796,8 @@
       updated: meta.updated || null,
       excerpt: md.excerpt(content),
       draft: draft,
-      pinned: pinned
+      pinned: pinned,
+      cover: cover
     };
     if (!draft) entry.content = body;
 

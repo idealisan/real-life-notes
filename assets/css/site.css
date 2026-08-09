@@ -237,6 +237,30 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
   box-shadow: var(--shadow-2);
   transform: translateY(-1px);
 }
+.post-card.has-cover { padding-top: 0; overflow: hidden; }
+.post-card-cover {
+  display: block;
+  width: calc(100% + 2 * var(--space-4));
+  margin: 0 calc(-1 * var(--space-4)) var(--space-3);
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--bg-inset);
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+}
+.post-card.has-cover .post-card-meta { padding: 0 var(--space-4); }
+.post-card.has-cover .post-card-title,
+.post-card.has-cover .post-card-excerpt,
+.post-card.has-cover .post-card-tags { padding-left: var(--space-4); padding-right: var(--space-4); }
+.detail-cover {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--bg-inset);
+  border-radius: var(--radius-l);
+  margin: 0 0 var(--space-4);
+}
 .post-card-meta {
   display: flex;
   align-items: center;

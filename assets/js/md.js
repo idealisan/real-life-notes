@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  var FRONTMETA_KEYS = ['title', 'tags', 'date', 'updated', 'draft', 'pinned'];
+  var FRONTMETA_KEYS = ['title', 'tags', 'date', 'updated', 'draft', 'pinned', 'cover'];
 
   function md() {}
 
@@ -28,6 +28,7 @@
           else if (key === 'updated') meta.updated = val;
           else if (key === 'draft') meta.draft = val === 'true';
           else if (key === 'pinned') meta.pinned = val === 'true';
+          else if (key === 'cover') meta.cover = val;
         });
       }
     }
@@ -43,6 +44,7 @@
     }
     lines.push('date: ' + (meta.date || new Date().toISOString()));
     if (meta.updated) lines.push('updated: ' + meta.updated);
+    if (meta.cover) lines.push('cover: ' + meta.cover);
     if (meta.draft) lines.push('draft: true');
     if (meta.pinned) lines.push('pinned: true');
     lines.push('---', '');

@@ -200,6 +200,13 @@
 - **R16 多平台分享**：详情页分享区在「复制链接/复制原文」之上新增 `.share-platforms` 一行（微博 / QQ / Telegram / X / 邮件），纯 URL 拼接新窗口打开（`mailto:` 当前页打开），链接含编码后的文章地址。
 - 测试：`test-comments-ui.js`（面包屑 + BreadcrumbList + 5 个分享平台链接 + @提及链接化 + 排序切换 + 满页「加载更多」）31 项全绿。
 
+### 文章封面（R03）
+- **问题**：列表卡片无图、详情页顶部无头图；`og:image` 只能取正文首图。
+- **方案**：frontmatter / 索引新增可选 `cover` 字段（图片 URL 或仓库内路径 `content/images/...`）；后台编辑器新增「封面图（可选）」输入框，保存时写入 frontmatter 与 `index.json` 条目。`md.buildFrontmatter` / `parseFrontmatter` 同步支持 `cover`。
+- **展示**：列表卡片 `有封面` 时加 `.has-cover`，封面图全宽出血（`aspect-ratio:16/9`、`object-fit:cover`、`loading=lazy`）；详情页正文顶部渲染 `.detail-cover` 头图（位于 TOC 之上）。留空则维持原「取正文首图」行为。
+- 测试：`test-cover.js`（列表有/无封面、封面 src 与 lazy、详情头图）9 项；`test-cover-admin.js`（md 前后一致 + 后台 `#edCover` 输入框）6 项。
+
+
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
 - **方案**：
   - **导航上移**：`.admin-side` 左侧栏删除，`.side-nav` 移入顶部 `.admin-topbar`（品牌 / 导航居中 / 操作按钮右置），顶栏保持 sticky。

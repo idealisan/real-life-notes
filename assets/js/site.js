@@ -436,7 +436,9 @@
 
   function postCard(p) {
     var mins = (typeof p.content === 'string' && p.content.trim()) ? wordCounts(p.content.replace(/\s+/g, ' ').trim()).minutes : null;
-    return el('a', { class: 'post-card', href: 'post.html?p=' + encodeURIComponent(p.path) }, [
+    var cover = p.cover ? el('img', { class: 'post-card-cover', src: p.cover, alt: '', loading: 'lazy', decoding: 'async' }) : null;
+    return el('a', { class: 'post-card' + (cover ? ' has-cover' : ''), href: 'post.html?p=' + encodeURIComponent(p.path) }, [
+      cover,
       el('div', { class: 'post-card-meta' }, [
         el('span', { class: 'cat-badge', text: (state.config.categories[p.category] || {}).label || p.category }),
         el('time', { datetime: p.date, text: md.formatDate(p.date) }),
@@ -720,6 +722,10 @@
     if (toc) {
       body.insertBefore(toc, body.firstChild);
       setupTocSpy(body);
+    }
+    if (meta.cover) {
+      var coverImg = el('img', { class: 'detail-cover', src: meta.cover, alt: '', loading: 'lazy', decoding: 'async' });
+      body.insertBefore(coverImg, toc || body.firstChild);
     }
     var sourceLink;
     if (state.config.github && state.config.github.owner) {
