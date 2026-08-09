@@ -2262,7 +2262,7 @@
     var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码', 'aria-label': '解锁密码' });
     var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认解锁密码' });
     var saveEncBtn = el('button', {
-      class: 'btn-primary', type: 'button', text: state.encTokenSaved ? '更新加密 Token' : '加密保存 Token 到仓库',
+      class: 'btn-primary', type: 'button', text: state.encTokenSaved ? '更新解锁密码（重新加密保存）' : '加密保存 Token 到仓库',
       onClick: function () {
         var p1 = tokPass.value, p2 = tokPass2.value;
         if (!p1) { toast('请设置解锁密码', 'error'); return; }
@@ -2277,7 +2277,7 @@
     });
     if (!state.encTokenSaved) clearEncBtn.disabled = true;
     var statusEl = state.encTokenSaved
-      ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密，可放心放在仓库中）' })
+      ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密）。要更换解锁密码，输入两次新密码并点下方按钮即可重新加密保存——Token 本身不会改变。' })
       : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
 
     var passGroup = iosGroup('解锁密码', [

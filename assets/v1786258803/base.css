@@ -222,6 +222,16 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/* iOS Safari 表单聚焦防自动放大：可编辑控件计算字号 <16px 时，点击聚焦会自动把整页
+   放大（iOS 10+ 无视 user-scalable / maximum-scale，唯一可靠做法是字号 ≥16px）。
+   统一把 input/textarea/select 提到 ≥16px：max(16px,1em) 保留大于 16px 的设计，
+   !important 确保不被局部规则（如 .ios-cell input{font-size:.95em}）压回。
+   注意：不包含 button（按钮不触发该放大，且需保持原设计字号）。 */
+input, select, textarea {
+  font-size: 16px !important;
+  font-size: max(16px, 1em) !important;
+}
+
 label { font-size: 0.85em; color: var(--text-soft); }
 
 button, .btn {
@@ -245,6 +255,21 @@ button:disabled, .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* 主题切换：圆形图标按钮（站点与后台共用一份样式，避免后台因未加载 site.css 而走
+   普通按钮的圆角矩形外观） */
+.theme-toggle {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  border-radius: 999px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.15em;
+  line-height: 1;
+}
+.theme-toggle:hover { background: var(--bg-soft); color: var(--text); }
 
 .btn-primary {
   color: var(--accent-text);

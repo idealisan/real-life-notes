@@ -59,19 +59,7 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
 .brand:hover { text-decoration: none; }
 .brand-icon { font-size: 1.2em; }
 
-.theme-toggle {
-  border: none;
-  background: transparent;
-  color: var(--text-soft);
-  border-radius: 999px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0;
-  font-size: 1.15em;
-  line-height: 1;
-  margin-left: auto;
-}
-.theme-toggle:hover { background: var(--bg-soft); color: var(--text); }
+.theme-toggle { margin-left: auto; }
 
 /* 分类导航：iOS 分段控件风格，移动端独占一行横向滚动 */
 .cat-nav {
