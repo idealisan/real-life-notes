@@ -630,7 +630,7 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 .detail-foot-actions { display: inline-flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .link-copy {
   border: none;
-  background: none;
+  background: transparent;
   padding: 8px 0;
   min-height: 40px;
   color: var(--accent);
@@ -638,8 +638,9 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   cursor: pointer;
   font-family: inherit;
   font-weight: 600;
+  border-radius: 0;
 }
-.link-copy:hover { text-decoration: underline; }
+.link-copy:hover { text-decoration: underline; background: transparent; border-color: transparent; }
 
 .toast {
   position: fixed;

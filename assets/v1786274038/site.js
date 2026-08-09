@@ -1340,7 +1340,11 @@
 
   function boot() {
     parseParams();
-    fetchJSON('content/config.json', null).then(function (cfg) {
+    /* content/config.json、content/index.json 是用户内容，会随设置/发布频繁变动；
+       它们不像代码资源那样走版本化目录，若不破缓存，保存设置（如开启评论）后
+       刷新前台仍可能拿到 CDN/浏览器缓存的旧配置。加时间戳查询参强制每次取最新。 */
+    var nocache = '?_=' + Date.now();
+    fetchJSON('content/config.json' + nocache, null).then(function (cfg) {
       if (cfg) state.config = Object.assign({}, DEFAULT_CONFIG, cfg);
       if (!state.config.site) state.config.site = DEFAULT_CONFIG.site;
       if (!state.config.categories) state.config.categories = {};
@@ -1348,7 +1352,7 @@
       els.footerText.textContent = state.config.site.footer || '';
       document.title = state.config.site.title;
       renderCats();
-      return fetchJSON('content/index.json', { posts: [] });
+      return fetchJSON('content/index.json' + nocache, { posts: [] });
     }).then(function (index) {
       state.posts = (index && Array.isArray(index.posts)) ? index.posts : [];
       render();
