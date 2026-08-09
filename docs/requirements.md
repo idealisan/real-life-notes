@@ -6,8 +6,8 @@
 
 ## 已规划/待办
 
-- **空仓库一键初始化**（远期，见 `docs/architecture.md` §10）：token + 仓库地址输入、初始化模块、Pages 开启引导。
-- 持续迭代：需求来源为 **`docs/requirements-analysis.md`**（R01~R28，含优先级与可行性），按 §6 路线分批实施。
+- **R14 管理后台 PWA（仅后台）**：`admin/manifest.webmanifest` + `admin/sw.js` + `admin/pwa-register.js`，后台可安装、离线可开；公共站点（首页/阅读页/404）保持普通 HTML，不注册 SW。详见 `docs/requirements-analysis.md`。**布局约束：不得改动前后台样式，PC 浏览器后台外观须与普通 HTML 一致。**
+- **决策（2026-08-09）**：原 R01–R13、R15–R28 等其余待规划需求**全部删除、不再实现**，后续迭代仅聚焦 R14。
 
 ## 已知问题（待修 Bug）
 
@@ -205,6 +205,12 @@
 - **方案**：frontmatter / 索引新增可选 `cover` 字段（图片 URL 或仓库内路径 `content/images/...`）；后台编辑器新增「封面图（可选）」输入框，保存时写入 frontmatter 与 `index.json` 条目。`md.buildFrontmatter` / `parseFrontmatter` 同步支持 `cover`。
 - **展示**：列表卡片 `有封面` 时加 `.has-cover`，封面图全宽出血（`aspect-ratio:16/9`、`object-fit:cover`、`loading=lazy`）；详情页正文顶部渲染 `.detail-cover` 头图（位于 TOC 之上）。留空则维持原「取正文首图」行为。
 - 测试：`test-cover.js`（列表有/无封面、封面 src 与 lazy、详情头图）9 项；`test-cover-admin.js`（md 前后一致 + 后台 `#edCover` 输入框）6 项。
+
+### 管理后台 PWA（R14，仅后台）
+- **范围**：**仅 `admin/` 后台**做成可安装 PWA；公共站点（首页 `index.html`、阅读页 `post.html`、404 页）保持普通 HTML，不注册 Service Worker、不加 manifest（已通过 `test-admin-pwa.js` 断言公共页无 manifest / 无 pwa-register）。
+- **实现**：`admin/manifest.webmanifest`（name/short_name/start_url:./ / scope:./ / display:standalone / theme_color #007AFF / 图标 `admin/icon.svg`）；`admin/sw.js` App Shell 缓存（admin HTML/CSS/JS/vendor + 运行时缓存版本化 `assets/v<ts>/`，离线可开后台），跨域 GitHub API 走网络不缓存，JSON（config/index）network-first 失败回退；`admin/pwa-register.js` 在后台页面加载后注册 `./sw.js`（需安全上下文、失败静默、独立文件遵守 `script-src 'self'` CSP，无内联脚本）。
+- **布局约束**：PWA 仅引入 manifest + 后台 SW，**不改任何前后台样式**；PC 浏览器后台外观与普通 HTML 一致（SW/缓存不影响渲染，manifest 仅安装时生效）。`test-admin-layout` 128 项回归仍全绿。
+- 测试：`test-admin-pwa.js`（PWA 文件存在且合法 JS/JSON、后台引用 manifest + pwa-register、公共页不引用、无内联 SW 注册）14 项全绿。
 
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。

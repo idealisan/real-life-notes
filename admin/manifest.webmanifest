@@ -1,0 +1,18 @@
+{
+  "name": "Real Life Notes 管理后台",
+  "short_name": "RLN 后台",
+  "description": "静态笔记 / 博客的管理后台（PWA，可安装到桌面）",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007AFF",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
