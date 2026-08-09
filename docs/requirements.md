@@ -194,7 +194,11 @@
 - **SEO 修复：sitemap/rss/robots 必须用绝对 URL**：sitemaps.org 协议要求 `<loc>` 为绝对地址（Google 拒绝相对 `index.html` 这类 `<loc>`）。此前 `config.json` 未设 `site.url`，admin 的 `absUrl()` 退化为返回相对路径，提交的 `content/sitemap.xml`/`rss.xml`/`robots.txt` 全是相对地址。修复：`config.json` 补 `site.url`（本站 `https://idealisan.github.io/real-life-notes`），并用 admin 同款逻辑（`md.render` + `absolutizeRss`）重新生成三个文件；之后每次发布 admin 都会按绝对地址重建。
 - **编辑器草稿自动保存**：写正文中途意外退出/刷新/崩溃会丢稿。现在输入（标题/分类/日期/标签/正文/草稿/置顶）触发 **800ms 防抖**自动保存到 `localStorage['rln-editor-draft']`，状态栏显示「已自动保存 HH:mm:ss」；再次进入编辑器（新建或编辑**同一篇**文章）检测到未保存草稿时，顶部出现恢复横幅（恢复 / 丢弃）。发布/存草稿/删除成功即清除草稿与挂起定时器（避免残留旧草稿被下次误恢复）。草稿按 `mode`+`path` 匹配（新建匹配任意 new、编辑只匹配同 path），不会把 A 文章的草稿错给 B 文章。测试 `test-editor-autosave.js` 15 项全绿。
 
-
+### 前台阅读体验增强（R10 / R02 / R21 / R16）
+- **R10 面包屑导航**：详情页顶部加「首页 → 分类名 → 当前标题」面包屑（`.breadcrumb`，分类为 `index.html?cat=` 链接，当前标题 `aria-current="page"`）；同时写入独立 `application/ld+json#jsonld-breadcrumb` 的 `BreadcrumbList`（含绝对 `item` URL），增强 SEO。纯前端。
+- **R02/R21 评论增强**：评论正文已走 `md.render`（消毒管线渲染 Markdown）；新增 **@提及链路**：`linkifyMentions()` 在渲染后把正文里 `@用户名`（非 code/pre/a 内部）转成 `https://github.com/<用户>` 链接（`rel=noopener`），GitHub 侧仍负责通知。评论区新增 **排序切换**（最新/最早，客户端按 `created_at` 重排，话题主帖始终置顶）与 **「加载更多」分页**（每页 `per_page=100`，满页才出现按钮，第 2 页起累加）。
+- **R16 多平台分享**：详情页分享区在「复制链接/复制原文」之上新增 `.share-platforms` 一行（微博 / QQ / Telegram / X / 邮件），纯 URL 拼接新窗口打开（`mailto:` 当前页打开），链接含编码后的文章地址。
+- 测试：`test-comments-ui.js`（面包屑 + BreadcrumbList + 5 个分享平台链接 + @提及链接化 + 排序切换 + 满页「加载更多」）31 项全绿。
 
 - **问题**：后台正文编辑区右侧固定 1:1 分栏，编辑框与预览都太窄（页面显得窄小）；左侧 170px 固定菜单占据一行空间；顶部工具条按钮一字排开混乱、Emoji 面板悬浮。
 - **方案**：

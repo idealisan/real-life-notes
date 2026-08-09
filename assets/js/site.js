@@ -130,6 +130,24 @@
     return fallback();
   }
 
+  function renderShareRow(title, url) {
+    var u = encodeURIComponent(url);
+    var t = encodeURIComponent(title || document.title || '');
+    var platforms = [
+      { key: 'weibo', label: '微博', href: 'https://service.weibo.com/share/share.php?url=' + u + '&title=' + t },
+      { key: 'qq', label: 'QQ', href: 'https://connect.qq.com/widget/shareqq/index.html?url=' + u + '&title=' + t + '&summary=' + t },
+      { key: 'telegram', label: 'Telegram', href: 'https://t.me/share/url?url=' + u + '&text=' + t },
+      { key: 'x', label: 'X', href: 'https://twitter.com/intent/tweet?url=' + u + '&text=' + t },
+      { key: 'email', label: '邮件', href: 'mailto:?subject=' + t + '&body=' + u }
+    ];
+    return el('div', { class: 'share-platforms', role: 'group', 'aria-label': '分享到' }, platforms.map(function (p) {
+      return el('a', {
+        class: 'share-platform share-' + p.key, href: p.href, text: p.label,
+        target: p.key === 'email' ? '' : '_blank', rel: 'noopener'
+      });
+    }));
+  }
+
   var toastTimer = null;
   function toast(text) {
     var node = document.getElementById('toast') || (function () {
@@ -621,8 +639,43 @@
     });
   }
 
-  function renderDetailBody(path, parsed) {
-    var meta = parsed.meta;
+  function buildBreadcrumb(catKey, cat, title) {
+    var home = el('a', { href: 'index.html', text: '首页' });
+    var items = [home];
+    if (catKey) {
+      items.push(el('span', { class: 'crumb-sep', 'aria-hidden': 'true', text: '/' }));
+      items.push(el('a', { href: 'index.html?cat=' + encodeURIComponent(catKey), text: cat.label || catKey || '未分类' }));
+    }
+    items.push(el('span', { class: 'crumb-sep', 'aria-hidden': 'true', text: '/' }));
+    items.push(el('span', { class: 'crumb-current', 'aria-current': 'page', text: title }));
+    // schema.org BreadcrumbList
+    try {
+      var base = location.href;
+      var list = [
+        { '@type': 'ListItem', position: 1, name: '首页', item: new URL('index.html', base).href }
+      ];
+      if (catKey) {
+        list.push({
+          '@type': 'ListItem', position: 2, name: cat.label || catKey || '未分类',
+          item: new URL('index.html?cat=' + encodeURIComponent(catKey), base).href
+        });
+      }
+      list.push({ '@type': 'ListItem', position: list.length + 1, name: title });
+      var node = document.getElementById('jsonld-breadcrumb');
+      if (!node) {
+        node = document.createElement('script');
+        node.type = 'application/ld+json';
+        node.id = 'jsonld-breadcrumb';
+        document.head.appendChild(node);
+      }
+      node.textContent = JSON.stringify({
+        '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: list
+      });
+    } catch (e) {}
+    return el('nav', { class: 'breadcrumb', 'aria-label': '面包屑导航' }, items);
+  }
+
+  function renderDetailBody(path, parsed) {    var meta = parsed.meta;
     var catKey = (path.split('/')[1] || '') in (state.config.categories || {}) ? path.split('/')[1] : '';
     var cat = state.config.categories[catKey] || {};
     var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(tagLink)) : null;
@@ -680,6 +733,7 @@
 
     var fontCtl = renderFontCtl(body);
     els.view.textContent = '';
+    els.view.appendChild(buildBreadcrumb(catKey, cat, meta.title));
     els.view.appendChild(el('div', { class: 'detail-head' }, [
       el('h1', { class: 'detail-title', text: meta.title }),
       el('div', { class: 'detail-meta' }, [
@@ -708,6 +762,7 @@
     }
     els.view.appendChild(el('div', { class: 'detail-foot' }, [
       el('a', { href: 'index.html', text: '← 返回列表' }),
+      renderShareRow(meta.title, location.href),
       el('span', { class: 'detail-foot-actions' }, [
         el('button', { type: 'button', class: 'link-copy', text: '分享', onClick: function (e) {
           e.preventDefault();
@@ -748,8 +803,48 @@
     return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
   }
 
-  function renderCommentItem(c) {
-    return el('div', { class: 'comment' }, [
+  function linkifyMentions(html) {
+    if (typeof DOMParser === 'undefined' || typeof NodeFilter === 'undefined' || typeof document === 'undefined') return html;
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var re = /(^|[\s(>（"'])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/g;
+    var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        if (!node.nodeValue || node.nodeValue.indexOf('@') === -1) return NodeFilter.FILTER_REJECT;
+        var p = node.parentNode;
+        if (p && /^(A|CODE|PRE|SCRIPT|STYLE)$/.test(p.tagName)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }, false);
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(function (textNode) {
+      var text = textNode.nodeValue;
+      var frag = doc.createDocumentFragment();
+      var last = 0, m, hit = false;
+      re.lastIndex = 0;
+      while ((m = re.exec(text)) !== null) {
+        hit = true;
+        if (m.index > last) frag.appendChild(doc.createTextNode(text.slice(last, m.index)));
+        var handle = m[2];
+        var a = doc.createElement('a');
+        a.className = 'mention';
+        a.setAttribute('href', 'https://github.com/' + handle);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+        a.textContent = '@' + handle;
+        frag.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (hit) {
+        if (last < text.length) frag.appendChild(doc.createTextNode(text.slice(last)));
+        textNode.parentNode.replaceChild(frag, textNode);
+      }
+    });
+    return doc.body.innerHTML;
+  }
+
+  function renderCommentItem(c) {    return el('div', { class: 'comment' }, [
       el('div', { class: 'comment-head' }, [
         el('img', {
           class: 'comment-avatar', src: c.user && c.user.avatar_url, alt: '',
@@ -758,7 +853,7 @@
         el('span', { class: 'comment-author', text: (c.user && (c.user.login || c.user.name)) || '匿名' }),
         el('time', { class: 'comment-date', datetime: c.created_at, text: commentDate(c.created_at) })
       ]),
-      el('div', { class: 'comment-body', html: md.render(c.body || '') })
+      el('div', { class: 'comment-body', html: linkifyMentions(md.render(c.body || '')) })
     ]);
   }
 
@@ -768,13 +863,87 @@
     if (!cfg.enabled || !g.owner || !g.repo || !state.p) return;
     var path = state.p;
     var label = cfg.label || '评论';
+    var perPage = 100;
+    var allComments = [];
+    var page = 1;
+    var hasMore = false;
+    var currentSort = 'desc';
+    var issueNumber = null;
+    var issueBodyItem = null;
+
+    var sortDesc = el('button', { type: 'button', class: 'sort-btn active', 'data-sort': 'desc', text: '最新' });
+    var sortAsc = el('button', { type: 'button', class: 'sort-btn', 'data-sort': 'asc', text: '最早' });
+    function setSort(s) {
+      currentSort = s;
+      sortDesc.classList.toggle('active', s === 'desc');
+      sortAsc.classList.toggle('active', s === 'asc');
+      applyComments();
+    }
+    sortDesc.addEventListener('click', function () { setSort('desc'); });
+    sortAsc.addEventListener('click', function () { setSort('asc'); });
+
+    var issueBodyWrap = el('div', { class: 'comment-issue-body' });
+    var commentList = el('div', { class: 'comments-list' });
+    var loadMoreBtn = el('button', { type: 'button', class: 'comments-more', text: '加载更多评论' });
+    loadMoreBtn.style.display = 'none';
+    loadMoreBtn.addEventListener('click', function () {
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = '加载中…';
+      fetchPage();
+    });
+
     var wrap = el('section', { class: 'post-comments', 'aria-label': '评论' }, [
       el('h2', { class: 'comments-title', text: '评论' }),
-      el('div', { class: 'comments-status', text: '加载评论…' })
+      el('div', { class: 'comments-status', text: '加载评论…' }),
+      el('div', { class: 'comments-controls' }, [
+        el('div', { class: 'comments-sort', role: 'group', 'aria-label': '评论排序' }, [sortDesc, sortAsc])
+      ]),
+      issueBodyWrap,
+      commentList,
+      loadMoreBtn
     ]);
     els.view.appendChild(wrap);
     var status = wrap.querySelector('.comments-status');
     function setStatus(text) { status.textContent = text; }
+
+    function applyComments() {
+      commentList.textContent = '';
+      var arr = allComments.slice();
+      arr.sort(function (a, b) {
+        var ta = new Date(a.created_at).getTime() || 0;
+        var tb = new Date(b.created_at).getTime() || 0;
+        return currentSort === 'desc' ? tb - ta : ta - tb;
+      });
+      arr.forEach(function (c) { commentList.appendChild(renderCommentItem(c)); });
+      if (hasMore) {
+        loadMoreBtn.style.display = '';
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = '加载更多评论';
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
+      if (!issueBodyItem && arr.length === 0) {
+        if (!wrap.querySelector('.comments-empty')) {
+          wrap.appendChild(el('p', { class: 'comments-empty', text: '还没有评论，来抢沙发。' }));
+        }
+      }
+    }
+
+    function fetchPage() {
+      fetch(commentsApi('/issues/' + issueNumber + '/comments', '?per_page=' + perPage + '&page=' + page), {
+        headers: { Accept: 'application/vnd.github+json' }
+      }).then(function (res) { return res.ok ? res.json() : []; }).then(function (comments) {
+        comments = Array.isArray(comments) ? comments : [];
+        allComments = allComments.concat(comments);
+        page++;
+        hasMore = comments.length === perPage;
+        applyComments();
+        status.remove();
+      }).catch(function (err) {
+        setStatus('评论加载失败：' + (err.message || '未知错误'));
+      });
+    }
+
     fetch(commentsApi('/issues', '?state=all&labels=' + encodeURIComponent(label) + '&per_page=100'), {
       headers: { Accept: 'application/vnd.github+json' }
     }).then(function (res) {
@@ -785,36 +954,26 @@
         return i.title === path && i.pull_request === undefined;
       })[0];
       if (issue) {
-        var commentLink = el('a', {
+        issueNumber = issue.number;
+        wrap.appendChild(el('a', {
           class: 'comments-new', target: '_blank', rel: 'noopener',
           href: 'https://github.com/' + g.owner + '/' + g.repo + '/issues/' + issue.number,
           text: '在 GitHub 参与评论'
-        });
-        wrap.appendChild(commentLink);
+        }));
         if (issue.body) {
-          wrap.appendChild(renderCommentItem({
-            user: issue.user, created_at: issue.created_at, body: issue.body
-          }));
+          issueBodyItem = renderCommentItem({ user: issue.user, created_at: issue.created_at, body: issue.body });
+          issueBodyWrap.appendChild(issueBodyItem);
         }
-        return fetch(commentsApi('/issues/' + issue.number + '/comments', '?per_page=100'), {
-          headers: { Accept: 'application/vnd.github+json' }
-        }).then(function (res) { return res.ok ? res.json() : []; });
+        fetchPage();
+      } else {
+        wrap.appendChild(el('a', {
+          class: 'comments-new', target: '_blank', rel: 'noopener',
+          href: 'https://github.com/' + g.owner + '/' + g.repo + '/issues/new?title=' + encodeURIComponent(path) +
+            '&labels=' + encodeURIComponent(label),
+          text: '写第一条评论'
+        }));
+        status.remove();
       }
-      wrap.appendChild(el('a', {
-        class: 'comments-new', target: '_blank', rel: 'noopener',
-        href: 'https://github.com/' + g.owner + '/' + g.repo + '/issues/new?title=' + encodeURIComponent(path) +
-          '&labels=' + encodeURIComponent(label),
-        text: '写第一条评论'
-      }));
-      return [];
-    }).then(function (comments) {
-      (Array.isArray(comments) ? comments : []).forEach(function (c) {
-        wrap.appendChild(renderCommentItem(c));
-      });
-      if (!wrap.querySelector('.comment')) {
-        wrap.appendChild(el('p', { class: 'comments-empty', text: '还没有评论，来抢沙发。' }));
-      }
-      status.remove();
     }).catch(function (err) {
       setStatus('评论加载失败：' + (err.message || '未知错误'));
     });

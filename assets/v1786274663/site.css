@@ -437,8 +437,40 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 }
 .comment-body p { margin: 0 0 0.5em; }
 .comment-body p:last-child { margin-bottom: 0; }
+.comment-body .mention {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.comment-body .mention:hover { text-decoration: underline; }
+.comment-issue-body { margin-bottom: var(--space-4); }
+.comments-controls { margin: var(--space-3) 0; }
+.comments-sort { display: inline-flex; gap: 4px; background: var(--bg-inset); padding: 3px; border-radius: 999px; }
+.sort-btn {
+  border: none; background: transparent; color: var(--text-faint);
+  font-size: 0.85em; padding: 5px 14px; border-radius: 999px; cursor: pointer; font-family: inherit;
+}
+.sort-btn.active { background: var(--bg-card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.comments-more {
+  display: block; margin: var(--space-4) auto 0; padding: 9px 22px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-size: 0.9em; cursor: pointer;
+}
+.comments-more:disabled { opacity: 0.6; cursor: default; }
 
 /* ================= 详情视图（白卡阅读区） ================= */
+.breadcrumb {
+  font-size: 0.85em;
+  color: var(--text-faint);
+  padding: var(--space-3) 0 var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.breadcrumb a { color: var(--text-faint); text-decoration: none; }
+.breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+.breadcrumb .crumb-sep { color: var(--border); }
+.breadcrumb .crumb-current { color: var(--text); font-weight: 500; }
 .detail-head { padding: var(--space-4) 0 var(--space-3); }
 .detail-title {
   font-size: 1.85em;
@@ -628,6 +660,22 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
   align-items: center;
 }
 .detail-foot-actions { display: inline-flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.share-platforms { display: flex; flex-wrap: wrap; gap: var(--space-2); width: 100%; padding-bottom: var(--space-3); }
+.share-platform {
+  flex: 1 1 auto;
+  text-align: center;
+  min-width: 56px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.85em;
+  font-weight: 600;
+  text-decoration: none;
+}
+.share-platform:hover { border-color: var(--accent); color: var(--accent); }
+.share-platform:active { transform: translateY(1px); }
 .link-copy {
   border: none;
   background: transparent;
