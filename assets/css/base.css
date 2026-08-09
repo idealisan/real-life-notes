@@ -281,6 +281,9 @@ button:disabled, .btn:disabled {
   padding: 0;
   font-size: 1.15em;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .theme-toggle:hover { background: var(--bg-soft); color: var(--text); }
 

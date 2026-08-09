@@ -92,7 +92,7 @@
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
     image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
-    unlink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13a3 3 0 0 0-3.5-3.5l-2 2"/><path d="M6 11a3 3 0 0 0 3.5 3.5l2-2"/><path d="M2 2l20 20"/></svg>',
+    unlink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M5.17 11.75l-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="8" y1="2" x2="8" y2="5"/><line x1="2" y1="8" x2="5" y2="8"/><line x1="16" y1="19" x2="16" y2="22"/><line x1="19" y1="16" x2="22" y2="16"/></svg>',
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
     contrast: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor" stroke="none"/></svg>'
@@ -974,12 +974,14 @@
     if (!posts.length) {
       list.appendChild(el('div', { class: 'notice notice-info', text: '没有匹配的文章。点击右上角「＋」新建，或调整筛选条件。' }));
     } else {
-      var bar = bulkBar(posts, cats, false);
-      if (bar) list.appendChild(bar);
       posts.forEach(function (p) { list.appendChild(postCell(p)); });
     }
 
-    return el('section', { class: 'ios-page' }, [head, search, chips].concat(notices, [list]));
+    /* 批量操作条放在列表「外侧」独立区域（列表 .post-list 有 overflow:hidden，
+       放内部会被裁切），位于筛选 chips 与列表之间 */
+    var bulk = bulkBar(posts, cats, false);
+
+    return el('section', { class: 'ios-page' }, [head, search, chips].concat(notices, bulk ? [bulk] : [], [list]));
   }
 
   function postCell(p) {
@@ -2384,8 +2386,8 @@
       el('div', { class: 'ios-cell-desc', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' })
     ]);
 
-    var regenBtn = el('button', { class: 'btn btn-primary', type: 'button', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles });
-    var toolsGroup = iosGroup('维护', [el('div', { class: 'ios-cell ios-cell-btn-wrap' }, [regenBtn])]);
+    var regenBtn = el('button', { class: 'btn btn-primary settings-regen-btn', type: 'button', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles });
+    var toolsGroup = el('div', { class: 'settings-regen' }, [regenBtn]);
 
     var repoGroup = iosGroup('仓库信息', [
       el('div', { class: 'ios-cell' }, [
@@ -2551,6 +2553,10 @@
 
   function boot() {
     document.addEventListener('click', closeAllMenus);
+    /* 悬浮菜单是 fixed 定位，滚动/缩放时不会跟随页面，会跟触发按钮脱节；
+       因此在滚动与缩放时直接收起（移动端常见做法） */
+    window.addEventListener('scroll', function () { closeAllMenus(); }, true);
+    window.addEventListener('resize', function () { closeAllMenus(); });
     fetch('../content/config.json').then(function (res) {
       if (!res.ok) throw new Error();
       return res.json();
