@@ -88,6 +88,7 @@
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+    checklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M3 6l1.5 1.5L7 5"/><path d="M3 12l1.5 1.5L7 11"/><path d="M3 18l1.5 1.5L7 17"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
     key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>'
   };
@@ -669,7 +670,9 @@
   });
 
   /* ---------- 渲染分发 ---------- */
+  var lastRenderedView = null;
   function render() {
+    var viewChanged = lastRenderedView !== state.view;
     Array.prototype.forEach.call(document.querySelectorAll('.side-nav button'), function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-view') === state.view);
     });
@@ -682,6 +685,13 @@
     else if (state.view === 'post-detail') renderPostDetail();
     else if (state.view === 'cat-detail') renderCategoryDetail();
     updateRepoWarn();
+    // 切换视图后回到顶部：否则从长页面底部（如设置页）进入子页时，
+    // 短页面顶部留白、画面"空白"，必须滚动才出现（iOS Safari 保留滚动位置所致）。
+    if (viewChanged) {
+      lastRenderedView = state.view;
+      window.scrollTo(0, 0);
+      if (window.requestAnimationFrame) requestAnimationFrame(function () { window.scrollTo(0, 0); });
+    }
   }
 
   function sortedPosts() {
@@ -800,11 +810,20 @@
     }, [label]);
   }
 
-  function bulkBar(posts, cats) {
-    var selCount = Object.keys(state.listSel).length;
+  /* 全选/取消全选：title 栏按钮控制（移动端），desktop 用 bar 里的复选框 */
+  function toggleSelectAll(posts) {
     var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
-    var bar = el('div', { class: 'bulk-bar' }, [
-      el('label', { class: 'bulk-all', 'aria-label': '全选当前列表' }, [
+    state.listSel = {};
+    if (!allChecked) posts.forEach(function (p) { state.listSel[p.path] = true; });
+    renderPosts();
+  }
+
+  function bulkBar(posts, cats, showAll) {
+    var selCount = Object.keys(state.listSel).length;
+    var children = [];
+    if (showAll) {
+      var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
+      children.push(el('label', { class: 'bulk-all', 'aria-label': '全选当前列表' }, [
         el('input', {
           type: 'checkbox',
           checked: allChecked ? '' : null,
@@ -815,11 +834,15 @@
           }
         }),
         el('span', { text: '全选' })
-      ]),
-      el('span', { class: 'bulk-count', text: selCount ? '已选 ' + selCount + ' 篇' : '' })
-    ]);
-    if (!selCount) return bar;
-    var actions = el('div', { class: 'bulk-actions' }, [
+      ]));
+    }
+    if (!selCount) {
+      if (!showAll) return null;
+      return el('div', { class: 'bulk-bar' }, children);
+    }
+    children.push(el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }));
+    var bar = el('div', { class: 'bulk-bar' }, children);
+    bar.appendChild(el('div', { class: 'bulk-actions' }, [
       el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
       el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
       el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
@@ -839,8 +862,7 @@
       el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
       el('span', { class: 'spacer' }),
       el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
-    ]);
-    bar.appendChild(actions);
+    ]));
     return bar;
   }
 
@@ -878,10 +900,16 @@
 
   /* 移动端：iOS 列表式文章页（大标题 + 搜索栏 + 分类标签 + 列表） */
   function renderPostsMobile(posts, cats, notices) {
+    var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
     var head = el('div', { class: 'ios-titlebar' }, [
       el('h1', { class: 'ios-title' }, ['文章',
         posts.length ? el('span', { class: 'ios-title-count', text: '共 ' + posts.length + ' 篇' }) : null]),
       el('div', { class: 'ios-title-actions' }, [
+        el('button', {
+          class: 'ios-icon-btn' + (allChecked ? ' ios-icon-btn-on' : ''), type: 'button',
+          'aria-label': allChecked ? '取消全选' : '全选当前列表', title: allChecked ? '取消全选' : '全选/反选',
+          onClick: function () { toggleSelectAll(posts); }
+        }, [icon('checklist')]),
         el('button', { class: 'ios-icon-btn', type: 'button', 'aria-label': '筛选', title: '筛选', onClick: openFilterSheet }, [icon('sliders')]),
         el('button', { class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建文章', title: '新建文章', onClick: startNewPost }, [icon('plus')])
       ])
@@ -908,7 +936,7 @@
     if (!posts.length) {
       list.appendChild(el('div', { class: 'notice notice-info', text: '没有匹配的文章。点击右上角「＋」新建，或调整筛选条件。' }));
     } else {
-      var bar = bulkBar(posts, cats);
+      var bar = bulkBar(posts, cats, false);
       if (bar) list.appendChild(bar);
       posts.forEach(function (p) { list.appendChild(postCell(p)); });
     }
@@ -1025,7 +1053,7 @@
       body = el('div', { class: 'notice notice-info', text: '还没有文章。点击「新建文章」开始记录。' });
     } else {
       var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
-      var bar = bulkBar(posts, cats);
+      var bar = bulkBar(posts, cats, true);
       var rows = posts.map(function (p) {
         var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
         return el('tr', {}, [
@@ -1808,6 +1836,9 @@
       ? el('div', { class: 'cat-list' }, items)
       : el('div', { class: 'notice notice-info', text: '还没有分类，先添加一个。' });
 
+    var addForm = addCategoryFormMobile();
+    addForm.hidden = true;
+
     els.mainContent.appendChild(el('section', { class: 'ios-page' }, [
       el('div', { class: 'ios-titlebar' }, [
         el('h1', { class: 'ios-title', text: '分类' }),
@@ -1815,13 +1846,16 @@
           el('button', {
             class: 'ios-icon-btn ios-icon-btn-primary', type: 'button', 'aria-label': '新建分类', title: '新建分类',
             onClick: function () {
-              var first = document.querySelector('.cat-add input');
-              if (first) { first.focus(); first.scrollIntoView && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+              addForm.hidden = !addForm.hidden;
+              if (!addForm.hidden) {
+                var first = addForm.querySelector('input');
+                if (first) { first.focus(); first.scrollIntoView && first.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+              }
             }
           }, [icon('plus')])
         ])
       ]),
-      addCategoryFormMobile(),
+      addForm,
       listBody
     ]));
   }

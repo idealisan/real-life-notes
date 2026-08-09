@@ -17,7 +17,6 @@ html {
 
 /* 移动端固定底部导航高度 + 安全区：内容不被遮挡 */
 .admin-page { padding-bottom: calc(66px + var(--safe-bottom)); }
-
 /* ---- 顶部导航栏（毛玻璃 + 安全区） ---- */
 .admin-topbar {
   position: sticky;
@@ -54,27 +53,32 @@ html {
 /* 窄屏顶栏拥挤：隐藏顶栏里的仓库徽标（工具栏/设置页中的 .repo-badge 不受影响） */
 .admin-topbar .repo-badge { display: none; }
 
-/* ---- 底部导航（移动端 tab，iOS 原生感） ---- */
+/* ---- 底部导航（移动端 tab，iOS 26 悬浮气泡胶囊） ----
+   悬浮在页面之上、与浏览器底部工具条留 6px 间距；左右全圆角长条，
+   背景用 --bg-card（与页面 --bg-page 区分开），不再与页面融为一体。 */
 .side-nav {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(6px + var(--safe-bottom));
   z-index: 45;
+  width: min(calc(100% - 24px), 440px);
   display: flex;
   gap: 2px;
-  background: color-mix(in srgb, var(--bg-page) 86%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-top: 0.5px solid var(--border-soft);
-  padding: 4px var(--space-2) calc(4px + var(--safe-bottom));
+  border: 0.5px solid color-mix(in srgb, var(--border-soft) 85%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 4px 6px;
 }
 .side-nav button {
   flex: 1;
   border: none;
   background: transparent;
   color: var(--text-faint);
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 4px 0;
   min-height: 52px;
   font-weight: 500;
@@ -96,7 +100,7 @@ html {
 
 .admin-main {
   padding-top: var(--space-4);
-  padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  padding-bottom: calc(88px + var(--safe-bottom));
 }
 
 .repo-warn {
@@ -287,6 +291,7 @@ html {
 }
 .ios-icon-btn:hover { filter: brightness(1.04); }
 .ios-icon-btn-primary { background: var(--accent); color: #fff; }
+.ios-icon-btn-on { background: var(--accent-soft); color: var(--accent); }
 .ios-icon-btn .icon { display: inline-flex; align-items: center; justify-content: center; }
 .ios-icon-btn .icon svg { width: 20px; height: 20px; }
 .ios-icon-btn-primary .icon { color: #fff; }
@@ -1051,6 +1056,8 @@ html {
   /* 导航回到顶栏内居中（不再固定底部） */
   .side-nav {
     position: static;
+    left: auto;
+    transform: none;
     flex: none;
     width: 100%;
     max-width: var(--maxw);
@@ -1060,7 +1067,9 @@ html {
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    border-top: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
     padding: 6px var(--space-2) 0;
   }
   .side-nav button {
