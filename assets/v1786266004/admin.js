@@ -2371,7 +2371,7 @@
     var siteGroup = iosGroup('站点信息', [
       iosCell('站点标题', titleInput),
       iosCell('副标题', subtitleInput),
-      iosCell('作者（结构化数据）', authorInput),
+      iosCell('作者', authorInput),
       iosCell('页脚文字', footerInput)
     ]);
 
@@ -2384,8 +2384,8 @@
       el('div', { class: 'ios-cell-desc', text: '评论基于 GitHub Issues：读者用 GitHub 账号在对应 Issue 下回复，公开仓库匿名可读，无需任何第三方服务。' })
     ]);
 
-    var regenBtn = el('button', { class: 'ios-cell-btn', type: 'button', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles });
-    var toolsGroup = iosGroup('维护', [el('div', { class: 'ios-cell' }, [regenBtn])]);
+    var regenBtn = el('button', { class: 'btn btn-primary', type: 'button', text: '重新生成 RSS / 站点地图 / robots', onClick: regeneratePublishFiles });
+    var toolsGroup = iosGroup('维护', [el('div', { class: 'ios-cell ios-cell-btn-wrap' }, [regenBtn])]);
 
     var repoGroup = iosGroup('仓库信息', [
       el('div', { class: 'ios-cell' }, [
