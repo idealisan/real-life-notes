@@ -961,7 +961,7 @@
 
   /* ---------- 阅读字号 ---------- */
   var FONT_KEY = 'rln-fontsize';
-  var FONT_MIN = 0, FONT_MAX = 250, FONT_DEFAULT = 100;
+  var FONT_MIN = 0, FONT_MAX = 250, FONT_DEFAULT = 50;
   function fontSteps() {
     var v;
     try { v = parseInt(localStorage.getItem(FONT_KEY), 10); } catch (e) { v = NaN; }

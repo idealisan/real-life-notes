@@ -41,6 +41,8 @@
   --shadow-3: 0 12px 36px rgba(0, 0, 0, 0.14);
 
   --maxw: 860px;
+  /* 沉浸式顶/底栏底色：白天纯白、夜间纯黑，与浏览器上下控件（theme-color）一致 */
+  --bar-bg: #ffffff;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -54,6 +56,7 @@
   :root:not([data-theme]) {
     --bg: #000000;
     --bg-page: #000000;
+    --bar-bg: #000000;
     --bg-card: #1c1c1e;
     --bg-soft: #2c2c2e;
     --bg-inset: #38383a;
@@ -84,6 +87,7 @@
 
   --bg: #000000;
   --bg-page: #000000;
+  --bar-bg: #000000;
   --bg-card: #1c1c1e;
   --bg-soft: #2c2c2e;
   --bg-inset: #38383a;

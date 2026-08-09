@@ -90,7 +90,12 @@
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
     checklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M3 6l1.5 1.5L7 5"/><path d="M3 12l1.5 1.5L7 11"/><path d="M3 18l1.5 1.5L7 17"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
-    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>'
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+    unlink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13a3 3 0 0 0-3.5-3.5l-2 2"/><path d="M6 11a3 3 0 0 0 3.5 3.5l2-2"/><path d="M2 2l20 20"/></svg>',
+    sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
+    contrast: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor" stroke="none"/></svg>'
   };
   function icon(name, cls) {
     return el('span', { class: 'icon' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true', html: ICONS[name] || '' });
@@ -821,9 +826,12 @@
   }
 
   function bulkBar(posts, cats, showAll) {
-    var selCount = Object.keys(state.listSel).length;
-    var children = [];
+    var selKeys = Object.keys(state.listSel);
+    var selCount = selKeys.length;
+
+    /* 桌面端：全选 + 内联按钮 */
     if (showAll) {
+      var children = [];
       var allChecked = posts.length > 0 && posts.every(function (p) { return state.listSel[p.path]; });
       children.push(el('label', { class: 'bulk-all', 'aria-label': '全选当前列表' }, [
         el('input', {
@@ -837,35 +845,63 @@
         }),
         el('span', { text: '全选' })
       ]));
+      if (!selCount) return el('div', { class: 'bulk-bar' }, children);
+      children.push(el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }));
+      var bar = el('div', { class: 'bulk-bar' }, children);
+      bar.appendChild(el('div', { class: 'bulk-actions' }, [
+        el('button', { text: '批量发布', onClick: function () { bulkAction(selKeys, 'publish'); } }),
+        el('button', { text: '批量存草稿', onClick: function () { bulkAction(selKeys, 'draft'); } }),
+        el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
+          el('select', {
+            id: 'bulkMoveCat', 'aria-label': '选择目标分类',
+            onChange: function () { bar.dataset.movedone = '1'; }
+          }, cats.map(function (c) {
+            return el('option', { value: c, text: state.cfg.categories[c].label || c });
+          }))
+        ]),
+        el('button', { text: '移动', onClick: function () {
+          var sel = document.getElementById('bulkMoveCat');
+          if (!sel || !sel.value) { toast('请先选择目标分类', 'error'); return; }
+          bulkMoveCategory(selKeys, sel.value);
+        } }),
+        el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(selKeys, 'delete'); } }),
+        el('span', { class: 'spacer' }),
+        el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
+      ]));
+      return bar;
     }
-    if (!selCount) {
-      if (!showAll) return null;
-      return el('div', { class: 'bulk-bar' }, children);
-    }
-    children.push(el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' }));
-    var bar = el('div', { class: 'bulk-bar' }, children);
-    bar.appendChild(el('div', { class: 'bulk-actions' }, [
-      el('button', { text: '批量发布', onClick: function () { bulkAction(Object.keys(state.listSel), 'publish'); } }),
-      el('button', { text: '批量存草稿', onClick: function () { bulkAction(Object.keys(state.listSel), 'draft'); } }),
-      el('label', { text: '移动到分类', style: 'display:inline-flex;align-items:center;gap:4px' }, [
-        el('select', {
-          id: 'bulkMoveCat', 'aria-label': '选择目标分类',
-          value: '',
-          onChange: function () { bar.dataset.movedone = '1'; }
-        }, cats.map(function (c) {
-          return el('option', { value: c, text: state.cfg.categories[c].label || c });
-        }))
-      ]),
-      el('button', { text: '移动', onClick: function () {
-        var sel = document.getElementById('bulkMoveCat');
-        if (!sel || !sel.value) { toast('请先选择目标分类', 'error'); return; }
-        bulkMoveCategory(Object.keys(state.listSel), sel.value);
-      } }),
-      el('button', { class: 'btn-danger', text: '批量删除', onClick: function () { bulkAction(Object.keys(state.listSel), 'delete'); } }),
-      el('span', { class: 'spacer' }),
-      el('button', { text: '取消选择', onClick: function () { state.listSel = {}; renderPosts(); } })
-    ]));
-    return bar;
+
+    /* 移动端：紧凑条 + 「批量操作 ▾」下拉菜单 */
+    if (!selCount) return null;
+    var bar2 = el('div', { class: 'bulk-bar' }, [
+      el('span', { class: 'bulk-count', text: '已选 ' + selCount + ' 篇' })
+    ]);
+    var catSel = el('select', { 'aria-label': '选择目标分类', class: 'bulk-cat' }, cats.map(function (c) {
+      return el('option', { value: c, text: state.cfg.categories[c].label || c });
+    }));
+    var menu = el('div', { class: 'menu-dropdown bulk-menu', hidden: '', role: 'menu' }, [
+      el('button', { class: 'menu-action', role: 'menuitem', text: '批量发布', onClick: function () { closeAllMenus(); bulkAction(selKeys, 'publish'); } }),
+      el('button', { class: 'menu-action', role: 'menuitem', text: '批量存草稿', onClick: function () { closeAllMenus(); bulkAction(selKeys, 'draft'); } }),
+      el('div', { class: 'menu-sep' }),
+      el('label', { class: 'bulk-move-row' }, [el('span', { text: '移动到分类' }), catSel]),
+      el('button', { class: 'menu-action', role: 'menuitem', text: '移动', onClick: function () { var v = catSel.value; closeAllMenus(); if (!v) { toast('请先选择目标分类', 'error'); return; } bulkMoveCategory(selKeys, v); } }),
+      el('div', { class: 'menu-sep' }),
+      el('button', { class: 'menu-action menu-danger', role: 'menuitem', text: '批量删除', onClick: function () { closeAllMenus(); bulkAction(selKeys, 'delete'); } }),
+      el('button', { class: 'menu-action', role: 'menuitem', text: '取消选择', onClick: function () { closeAllMenus(); state.listSel = {}; renderPosts(); } })
+    ]);
+    menu.addEventListener('click', function (e) { e.stopPropagation(); });
+    var moreBtn = el('button', {
+      type: 'button', class: 'bulk-more', text: '批量操作 ▾', 'aria-haspopup': 'menu',
+      onClick: function (e) {
+        e.stopPropagation();
+        var open = menu.hidden;
+        closeAllMenus();
+        if (open) { menu.hidden = false; moreBtn.classList.add('open'); positionMenuDropdown(menu, moreBtn); }
+      }
+    });
+    bar2.appendChild(moreBtn);
+    bar2.appendChild(menu);
+    return bar2;
   }
 
   function openFilterSheet() {
@@ -1328,20 +1364,19 @@
     editor.slug = slugField.querySelector('#edSlug');
 
     var footer = el('div', { class: 'editor-footer' }, [
-      el('button', { text: '← 返回列表', onClick: function () {
+      el('button', { class: 'ef-back', text: '← 返回列表', onClick: function () {
         if (editor.dirty && !confirm('有未保存的修改，确定离开吗？')) return;
         state.view = 'posts';
         editor = null;
         render();
       } }),
-      el('div', { class: 'spacer' }),
-      ed.mode === 'edit' ? el('button', { text: '查看页面 ↗', onClick: function () {
+      ed.mode === 'edit' ? el('button', { class: 'ef-view', text: '查看页面 ↗', onClick: function () {
         if (!assertRepoTargets()) return;
         window.open(publicUrl('post.html?p=' + encodeURIComponent(ed.path)), '_blank');
       } }) : null,
-      ed.mode === 'edit' ? el('button', { class: 'btn-danger', text: '删除文章', onClick: function () { deletePostByPath(ed.path, ed.title); } }) : null,
-      el('button', { text: '保存草稿', onClick: function () { savePost(true); } }),
-      el('button', { class: 'btn-primary', text: '发布', onClick: function () { savePost(false); } })
+      ed.mode === 'edit' ? el('button', { class: 'btn-danger ef-del', text: '删除文章', onClick: function () { deletePostByPath(ed.path, ed.title); } }) : null,
+      el('button', { class: 'ef-draft', text: '保存草稿', onClick: function () { savePost(true); } }),
+      el('button', { class: 'btn-primary ef-pub', text: '发布', onClick: function () { savePost(false); } })
     ]);
 
     var grid = el('div', { class: 'editor-grid' }, [
@@ -1477,7 +1512,7 @@
 
   function closeAllMenus() {
     document.querySelectorAll('.menu-dropdown').forEach(function (dd) { dd.hidden = true; });
-    document.querySelectorAll('.menu-trigger.open').forEach(function (b) { b.classList.remove('open'); });
+    document.querySelectorAll('.menu-trigger.open, .bulk-more.open, .editor-select-wrap.open').forEach(function (b) { b.classList.remove('open'); });
   }
 
   function buildMenuButton(label, items) {
@@ -1485,6 +1520,7 @@
     dd.addEventListener('click', function (e) { e.stopPropagation(); });
     items.forEach(function (it) {
       if (it === 'sep') { dd.appendChild(el('div', { class: 'menu-sep' })); return; }
+      if (it.node) { dd.appendChild(it.node); return; }
       if (it.emoji) {
         dd.appendChild(el('div', { class: 'menu-emoji-grid' }, EMOJIS.map(function (em) {
           return el('button', {
@@ -1535,34 +1571,67 @@
   }
 
   function buildEditorToolbar(imageInput) {
+    /* 格式 / 段落：原生 <select>，iOS 上直接唤起系统滚轮选择器，体验最佳 */
+    function fmtSelect() {
+      var sel = el('select', { class: 'editor-select', 'aria-label': '插入格式' }, [
+        el('option', { value: '', disabled: '', selected: '', text: '格式' }),
+        el('option', { value: 'bold', text: '加粗' }),
+        el('option', { value: 'italic', text: '斜体' }),
+        el('option', { value: 'strike', text: '删除线' }),
+        el('option', { value: 'code', text: '行内代码' }),
+        el('option', { value: 'link', text: '链接' }),
+        el('option', { value: 'image', text: '图片' })
+      ]);
+      sel.addEventListener('change', function () {
+        var v = sel.value; sel.selectedIndex = 0;
+        if (v === 'bold') wrapSelection(editor.body, '**', '**', '加粗文字');
+        else if (v === 'italic') wrapSelection(editor.body, '*', '*', '斜体文字');
+        else if (v === 'strike') wrapSelection(editor.body, '~~', '~~', '删除线文字');
+        else if (v === 'code') wrapSelection(editor.body, '`', '`', '代码');
+        else if (v === 'link') wrapSelection(editor.body, '[', '](https://example.com)', '链接文字');
+        else if (v === 'image') wrapSelection(editor.body, '![', '](https://example.com/image.png)', '图片描述');
+      });
+      return sel;
+    }
+    function paraSelect() {
+      var sel = el('select', { class: 'editor-select', 'aria-label': '插入段落' }, [
+        el('option', { value: '', disabled: '', selected: '', text: '段落' }),
+        el('option', { value: 'quote', text: '引用' }),
+        el('option', { value: 'ul', text: '无序列表' }),
+        el('option', { value: 'ol', text: '有序列表' }),
+        el('option', { value: 'task', text: '任务列表' }),
+        el('option', { value: 'hr', text: '分隔线' }),
+        el('option', { value: 'table', text: '表格' }),
+        el('option', { value: 'codeblock', text: '代码块' })
+      ]);
+      sel.addEventListener('change', function () {
+        var v = sel.value; sel.selectedIndex = 0;
+        if (v === 'quote') lineAction(editor.body, '> ');
+        else if (v === 'ul') lineAction(editor.body, '- ');
+        else if (v === 'ol') lineAction(editor.body, '1. ');
+        else if (v === 'task') lineAction(editor.body, '- [ ] ');
+        else if (v === 'hr') wrapSelection(editor.body, '\n\n---\n\n', '', '');
+        else if (v === 'table') wrapSelection(editor.body, '\n\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '', '');
+        else if (v === 'codeblock') wrapSelection(editor.body, '\n```\n', '\n```\n', '代码');
+      });
+      return sel;
+    }
+
+    /* 插入：iOS 26 风格毛玻璃弹层（上传图片 + emoji 网格） */
+    var imgBtn = el('button', {
+      type: 'button', class: 'menu-action insert-image-action', role: 'menuitem',
+      onClick: function () {
+        closeAllMenus();
+        if (!state.user) { toast('请先连接 GitHub Token 后再插入图片', 'error'); return; }
+        imageInput.click();
+      }
+    }, [icon('image'), el('span', { text: '上传图片' })]);
+    var insertMenu = buildMenuButton('插入', [{ node: imgBtn }, 'sep', { emoji: true }]);
+
     var toolbar = el('div', { class: 'editor-menubar', role: 'menubar' }, [
-      buildMenuButton('格式', [
-        { label: 'B', cls: 'menu-bold', title: '加粗（Ctrl+B）', onClick: function () { wrapSelection(editor.body, '**', '**', '加粗文字'); } },
-        { label: 'I', cls: 'menu-italic', title: '斜体（Ctrl+I）', onClick: function () { wrapSelection(editor.body, '*', '*', '斜体文字'); } },
-        { label: 'S', cls: 'menu-strike', title: '删除线', onClick: function () { wrapSelection(editor.body, '~~', '~~', '删除线文字'); } },
-        { label: '`code`', cls: 'menu-mono', title: '行内代码（Ctrl+E）', onClick: function () { wrapSelection(editor.body, '`', '`', '代码'); } },
-        'sep',
-        { label: '🔗 链接', title: '插入链接（Ctrl+K）', onClick: function () { wrapSelection(editor.body, '[', '](https://example.com)', '链接文字'); } },
-        { label: '🖼 图片', title: '插入图片地址', onClick: function () { wrapSelection(editor.body, '![', '](https://example.com/image.png)', '图片描述'); } }
-      ]),
-      buildMenuButton('段落', [
-        { label: '❝ 引用', title: '引用（>）', onClick: function () { lineAction(editor.body, '> '); } },
-        { label: '• 无序列表', title: '无序列表（-）', onClick: function () { lineAction(editor.body, '- '); } },
-        { label: '1. 有序列表', title: '有序列表（1.）', onClick: function () { lineAction(editor.body, '1. '); } },
-        { label: '☑ 任务列表', title: '任务列表（- [ ]）', onClick: function () { lineAction(editor.body, '- [ ] '); } },
-        'sep',
-        { label: '— 分隔线', title: '插入分隔线', onClick: function () { wrapSelection(editor.body, '\n\n---\n\n', '', ''); } },
-        { label: '▦ 表格', title: '插入表格', onClick: function () { wrapSelection(editor.body, '\n\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '', ''); } },
-        { label: '◧ 代码块', title: '代码块（Ctrl+Shift+E）', onClick: function () { wrapSelection(editor.body, '\n```\n', '\n```\n', '代码'); } }
-      ]),
-      buildMenuButton('插入', [
-        { label: '📷 上传图片', title: '上传图片到仓库', onClick: function () {
-          if (!state.user) { toast('请先连接 GitHub Token', 'error'); return; }
-          imageInput.click();
-        } },
-        'sep',
-        { emoji: true }
-      ])
+      el('div', { class: 'editor-select-wrap' }, [fmtSelect()]),
+      el('div', { class: 'editor-select-wrap' }, [paraSelect()]),
+      insertMenu
     ]);
     return el('div', {}, [toolbar, el('div', { class: 'hint', text: '可粘贴或拖拽图片到正文框 · 选中文字后点菜单即可包裹格式 · Ctrl+Enter 或 Ctrl+S 保存' })]);
   }
@@ -2356,36 +2425,80 @@
     ]));
   }
 
+  /* 更新仓库密码：先用旧密码解密已有密文（验证当前密码），通过后再用新密码重加密保存 */
+  function updateEncryptedToken(oldPass, newPass) {
+    if (!state.encryptedToken) { toast('未找到已保存的加密 Token', 'error'); return; }
+    if (!encSupported()) { toast('当前环境不支持加密（需 HTTPS）', 'error'); return; }
+    setBusy(true);
+    decryptToken(state.encryptedToken, oldPass)
+      .then(function (token) { return encryptToken(token, newPass); })
+      .then(function (payload) {
+        return gh.commitFiles({ message: '更新加密的登录 Token', files: [{ path: TOKEN_FILE, content: payload }] });
+      })
+      .then(function () {
+        setBusy(false);
+        state.encTokenSaved = true;
+        toast('已用新密码更新加密 Token ✓', 'ok');
+        render();
+      })
+      .catch(function (err) {
+        setBusy(false);
+        var msg = (err && err.message) ? String(err.message) : String(err);
+        if (msg.indexOf('加密数据') >= 0 || msg.indexOf('损坏') >= 0) toast('当前密码不正确', 'error');
+        else toast('更新失败：' + msg, 'error');
+      });
+  }
+
   /* Token 加密存储子页面：独立页容纳密码输入 + 操作按钮，
      不占用设置页的「标签-值」单元格（密码框在单元格里太挤）。 */
   function renderTokenPage() {
     var g = state.cfg.github;
-    var tokPass = el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码', 'aria-label': '解锁密码' });
-    var tokPass2 = el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认解锁密码' });
+    var saved = state.encTokenSaved;
+
+    var statusEl = saved
+      ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密）。修改密码需先验证当前密码，再用新密码重新加密，Token 本身不会改变。' })
+      : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
+
+    var rows;
+    if (saved) {
+      rows = [
+        iosCell('当前密码', el('input', { type: 'password', id: 'tokOld', autocomplete: 'current-password', maxlength: 128, placeholder: '验证当前密码', 'aria-label': '当前密码' })),
+        iosCell('新密码', el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置新解锁密码', 'aria-label': '新解锁密码' })),
+        iosCell('确认新密码', el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认新解锁密码' })),
+        statusEl
+      ];
+    } else {
+      rows = [
+        iosCell('解锁密码', el('input', { type: 'password', id: 'tokPass', autocomplete: 'new-password', maxlength: 128, placeholder: '设置解锁密码', 'aria-label': '解锁密码' })),
+        iosCell('确认密码', el('input', { type: 'password', id: 'tokPass2', autocomplete: 'new-password', maxlength: 128, placeholder: '再输入一次确认', 'aria-label': '确认解锁密码' })),
+        statusEl
+      ];
+    }
+    var passGroup = iosGroup(saved ? '更新仓库密码' : '设置解锁密码', rows);
+
     var saveEncBtn = el('button', {
-      class: 'btn-primary', type: 'button', text: state.encTokenSaved ? '更新解锁密码（重新加密保存）' : '加密保存 Token 到仓库',
+      class: 'btn-primary', type: 'button',
+      text: saved ? '更新仓库密码' : '加密保存 Token 到仓库',
       onClick: function () {
-        var p1 = tokPass.value, p2 = tokPass2.value;
-        if (!p1) { toast('请设置解锁密码', 'error'); return; }
-        if (p1.length < 6) { toast('解锁密码至少 6 位', 'error'); return; }
-        if (p1 !== p2) { toast('两次输入的密码不一致', 'error'); return; }
-        saveEncryptedToken(p1);
+        var oldV = document.getElementById('tokOld');
+        var p1 = document.getElementById('tokPass');
+        var p2 = document.getElementById('tokPass2');
+        var oldPass = oldV ? oldV.value : '';
+        var np1 = p1 ? p1.value : '';
+        var np2 = p2 ? p2.value : '';
+        if (saved && !oldPass) { toast('请输入当前密码', 'error'); return; }
+        if (!np1) { toast('请设置新解锁密码', 'error'); return; }
+        if (np1.length < 6) { toast('解锁密码至少 6 位', 'error'); return; }
+        if (np1 !== np2) { toast('两次输入的密码不一致', 'error'); return; }
+        if (saved) updateEncryptedToken(oldPass, np1);
+        else saveEncryptedToken(np1);
       }
     });
     var clearEncBtn = el('button', {
       class: 'btn-danger', type: 'button', text: '清除已保存的加密 Token',
       onClick: clearEncryptedToken
     });
-    if (!state.encTokenSaved) clearEncBtn.disabled = true;
-    var statusEl = state.encTokenSaved
-      ? el('div', { class: 'ios-cell-desc', text: '已保存：' + TOKEN_FILE + '（已加密）。要更换解锁密码，输入两次新密码并点下方按钮即可重新加密保存——Token 本身不会改变。' })
-      : el('div', { class: 'ios-cell-desc', text: '未保存。把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' });
-
-    var passGroup = iosGroup('解锁密码', [
-      iosCell('解锁密码', tokPass),
-      iosCell('确认密码', tokPass2),
-      statusEl
-    ]);
+    if (!saved) clearEncBtn.disabled = true;
 
     els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
       el('div', { class: 'token-nav' }, [

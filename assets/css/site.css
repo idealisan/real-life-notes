@@ -27,14 +27,12 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
 }
 .reading-progress[hidden] { display: none; }
 
-/* ---- 导航栏（毛玻璃 + 安全区） ---- */
+/* ---- 导航栏（沉浸式：底色调与浏览器上下控件一致，白天白/夜间黑） ---- */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: color-mix(in srgb, var(--bg-page) 76%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--bar-bg);
   border-bottom: 1px solid var(--border-soft);
 }
 .site-header-inner {
@@ -127,7 +125,7 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
 .back-top:hover { background: var(--bg-soft); color: var(--text); }
 .back-top[hidden] { display: none; }
 
-/* ---- 底部导航（移动端 tab bar，原生 App 感） ---- */
+/* ---- 底部导航（移动端 tab bar，沉浸式：底色与浏览器底栏一致） ---- */
 .tab-bar {
   position: fixed;
   left: 0;
@@ -135,9 +133,7 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
   bottom: 0;
   z-index: 45;
   display: flex;
-  background: color-mix(in srgb, var(--bg-page) 88%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: var(--bar-bg);
   border-top: 1px solid var(--border-soft);
   padding-bottom: var(--safe-bottom);
 }
@@ -155,7 +151,8 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
-.tab-bar-item .tab-icon { font-size: 1.35em; line-height: 1; }
+.tab-bar-item .tab-icon { font-size: 1.35em; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.tab-bar-item .tab-icon svg { width: 1.3em; height: 1.3em; display: block; }
 .tab-bar-item:hover { color: var(--text-faint); text-decoration: none; }
 .tab-bar-item.is-active { color: var(--accent); }
 .tab-bar-item.is-active .tab-icon { font-size: 1.45em; }
@@ -748,6 +745,13 @@ a.tag:hover { background: var(--accent-soft); color: var(--accent); }
 }
 .notice-error { background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
 .notice-info { background: var(--bg-card); border: 1px solid var(--border-soft); }
+
+/* 阅读页（post.html）：手机上顶部标题/分类栏不吸顶，随滚动移出视口，把空间留给正文 */
+@media (max-width: 640px) {
+  .post-page .site-header { position: static; border-bottom: none; }
+  /* 顶栏不吸顶后，正文锚点无需再为其预留偏移 */
+  .detail-body h2[id], .detail-body h3[id] { scroll-margin-top: var(--space-4); }
+}
 
 /* ================= 桌面端（≥641px） ================= */
 @media (min-width: 641px) {

@@ -1020,15 +1020,103 @@ html { overflow-y: scroll; }
 .editor-restore-actions { display: flex; gap: var(--space-2); flex: 0 0 auto; }
 .editor-restore-actions button { flex: 0 0 auto; }
 
+/* 编辑器底部按钮：手机端两列网格（发布占满整行、最醒目）；桌面端在媒体查询里改回横排 */
 .editor-footer {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
-  align-items: center;
   margin-top: var(--space-4);
-  flex-wrap: wrap;
 }
-.editor-footer .spacer { flex: 1; }
-.editor-footer button { flex: 1 1 auto; }
+.editor-footer > button { width: 100%; min-height: 46px; }
+.editor-footer .ef-pub { grid-column: 1 / -1; }
+.editor-footer .ef-back { justify-content: center; }
+.editor-footer .spacer { display: none; }
+
+/* 编辑器菜单栏：格式/段落 = 原生 select（iOS 走系统滚轮），插入 = 毛玻璃弹层 */
+.editor-select-wrap { position: relative; display: inline-flex; }
+.editor-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  color: var(--text-soft);
+  border-radius: var(--radius-s);
+  padding: 9px 28px 9px 12px;
+  min-height: 40px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+.editor-select:hover { background-color: var(--bg-inset); color: var(--text); }
+.editor-select:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* 插入弹层：iOS 26 液态玻璃（更强模糊 + 更大圆角 + 半透明描边） */
+.menu-dropdown {
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(30px);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  border: 0.5px solid color-mix(in srgb, var(--border-soft) 85%, transparent);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-3);
+}
+.menu-action.insert-image-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu-action.insert-image-action .icon svg { width: 18px; height: 18px; }
+.menu-action.menu-danger { color: var(--danger); }
+.menu-action.menu-danger:hover { background: var(--danger-soft); color: var(--danger); }
+.menu-emoji-grid .emoji-btn {
+  border-radius: var(--radius-s);
+  background: var(--bg-soft);
+}
+.menu-emoji-grid .emoji-btn:hover { background: var(--accent-soft); }
+
+/* 批量操作：移动端「批量操作 ▾」下拉 */
+.bulk-more {
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card);
+  color: var(--accent);
+  border-radius: var(--radius-m);
+  padding: 8px 14px;
+  min-height: 38px;
+  font-size: 0.9em;
+  font-weight: 600;
+  margin-left: auto;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bulk-more.open { background: var(--accent-soft); color: var(--accent); }
+.bulk-menu { min-width: 220px; }
+.bulk-move-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  color: var(--text-soft);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.bulk-move-row .bulk-cat { width: 100%; height: 40px; }
+
+/* 预览代码块：收敛灰色内边距，圆角统一 */
+.preview-pane pre {
+  padding: 12px 14px;
+  border-radius: var(--radius-m);
+  margin: 0 0 1em;
+  font-size: 0.86em;
+}
+.preview-pane pre:last-child { margin-bottom: 0; }
+
+/* 顶部主题/断开按钮的 SVG 图标尺寸 */
+.theme-toggle svg { width: 22px; height: 22px; display: block; }
+.ios-disconnect .icon svg { width: 20px; height: 20px; display: block; }
 
 /* ---- 分类（移动端卡片化） ---- */
 .cat-head {
@@ -1134,8 +1222,16 @@ html { overflow-y: scroll; }
 
   .panel { padding: var(--space-5); margin-bottom: var(--space-4); }
   .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* 桌面端单行控件（标题/分类/日期/文件名）避免在大面板上被拉得过长 */
+  .field input[type="text"],
+  .field input[type="date"],
+  .field input[type="datetime-local"],
+  .field select { max-width: 420px; }
   .editor-pane textarea { min-height: 320px; }
-  .editor-footer button { flex: 0 0 auto; }
+  .editor-footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .editor-footer > button { width: auto; flex: 0 0 auto; }
+  .editor-footer .ef-pub { grid-column: auto; }
+  .editor-footer .ef-back { margin-right: auto; justify-content: center; }
   .toast { bottom: 24px; }
 
   /* 分类恢复多列表格形态 */
@@ -1158,4 +1254,20 @@ html { overflow-y: scroll; }
   .cat-row .cat-count { text-align: center; grid-row: auto; }
   .cat-row .cat-desc { grid-column: auto; grid-row: auto; }
   .cat-row .cat-actions { grid-column: auto; grid-row: auto; }
+}
+
+/* ================= 手机端（≤760px） ================= */
+@media (max-width: 760px) {
+  /* 宽面板在手机上通栏：去掉卡片外边距与左右圆角，占满屏幕宽度，
+     内部仍保留 --space-4 的左右内边距作为「适当的边距」 */
+  .panel {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin-left: calc(-1 * var(--space-4));
+    margin-right: calc(-1 * var(--space-4));
+  }
+  .preview-pane { padding: 12px; }
+  /* 编辑器菜单栏在窄屏允许换行，原生 select 不会被挤变形 */
+  .editor-menubar { gap: var(--space-2); }
 }
