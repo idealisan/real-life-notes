@@ -33,6 +33,15 @@ html { overflow-y: scroll; }
   letter-spacing: -0.01em;
 }
 .topbar-right { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+/* 登录页（body 直接子级）的主题切换按钮：右上角悬浮，避让安全区 */
+.admin-page > .theme-toggle {
+  position: fixed;
+  top: calc(8px + var(--safe-top));
+  right: 12px;
+  z-index: 40;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-1);
+}
 /* 断开连接：圆形图标按钮（断开的锁链 ⛓️‍💥），与主题切换按钮观感一致 */
 .ios-disconnect {
   width: 38px;
