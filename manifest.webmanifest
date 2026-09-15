@@ -1,0 +1,25 @@
+{
+  "name": "Trip Track 旅程记录",
+  "short_name": "Trip Track",
+  "description": "记录飞行旅程的 PWA：数据加密存放在 GitHub 仓库，OpenStreetMap 上展示每段旅程",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#0a84ff",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

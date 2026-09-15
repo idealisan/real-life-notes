@@ -29,17 +29,16 @@ const OUT_PREFIX = 'assets/v';                       // 版本目录前缀 asset
 // 需要版本化的代码资源（相对仓库根）。纯静态代码；如需版本化某个静态 json 代码配置，加入即可。
 const SOURCES = [
   'assets/js/theme.js',
-  'assets/js/md.js',
-  'assets/js/site.js',
   'assets/js/gh.js',
-  'assets/css/base.css',
-  'assets/css/site.css',
-  'admin/admin.js',
-  'admin/admin.css'
+  'assets/js/enc.js',
+  'assets/js/airports.js',
+  'assets/js/geo.js',
+  'assets/js/app.js',
+  'assets/css/app.css'
 ];
 
 const BASENAMES = SOURCES.map((s) => path.basename(s));
-const HTML_FILES = ['index.html', 'post.html', '404.html', 'admin/index.html', 'admin/login.html'];
+const HTML_FILES = ['index.html'];
 
 function readFile(rel) {
   return fs.readFileSync(path.join(ROOT, rel));
