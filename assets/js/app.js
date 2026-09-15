@@ -3,12 +3,15 @@
 
   /* Trip Track 主逻辑
      流程：boot → 探测仓库中的加密 Token（content/.trip-token）
-       → 有：输入密码解锁（解密出 PAT）→ 读取并解密旅程数据（content/.trips-data）→ 地图渲染
+       → 有：输入密码解锁（解密出 PAT）→ 读取并解密旅程数据 → 地图渲染
        → 无：首次设置（粘贴 PAT + 设置密码）→ 加密保存 → 进入
-     保存旅程：解密现有数据 → 追加 → 整体加密 → gh.commitFiles 原子提交 */
+     存储布局：每段旅程一个加密文件 content/trips/<id>.trip（单文件损坏只影响一段）。
+     保存旅程 = 只提交一个新文件（增量、低冲突）。
+     兼容：旧版单文件 content/.trips-data 首次解锁时自动迁移拆分并删除。 */
 
   var TOKEN_FILE = 'content/.trip-token';
-  var DATA_FILE = 'content/.trips-data';
+  var DATA_DIR = 'content/trips/';
+  var LEGACY_DATA_FILE = 'content/.trips-data';
   var SS_PASS = 'ttPass';
   var SS_REPO = 'ttRepo';
   var DEFAULT_BRANCH = 'trip-track';
@@ -18,6 +21,7 @@
     password: null,
     encryptedToken: null,  /* 仓库中读到的密文 */
     trips: [],
+    loadWarnings: [],      /* 读取失败被跳过的文件列表 */
     connected: false
   };
 
@@ -145,37 +149,98 @@
       '</div>';
   }
 
-  /* ---------- 数据读取与保存 ---------- */
-  function loadData() {
-    /* 已连接，用带鉴权的读取（兼容私有仓库） */
-    return gh.getContent(DATA_FILE).then(function (text) {
-      return decryptTrips(text);
+  /* ---------- 数据读取与保存（按旅程分文件） ---------- */
+
+  /* 列出仓库中全部旅程文件路径 */
+  function listTripPaths() {
+    return gh.listTree().then(function (tree) {
+      return (tree || [])
+        .filter(function (e) {
+          return e.type === 'blob' && e.path.indexOf(DATA_DIR) === 0 && /\.trip$/.test(e.path);
+        })
+        .map(function (e) { return e.path; });
+    });
+  }
+
+  /* 读取并解密单个旅程文件；损坏/解密失败只跳过并记录，不影响其余数据 */
+  function fetchTrip(path) {
+    return gh.getContent(path).then(function (text) {
+      return enc.decrypt(text, state.password).then(function (plain) {
+        var t = JSON.parse(plain);
+        if (!t || !t.id || !t.from || !t.to) throw new Error('结构不完整');
+        return t;
+      });
     }).catch(function (err) {
-      if (err && err.status === 404) return { trips: [] };
-      throw err;
+      state.loadWarnings.push(path + '：' + errMsg(err));
+      return null;
     });
   }
 
-  function decryptTrips(text) {
-    if (!text || !text.trim()) return { trips: [] };
-    return enc.decrypt(text, state.password).then(function (plain) {
-      var data;
-      try { data = JSON.parse(plain); } catch (e) { throw new Error('旅程数据损坏'); }
-      if (!data || !Array.isArray(data.trips)) throw new Error('旅程数据格式不正确');
-      return data;
+  /* 读取旧版单文件数据（兼容迁移）；不存在返回 []，损坏也不阻塞 */
+  function loadLegacyData() {
+    return gh.getContent(LEGACY_DATA_FILE).then(function (text) {
+      if (!text || !text.trim()) return [];
+      return enc.decrypt(text, state.password).then(function (plain) {
+        var data = JSON.parse(plain);
+        return (data && Array.isArray(data.trips)) ? data.trips : [];
+      });
+    }).catch(function (err) {
+      if (err && err.status === 404) return [];
+      state.loadWarnings.push('旧数据文件：' + errMsg(err));
+      return [];
     });
   }
 
-  function encryptTrips() {
-    return enc.encrypt(JSON.stringify({ schema: 1, trips: state.trips }), state.password);
+  function encryptTrip(t) {
+    return enc.encrypt(JSON.stringify(t), state.password);
   }
 
-  function saveTrips() {
-    return encryptTrips().then(function (payload) {
+  /* 把旧单文件中的旅程拆分为独立文件提交，并删除旧文件 */
+  function migrateLegacy(trips) {
+    if (!trips.length) return Promise.resolve();
+    return Promise.all(trips.map(function (t) {
+      return encryptTrip(t).then(function (payload) {
+        return { path: DATA_DIR + t.id + '.trip', content: payload };
+      });
+    })).then(function (files) {
       return gh.commitFiles({
-        message: '记录旅程：' + els.flightNo.value.trim().toUpperCase() +
-          ' ' + els.fromIata.value.trim().toUpperCase() + '→' + els.toIata.value.trim().toUpperCase(),
-        files: [{ path: DATA_FILE, content: payload }]
+        message: '迁移：单文件旅程数据拆分为按旅程加密文件',
+        files: files,
+        deletes: [LEGACY_DATA_FILE]
+      });
+    });
+  }
+
+  function loadData() {
+    state.loadWarnings = [];
+    return Promise.all([loadLegacyData(), listTripPaths().then(function (paths) {
+      return Promise.all(paths.map(fetchTrip)).then(function (list) {
+        return list.filter(Boolean);
+      });
+    })]).then(function (res) {
+      var legacy = res[0], trips = res[1];
+      var have = {};
+      trips.forEach(function (t) { have[t.id] = true; });
+      var missing = legacy.filter(function (t) { return t && t.id && !have[t.id]; });
+      var all = trips.concat(missing);
+      all.sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
+      if (!missing.length) return all;
+      return migrateLegacy(missing).then(function () {
+        state.migratedCount = missing.length;
+        return all;
+      }).catch(function (err) {
+        /* 迁移失败不阻塞：旧文件保留，下次解锁重试 */
+        state.loadWarnings.push('旧数据迁移失败（下次重试）：' + errMsg(err));
+        return all;
+      });
+    });
+  }
+
+  function saveTrip(trip) {
+    return encryptTrip(trip).then(function (payload) {
+      return gh.commitFiles({
+        message: '记录旅程：' + trip.flight + ' ' + trip.from.iata + '→' + trip.to.iata,
+        files: [{ path: DATA_DIR + trip.id + '.trip', content: payload }]
       });
     });
   }
@@ -215,15 +280,21 @@
     els.fabBtn.hidden = false;
     els.locateBtn.hidden = false;
     setBusy(true);
-    loadData().then(function (data) {
-      state.trips = data.trips;
-      state.dataReady = true;
+    loadData().then(function (trips) {
+      state.trips = trips;
       setBusy(false);
       renderTrips();
+      if (state.migratedCount) {
+        toast('已把旧单文件数据迁移为按旅程分文件（' + state.migratedCount + ' 段）✓', 'ok');
+        state.migratedCount = 0;
+      }
+      if (state.loadWarnings.length) {
+        toast('有 ' + state.loadWarnings.length + ' 个数据文件无法读取，已跳过', 'error');
+      }
     }).catch(function (err) {
+      /* 加载失败不影响保存（保存是增量提交，不会覆盖他人数据），仅提示 */
       setBusy(false);
-      state.dataReady = false;
-      toast('读取旅程数据失败：' + errMsg(err) + '（为防数据覆盖，已禁用保存，请刷新重试）', 'error');
+      toast('读取旅程列表失败：' + errMsg(err), 'error');
     });
   }
 
@@ -381,13 +452,13 @@
       els.noteCount.textContent = String(els.noteText.value.length);
     });
     els.formSave.addEventListener('click', function () {
-      if (!state.dataReady) { toast('旅程数据尚未加载成功，为防覆盖已有记录，请刷新页面重试', 'error'); return; }
       var v = validateForm();
       if (v.error) { toast(v.error, 'error'); return; }
       setBusy(true);
-      state.trips.push(v.trip);
-      saveTrips().then(function () {
+      saveTrip(v.trip).then(function () {
         setBusy(false);
+        state.trips.push(v.trip);
+        state.trips.sort(function (a, b) { return String(a.createdAt).localeCompare(String(b.createdAt)); });
         closeForm();
         toast('已保存到仓库 ✓', 'ok');
         renderTrips();
@@ -398,7 +469,6 @@
         els.toIata.value = '';
       }).catch(function (err) {
         setBusy(false);
-        state.trips.pop(); /* 回滚本地，允许重试 */
         toast('保存失败：' + errMsg(err), 'error');
       });
     });

@@ -12,7 +12,8 @@
   - 一段旅程 = 一次飞行：航班号 + 出发/到达（IATA 机场码、日期、时间）+ 备注（≤1000 字符）；日期时间用浏览器原生控件。
   - 地图：OpenStreetMap（Leaflet 1.9.4 本地托管 `assets/vendor/leaflet/`），大圆弧曲线（slerp，`assets/js/geo.js`）叠加每段旅程，popup 显示详情。
   - 地点定位：内置 175 个全球主要机场坐标表（`assets/js/airports.js`），IATA 查询不到即校验失败。
-  - 认证与加密：密码解锁模式（首次粘贴 PAT + 设置密码，Token 用 AES-256-GCM+PBKDF2 加密存 `content/.trip-token`，之后只需密码）；**旅程数据整体加密**存 `content/.trips-data`（同密码），公开访客不可见明文。密码只存内存/sessionStorage。
+  - 认证与加密：密码解锁模式（首次粘贴 PAT + 设置密码，Token 用 AES-256-GCM+PBKDF2 加密存 `content/.trip-token`，之后只需密码）；**旅程数据整体加密**，公开访客不可见明文。密码只存内存/sessionStorage。
+  - **存储布局（2026-09-15 修订：按旅程分文件）**：每段旅程一个加密文件 `content/trips/<id>.trip`（密文结构同 Token 文件，单段旅程 JSON 整体加密）。保存 = 只提交一个新文件（增量、低冲突）；加载 = listTree 列出全部 → 并行拉取 → **逐文件解密**，单个文件损坏只跳过该段并提示，不影响其余数据。首次解锁时若发现旧版单文件 `content/.trips-data`，自动迁移：拆分为单文件提交并删除旧文件。
   - 数据提交到 `trip-track` 分支；GitHub Pages 需在仓库设置切换发布分支为 `trip-track`（原笔记站点对外下线，main 代码保留）。
   - 测试：`/tmp/opencode/jstest/test-trip-core.js`（enc/airports/geo 单测）+ `test-trip-app.js`（jsdom 集成：首次设置/解锁/表单校验/加密保存/曲线渲染）。
 
