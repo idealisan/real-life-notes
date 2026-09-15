@@ -104,10 +104,12 @@
       });
   };
 
-  // 无需 token 读取公开仓库的单个文件（用于连接前读取仓库中已保存的加密 Token）。
-  gh.getContentPublic = function (owner, repo, path) {
+  // 无需 token 读取公开仓库的单个文件（用于连接前读取仓库中已保存的加密 Token 等）。
+  // ref 可选：分支名/tag/sha，缺省为仓库默认分支。
+  gh.getContentPublic = function (owner, repo, path, ref) {
     if (!owner || !repo || !path) throw apiError(0, '缺少源仓库配置');
-    return fetch(API + '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/contents/' + path.split('/').map(encodeURIComponent).join('/'), {
+    var refQuery = ref ? ('?ref=' + encodeURIComponent(ref)) : '';
+    return fetch(API + '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/contents/' + path.split('/').map(encodeURIComponent).join('/') + refQuery, {
       headers: COMMON_HEADERS
     }).then(function (res) {
       if (res.status === 404) return null;

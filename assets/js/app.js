@@ -1,27 +1,28 @@
 (function (global) {
   'use strict';
 
-  /* Trip Track 主逻辑
-     流程：boot → 探测仓库中的加密 Token（content/.trip-token）
-       → 有：输入密码解锁（解密出 PAT）→ 读取并解密旅程数据 → 地图渲染
-       → 无：首次设置（粘贴 PAT + 设置密码）→ 加密保存 → 进入
-     存储布局：每段旅程一个加密文件 content/trips/<id>.trip（单文件损坏只影响一段）。
-     保存旅程 = 只提交一个新文件（增量、低冲突）。
-     兼容：旧版单文件 content/.trips-data 首次解锁时自动迁移拆分并删除。 */
+  /* Trip Track 主逻辑（运行在 CMS 内核之上）
+     认证与存储全部由 CMS（assets/js/cms.js）提供：
+       boot → 拉取 cms.config.json → CMS.init → 探测加密 Token
+         → 有：输入密码解锁（CMS.auth.unlock）→ 读索引渲染地图
+         → 无：首次设置（粘贴 PAT + 设置密码，CMS.auth.setup）→ 进入
+     数据：CMS.store.put('trips', trip, trip) 单对象+索引原子提交；
+       读取走索引（1 次 API 调用），不全量拉取对象文件。
+     兼容迁移：旧版单文件 content/.trips-data 首次解锁自动拆分；
+       trip-track 分支的旅程数据在 cms 分支为空时自动跨分支导入。 */
 
-  var TOKEN_FILE = 'content/.trip-token';
-  var DATA_DIR = 'content/trips/';
   var LEGACY_DATA_FILE = 'content/.trips-data';
+  var SOURCE_BRANCH = 'trip-track';   /* 跨分支导入的数据来源 */
   var SS_PASS = 'ttPass';
   var SS_REPO = 'ttRepo';
-  var DEFAULT_BRANCH = 'trip-track';
+  var COL = 'trips';                  /* 旅程集合名（cms.config.json 中定义） */
 
   var state = {
     mode: 'unlock',        /* unlock | setup */
     password: null,
-    encryptedToken: null,  /* 仓库中读到的密文 */
+    cmsRaw: null,          /* cms.config.json 原始内容 */
     trips: [],
-    loadWarnings: [],      /* 读取失败被跳过的文件列表 */
+    loadWarnings: [],
     connected: false
   };
 
@@ -79,17 +80,21 @@
     });
   }
 
-  /* ---------- 仓库配置 ---------- */
-  function applyRepo(repoUrl) {
-    var owner = 'idealisan', repo = 'real-life-notes', branch = DEFAULT_BRANCH;
+  /* ---------- CMS 初始化 ---------- */
+  function initCMS(repoUrl) {
+    var raw = state.cmsRaw;
     if (repoUrl) {
       var parts = String(repoUrl).replace(/\/+$/, '').split('/').filter(Boolean);
       if (parts.length >= 2) {
-        repo = parts[parts.length - 1];
-        owner = parts[parts.length - 2];
+        raw = JSON.parse(JSON.stringify(raw));
+        raw.github = {
+          owner: parts[parts.length - 2],
+          repo: parts[parts.length - 1],
+          branch: (raw.github && raw.github.branch) || 'cms'
+        };
       }
     }
-    gh.config({ owner: owner, repo: repo, branch: branch });
+    CMS.init(raw);
   }
 
   /* ---------- 地图 ---------- */
@@ -149,103 +154,100 @@
       '</div>';
   }
 
-  /* ---------- 数据读取与保存（按旅程分文件） ---------- */
+  /* ---------- 数据读取与保存（CMS 内核：索引驱动） ---------- */
 
-  /* 列出仓库中全部旅程文件路径 */
-  function listTripPaths() {
-    return gh.listTree().then(function (tree) {
-      return (tree || [])
-        .filter(function (e) {
-          return e.type === 'blob' && e.path.indexOf(DATA_DIR) === 0 && /\.trip$/.test(e.path);
-        })
-        .map(function (e) { return e.path; });
+  /* 索引条目 → 旅程对象（meta 即旅程对象本身） */
+  function entryToTrip(e) {
+    var t = Object.assign({}, e.meta, { id: e.id, updatedAt: e.updatedAt });
+    return t;
+  }
+
+  function loadTrips() {
+    return CMS.store.index(COL).then(function (res) {
+      state.loadWarnings = CMS.store.lastErrors.slice();
+      return res.items.map(entryToTrip);
     });
   }
 
-  /* 读取并解密单个旅程文件；损坏/解密失败只跳过并记录，不影响其余数据 */
-  function fetchTrip(path) {
-    return gh.getContent(path).then(function (text) {
-      return enc.decrypt(text, state.password).then(function (plain) {
-        var t = JSON.parse(plain);
-        if (!t || !t.id || !t.from || !t.to) throw new Error('结构不完整');
-        return t;
-      });
-    }).catch(function (err) {
-      state.loadWarnings.push(path + '：' + errMsg(err));
-      return null;
-    });
-  }
-
-  /* 读取旧版单文件数据（兼容迁移）；不存在返回 []，损坏也不阻塞 */
-  function loadLegacyData() {
+  /* 旧版单文件迁移：content/.trips-data → 按旅程分文件 + 索引 */
+  function migrateLegacy() {
     return gh.getContent(LEGACY_DATA_FILE).then(function (text) {
-      if (!text || !text.trim()) return [];
+      if (!text || !text.trim()) return 0;
       return enc.decrypt(text, state.password).then(function (plain) {
         var data = JSON.parse(plain);
-        return (data && Array.isArray(data.trips)) ? data.trips : [];
+        var trips = (data && Array.isArray(data.trips)) ? data.trips : [];
+        return Promise.all(trips.map(function (t) {
+          return t && t.id ? CMS.store.put(COL, t, t) : null;
+        })).then(function () { return trips.length; });
       });
+    }).then(function (count) {
+      if (!count) return 0;
+      return gh.commitFiles({
+        message: '迁移：删除旧版单文件旅程数据（已拆分为按旅程分文件）',
+        deletes: [LEGACY_DATA_FILE]
+      }).then(function () { return count; });
     }).catch(function (err) {
-      if (err && err.status === 404) return [];
-      state.loadWarnings.push('旧数据文件：' + errMsg(err));
-      return [];
+      if (err && err.status === 404) return 0;
+      state.loadWarnings.push('旧数据迁移失败（下次重试）：' + errMsg(err));
+      return 0;
     });
   }
 
-  function encryptTrip(t) {
-    return enc.encrypt(JSON.stringify(t), state.password);
-  }
-
-  /* 把旧单文件中的旅程拆分为独立文件提交，并删除旧文件 */
-  function migrateLegacy(trips) {
-    if (!trips.length) return Promise.resolve();
-    return Promise.all(trips.map(function (t) {
-      return encryptTrip(t).then(function (payload) {
-        return { path: DATA_DIR + t.id + '.trip', content: payload };
-      });
-    })).then(function (files) {
-      return gh.commitFiles({
-        message: '迁移：单文件旅程数据拆分为按旅程加密文件',
-        files: files,
-        deletes: [LEGACY_DATA_FILE]
-      });
+  /* 跨分支导入：cms 分支为空时，从 trip-track 分支公开读取旅程文件导入
+     （数据随 Pages 分支切换迁移；密码不一致导致解密失败时静默跳过） */
+  function importFromSourceBranch() {
+    var g = CMS.auth.snapshot();
+    var imported = 0;
+    return gh.listTreePublic(g.owner, g.repo, SOURCE_BRANCH).then(function (tree) {
+      var paths = (tree || [])
+        .filter(function (e) {
+          return e.type === 'blob' && e.path.indexOf('content/trips/') === 0 && /\.trip$/.test(e.path) && !/\/index\./.test(e.path);
+        })
+        .map(function (e) { return e.path; });
+      return Promise.all(paths.map(function (p) {
+        return gh.getContentPublic(g.owner, g.repo, p, SOURCE_BRANCH).then(function (text) {
+          return enc.decrypt(text, state.password).then(function (plain) {
+            var t = JSON.parse(plain);
+            if (t && t.id && t.from && t.to) {
+              return CMS.store.put(COL, t, t).then(function () { imported++; });
+            }
+          }).catch(function () { /* 密码不一致或文件损坏：跳过 */ });
+        }).catch(function () { /* 读取失败：跳过 */ });
+      }));
+    }).then(function () {
+      return imported;
+    }).catch(function () {
+      return imported;
     });
   }
 
   function loadData() {
-    state.loadWarnings = [];
-    return Promise.all([loadLegacyData(), listTripPaths().then(function (paths) {
-      return Promise.all(paths.map(fetchTrip)).then(function (list) {
-        return list.filter(Boolean);
-      });
-    })]).then(function (res) {
-      var legacy = res[0], trips = res[1];
-      var have = {};
-      trips.forEach(function (t) { have[t.id] = true; });
-      var missing = legacy.filter(function (t) { return t && t.id && !have[t.id]; });
-      var all = trips.concat(missing);
-      all.sort(function (a, b) { return String(a.createdAt || '').localeCompare(String(b.createdAt || '')); });
-      if (!missing.length) return all;
-      return migrateLegacy(missing).then(function () {
-        state.migratedCount = missing.length;
-        return all;
-      }).catch(function (err) {
-        /* 迁移失败不阻塞：旧文件保留，下次解锁重试 */
-        state.loadWarnings.push('旧数据迁移失败（下次重试）：' + errMsg(err));
-        return all;
+    return loadTrips().then(function (trips) {
+      if (trips.length) return trips;
+      /* 空集合：尝试旧单文件迁移与跨分支导入（均一次性） */
+      return migrateLegacy().then(function (count) {
+        if (count) return loadTrips().then(function (t) {
+          state.migratedCount = count;
+          return t;
+        });
+        return importFromSourceBranch().then(function (n) {
+          if (n) return loadTrips().then(function (t) {
+            state.importedCount = n;
+            return t;
+          });
+          return trips;
+        });
       });
     });
   }
 
   function saveTrip(trip) {
-    return encryptTrip(trip).then(function (payload) {
-      return gh.commitFiles({
-        message: '记录旅程：' + trip.flight + ' ' + trip.from.iata + '→' + trip.to.iata,
-        files: [{ path: DATA_DIR + trip.id + '.trip', content: payload }]
-      });
+    return CMS.store.put(COL, trip, trip, {
+      message: '记录旅程：' + trip.flight + ' ' + trip.from.iata + '→' + trip.to.iata
     });
   }
 
-  /* ---------- 认证 ---------- */
+  /* ---------- 认证 UI ---------- */
   function showUnlockMode() {
     state.mode = 'unlock';
     els.authTitle.textContent = '解锁 Trip Track';
@@ -288,32 +290,30 @@
         toast('已把旧单文件数据迁移为按旅程分文件（' + state.migratedCount + ' 段）✓', 'ok');
         state.migratedCount = 0;
       }
+      if (state.importedCount) {
+        toast('已从 ' + SOURCE_BRANCH + ' 分支导入 ' + state.importedCount + ' 段旅程 ✓', 'ok');
+        state.importedCount = 0;
+      }
       if (state.loadWarnings.length) {
         toast('有 ' + state.loadWarnings.length + ' 个数据文件无法读取，已跳过', 'error');
       }
     }).catch(function (err) {
-      /* 加载失败不影响保存（保存是增量提交，不会覆盖他人数据），仅提示 */
+      /* 加载失败不影响保存（保存是增量提交），仅提示 */
       setBusy(false);
-      toast('读取旅程列表失败：' + errMsg(err), 'error');
+      toast('读取旅程索引失败：' + errMsg(err), 'error');
     });
   }
 
-  /* 解锁模式提交：用密码解密仓库中的 Token 密文 */
+  /* 解锁模式提交 */
   function doUnlock(pass) {
     setBusy(true);
-    enc.decrypt(state.encryptedToken, pass).then(function (token) {
-      if (!token) throw new Error('解密结果为空');
-      gh.config({ token: token });
+    CMS.auth.unlock(pass).then(function () {
       state.password = pass;
       writeSession(SS_PASS, pass);
-      return gh.getRepo().then(function () {
-        setBusy(false);
-        afterConnect();
-      }).catch(function (err) {
-        /* Token 可能已失效：提示但不清密码，让用户看到具体错误 */
-        setBusy(false);
-        toast('Token 校验失败：' + errMsg(err), 'error');
-      });
+      return gh.getRepo();
+    }).then(function () {
+      setBusy(false);
+      afterConnect();
     }).catch(function (err) {
       setBusy(false);
       toast(errMsg(err), 'error');
@@ -321,49 +321,22 @@
     });
   }
 
-  /* 首次设置：校验 Token → 加密保存 Token 与（空）数据 */
+  /* 首次设置 */
   function doSetup(pass, token, repoUrl) {
-    applyRepo(repoUrl);
-    gh.config({ token: token });
     setBusy(true);
-    gh.getRepo().then(function (info) {
-      /* 仓库校验通过；若用户填了 URL，用真实全名回填 */
-      if (info && info.full_name) {
-        gh.config({ owner: info.owner.login, repo: info.name });
-      }
+    initCMS(repoUrl);
+    CMS.auth.setup(pass, token).then(function () {
       state.password = pass;
-      return enc.encrypt(token, pass).then(function (payload) {
-        return gh.commitFiles({
-          message: '初始化：保存加密的访问 Token',
-          files: [{ path: TOKEN_FILE, content: payload }]
-        });
-      }).then(function () {
-        writeSession(SS_PASS, pass);
-        writeSession(SS_REPO, repoUrl || '');
-        setBusy(false);
-        toast('已连接，Token 已加密保存 ✓', 'ok');
-        afterConnect();
-      });
+      writeSession(SS_PASS, pass);
+      writeSession(SS_REPO, repoUrl || '');
+      setBusy(false);
+      toast('已连接，Token 已加密保存 ✓', 'ok');
+      afterConnect();
     }).catch(function (err) {
       setBusy(false);
+      /* 恢复默认仓库配置，避免错误输入影响后续重试 */
+      initCMS('');
       toast('连接失败：' + errMsg(err), 'error');
-    });
-  }
-
-  function probeEncryptedToken() {
-    return fetch(TOKEN_FILE).then(function (res) {
-      if (!res.ok) throw new Error();
-      return res.text();
-    }).catch(function () {
-      var g = gh.snapshot();
-      if (!g.owner || !g.repo) return null;
-      return gh.getContentPublic(g.owner, g.repo, TOKEN_FILE).catch(function () { return null; });
-    }).then(function (text) {
-      if (text && text.trim()) {
-        state.encryptedToken = text;
-        return true;
-      }
-      return false;
     });
   }
 
@@ -431,7 +404,7 @@
       var pass = els.authPass.value;
       if (!pass) { toast('请输入密码', 'error'); return; }
       try {
-        els.ttUser.value = (gh.snapshot().owner) || 'github';
+        els.ttUser.value = (CMS.auth.snapshot().owner) || 'github';
       } catch (err) {}
       if (state.mode === 'unlock') {
         doUnlock(pass);
@@ -500,22 +473,22 @@
     initMap();
     bindEvents();
 
-    /* 填充机场提示与默认仓库坐标 */
-    fetch('content/config.json').then(function (res) {
-      if (!res.ok) throw new Error();
+    fetch('cms.config.json').then(function (res) {
+      if (!res.ok) throw new Error('cms.config.json 读取失败');
       return res.json();
-    }).then(function (cfg) {
-      if (cfg && cfg.github) {
-        applyRepo('https://github.com/' + cfg.github.owner + '/' + cfg.github.repo);
-        if (cfg.github.branch) gh.config({ branch: cfg.github.branch });
-      }
+    }).then(function (raw) {
+      state.cmsRaw = raw;
+      initCMS('');
       return null;
-    }).catch(function () { return null; }).then(function () {
-      var g = gh.snapshot();
+    }).catch(function (err) {
+      toast('CMS 配置加载失败：' + errMsg(err), 'error');
+      return null;
+    }).then(function () {
+      var g = CMS.auth.snapshot();
       els.ttUser.value = g.owner || 'github';
 
       var savedPass = readSession(SS_PASS);
-      probeEncryptedToken().then(function (found) {
+      CMS.auth.probe().then(function (found) {
         if (found) {
           showUnlockMode();
           if (savedPass) {

@@ -31,6 +31,7 @@ const SOURCES = [
   'assets/js/theme.js',
   'assets/js/gh.js',
   'assets/js/enc.js',
+  'assets/js/cms.js',
   'assets/js/airports.js',
   'assets/js/geo.js',
   'assets/js/app.js',

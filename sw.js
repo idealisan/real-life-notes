@@ -3,7 +3,7 @@
  * - 静态资源（css/js/图片/字体、含版本化 assets/v<ts>/）cache-first 并后台更新；
  *   页面与内容 JSON network-first，离线时回退缓存，保证应用可离线打开。
  */
-var CACHE = 'trip-track-v1';
+var CACHE = 'trip-track-cms-v1';
 var SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', function (e) {

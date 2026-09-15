@@ -16,6 +16,13 @@
   - **存储布局（2026-09-15 修订：按旅程分文件）**：每段旅程一个加密文件 `content/trips/<id>.trip`（密文结构同 Token 文件，单段旅程 JSON 整体加密）。保存 = 只提交一个新文件（增量、低冲突）；加载 = listTree 列出全部 → 并行拉取 → **逐文件解密**，单个文件损坏只跳过该段并提示，不影响其余数据。首次解锁时若发现旧版单文件 `content/.trips-data`，自动迁移：拆分为单文件提交并删除旧文件。
   - 数据提交到 `trip-track` 分支；GitHub Pages 需在仓库设置切换发布分支为 `trip-track`（原笔记站点对外下线，main 代码保留）。
   - 测试：`/tmp/opencode/jstest/test-trip-core.js`（enc/airports/geo 单测）+ `test-trip-app.js`（jsdom 集成：首次设置/解锁/表单校验/加密保存/曲线渲染）。
+- **cms 分支（2026-09-15）**：把「GitHub 仓库做加密对象存储」的核心抽象为 CMS 内核（`assets/js/cms.js`），旅程应用改为运行在内核之上：
+  - **集合配置**：仓库根 `cms.config.json` 定义 github 坐标、tokenFile、collections（path/encrypt/label）；加密按**集合**配置（trips 加密、posts 明文），加密集合对象与索引均为密文 `.enc`，明文集合 `.json` 且支持访客公开读取。
+  - **索引驱动读取（防限流）**：每集合一个索引文件 `<path>/index.enc|json`（对象 id + updatedAt + meta）；`store.index()` 1 次 API 调用取列表，支持 `{page, pageSize}` 分页；`store.get/getMany` 按需单读/指定批量读；**不再全量逐文件拉取**。索引是可重建缓存，`store.rebuildIndex()` 可从对象文件重建（损坏恢复路径）。
+  - **原子写**：`store.put/remove` 同一 commit 更新对象文件+索引；`put(obj, meta, opts.message)` 支持自定义提交信息。
+  - **认证内核化**：`CMS.auth.probe/setup/unlock`（Token 加密存 `content/.cms-token`，init 重置会话语义）。
+  - **数据迁移**：旧单文件 `.trips-data` 首次解锁自动拆分；cms 分支为空时自动从 `trip-track` 分支公开读取导入旅程（跨分支 ref 读取，gh.getContentPublic 增加 ref 参数）。
+  - 测试：`test-cms-core.js`（内核单测：put/get/getMany/index 分页/remove/rebuildIndex/坏文件跳过/明文公开读/id 校验）+ `test-trip-app.js`（三场景集成）。
 
 ## 已知问题（待修 Bug）
 

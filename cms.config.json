@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "cms": "trip-track-app",
+  "github": {
+    "owner": "idealisan",
+    "repo": "real-life-notes",
+    "branch": "cms"
+  },
+  "auth": {
+    "tokenFile": "content/.cms-token"
+  },
+  "collections": {
+    "trips": {
+      "path": "content/trips",
+      "encrypt": true,
+      "label": "旅程"
+    }
+  }
+}
