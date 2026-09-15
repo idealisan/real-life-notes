@@ -8,6 +8,13 @@
 
 - **R14 管理后台 PWA（仅后台）**：`admin/manifest.webmanifest` + `admin/sw.js` + `admin/pwa-register.js`，后台可安装、离线可开；公共站点（首页/阅读页/404）保持普通 HTML，不注册 SW。详见 `docs/requirements-analysis.md`。**布局约束：不得改动前后台样式，PC 浏览器后台外观须与普通 HTML 一致。**
 - **决策（2026-08-09）**：原 R01–R13、R15–R28 等其余待规划需求**全部删除、不再实现**，后续迭代仅聚焦 R14。
+- **trip-track 分支（2026-09-15，已上线首版）**：项目在 `trip-track` 分支改造为**飞行旅程记录 PWA**（main 保留笔记站点不动）：
+  - 一段旅程 = 一次飞行：航班号 + 出发/到达（IATA 机场码、日期、时间）+ 备注（≤1000 字符）；日期时间用浏览器原生控件。
+  - 地图：OpenStreetMap（Leaflet 1.9.4 本地托管 `assets/vendor/leaflet/`），大圆弧曲线（slerp，`assets/js/geo.js`）叠加每段旅程，popup 显示详情。
+  - 地点定位：内置 175 个全球主要机场坐标表（`assets/js/airports.js`），IATA 查询不到即校验失败。
+  - 认证与加密：密码解锁模式（首次粘贴 PAT + 设置密码，Token 用 AES-256-GCM+PBKDF2 加密存 `content/.trip-token`，之后只需密码）；**旅程数据整体加密**存 `content/.trips-data`（同密码），公开访客不可见明文。密码只存内存/sessionStorage。
+  - 数据提交到 `trip-track` 分支；GitHub Pages 需在仓库设置切换发布分支为 `trip-track`（原笔记站点对外下线，main 代码保留）。
+  - 测试：`/tmp/opencode/jstest/test-trip-core.js`（enc/airports/geo 单测）+ `test-trip-app.js`（jsdom 集成：首次设置/解锁/表单校验/加密保存/曲线渲染）。
 
 ## 已知问题（待修 Bug）
 
