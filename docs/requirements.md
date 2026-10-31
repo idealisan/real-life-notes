@@ -7,6 +7,7 @@
 ## 已规划/待办
 
 - **R14 管理后台 PWA（仅后台）**：`admin/manifest.webmanifest` + `admin/sw.js` + `admin/pwa-register.js`，后台可安装、离线可开；公共站点（首页/阅读页/404）保持普通 HTML，不注册 SW。详见 `docs/requirements-analysis.md`。**布局约束：不得改动前后台样式，PC 浏览器后台外观须与普通 HTML 一致。**
+- **R15 私密文章（整篇端侧加密）**：文章可标记「私密」，标题/标签/日期/封面/正文全部 AES-256-GCM 加密后入库，index.json 只留 `{path, private:true}`；公开站点所有列表与订阅出口均不可见，直链只显示解锁表单。解密复用**后台解锁密码**（与 `content/.admin-token` 同一密码），不新增第二个密码。详见 `docs/requirements-analysis.md` R15 与 `docs/data-model.md` §4。
 - **决策（2026-08-09）**：原 R01–R13、R15–R28 等其余待规划需求**全部删除、不再实现**，后续迭代仅聚焦 R14。
 
 ## 已知问题（待修 Bug）

@@ -86,8 +86,10 @@ docs/                 设计文档
 ### 4.2 md.js — Markdown 渲染管线
 
 **frontmatter**（最小 YAML 子集）：
-- `parseFrontmatter(text) -> {meta, body}`：首尾 `---` 包裹，逐行 `key: value`；支持 `title/tags/date/updated/draft/pinned`；`tags` 解析 `[...]` 逗号分隔。
-- `buildFrontmatter(meta) -> string`：反向生成（`draft`/`pinned`/`updated` 仅在为真/存在时输出）。
+- `parseFrontmatter(text) -> {meta, body}`：首尾 `---` 包裹，逐行 `key: value`；支持 `title/tags/date/updated/draft/pinned/cover/private`；`tags` 解析 `[...]` 逗号分隔。
+- `buildFrontmatter(meta) -> string`：反向生成（`draft`/`pinned`/`private`/`cover`/`updated` 仅在为真/存在时输出，公开文章输出字节不变）。
+- `buildPrivateDoc(payloadJson) -> string`：私密文章文件模板 —— `---\nprivate: true\n---\n\n```rln-enc\n<JSON>\n```\n`，不含任何明文元数据。
+- `excerpt()` 对以 ````rln-enc` 开头的正文直接返回空串。
 
 **渲染管线（`md.render`）**，顺序敏感：
 1. `renderMath`：先保护代码块（``` / ~~~ / `` `x` `` → `@@CODE-n@@`）→ 提取 `$$...$$`（块级）与 `$...$`（行内，带货币启发式：`^\d` 或两侧空格跳过）→ KaTeX `renderToString` → 回填占位 `@@MATH-n@@`。
@@ -110,10 +112,15 @@ docs/                 设计文档
 - 页面内锚点原生可用：`post.html?p=…&#heading`；TOC 链接 `href="#id"`。
 
 **列表渲染（`renderList`）**：
-- `filteredPosts()`：过滤 draft → 按 `state.cat` → 关键词（标题/分类名/摘要/标签/正文，`searchScore` 加权排序，搜索态按相关性）。
+- `isListed(p)`：`!p.draft && !p.private`，列表/归档/标签/随机/相关/上下篇/双链/反链统一用它过滤。
+- `filteredPosts()`：过滤 `!isListed` → 按 `state.cat` → 关键词（标题/分类名/摘要/标签/正文，`searchScore` 加权排序，搜索态按相关性）。
 - 分页 `PAGE_SIZE=8`，`pager()` 保留 `q/cat` 参数。
 - 排序：置顶优先（`pinned`），置顶内部按日期倒序；搜索态按相关性。
 - 卡片：分类徽标、日期、更新标记、阅读时长（正文 CJK+拉丁词估算）、摘要、标签、置顶徽标；标题命中高亮 `<mark>`。
+
+**准入校验**：`isValidPostPath(p)` = `/^content\/[a-z0-9][a-z0-9_-]*\/[^\/\\?#]+\.md$/` + 不含 `..` + 长度 ≤512；`renderDetail` 中路径非法或不在 `state.posts` 里一律 404，raw 回退分支再复核 frontmatter 的 `draft`。
+
+**私密详情（`renderPrivateDetail`）**：index 命中 `private:true` → `fetch(path)` 取 `rln-enc` 密文 → `rlnCrypto.unfence` → 有会话密码（sessionStorage `rln-private`）先自动试解 → 失败渲染解锁卡片 → 成功后 `decryptJson` 得 `{title,tags,date,cover,body}` → `renderDetailBody(path, {meta, body}, {private:true})`。`opts.private` 会跳过 description / og:image / `article:*` / `BlogPosting` / 面包屑 JSON-LD / 评论 / 分享 / 上下篇 / 相关，并置 `robots=noindex, nofollow`。
 
 **详情渲染（`renderDetail`/`renderDetailBody`）**：
 - `md.render` 渲染正文 → 附加交互：
@@ -147,6 +154,7 @@ docs/                 设计文档
 - 编辑器 `renderEditor`：标题、分类、标签、日期、草稿/置顶开关、正文（textarea）+ 双栏实时预览；`markDirty` 未保存提醒（beforeunload）；工具栏（`lineAction`/`wrapSelection`/`attachEditorKeys` 加粗斜体等）；公式/代码高亮预览复用 `md.render`。
 - 图片上传 `uploadImage`：粘贴/拖拽/选择文件 → 前端校验类型与大小 → 转 Base64 → 随保存 commit 写入 `content/images/<YYYYMMDD>-<rand>.<ext>`。
 - 发布 `savePost`：计算 slug（`YYYY-MM-DD-<kebab-case>`，冲突加 `-2`）→ 组装 md + frontmatter → 计算新 index.json → 同 commit 原子更新（md + index + content/rss.xml）；删除 `deletePost` 同理（tree `sha:null`）。
+- 私密文章：编辑器「私密」开关 → 加密 `{title,tags,date,updated,cover,body}` → 写 `content/private/<12位hex>.md` + index 条目 `{path, private:true}`；编辑前须解锁（`state.privateKey`），自动保存草稿对私密禁用；修改解锁密码时重加密全部私密文章。
 - 批量 `bulkAction`：勾选多篇 → 批量发布/存草稿/删除（一次 commit）；`bulkMoveCategory`：批量移动分类。
 - 分类管理 `renderCategories`：增删改（写入 content/config.json，校验重名/非法 key）。
 - 站点设置 `renderSettings`：标题/副标题/作者/站点地址/评论开关与标签、「重新生成 RSS/sitemap/robots」（`regeneratePublishFiles`，`buildRss/buildSitemap/buildRobots` 纯生成）。
@@ -181,6 +189,17 @@ post.html?p=… → parseParams 取 p → fetch content/index.json
   → 草稿/未知/无 p → 404 视图
 ```
 
+**私密文章（写）**：
+```
+编辑器勾选「私密」→ 需要 state.privateKey（由解锁密码派生；无则先输入密码并校验 private-key.json）
+  → rlnCrypto.encryptJson({title,tags,date,updated,cover,body}, key)
+  → md.buildPrivateDoc(payload)  →  content/private/<12位hex>.md
+  → index 条目 {path, private:true}
+  → 同 commit 写 index / rss / sitemap（私密条目被排除）
+```
+
+**私密文章（读）**：`fetch content/private-key.json` → `rlnCrypto.unlockKey` → 失败显解锁表单；成功后 `fetch(md)` → `unfence` → `decryptJson` → 正常渲染。
+
 **评论（site，读）**：`GET /issues?labels=<评论label>` → 匹配文章路径的 Issue → `GET /issues/{n}/comments` → 渲染。
 
 **空仓库初始化（admin）**：`listTreePublic(源仓库)` → `fetchSourceFile`（含 Base64 二进制）→ `commitInitial`（建 tree 无 base_tree / commit 无 parents / POST refs 建分支）。
@@ -196,6 +215,27 @@ post.html?p=… → parseParams 取 p → fetch content/index.json
 | 仓库误提交 token | 代码不把 token 写入任何内容字段 |
 | 分支破坏 | 文档指引 GitHub 分支保护（PR 流程） |
 | 缓存穿透 | 开发资源带 `?v=` 版本号（规避 Cloudflare 默认缓存，见 §8.3） |
+| 私密文章泄露 | 整篇 AES-256-GCM 加密，索引只留 `{path, private:true}`；密钥由解锁密码 PBKDF2-SHA256(120k) 派生，只在内存/sessionStorage；`private-key.json` 仅含 salt 与 verifier |
+| 改密码导致私密内容失联 | 换密码时旧密钥解密 → 新密钥重加密 → 一次 commit 覆盖 `.admin-token` + `private-key.json` + 全部私密 md |
+
+### 6.1 `assets/js/crypto.js` — 加解密模块
+
+浏览器端 Web Crypto 封装（免去前后台各写一份）：
+
+| 方法 | 说明 |
+| --- | --- |
+| `isSupported()` | `crypto.subtle` 可用（HTTPS / localhost） |
+| `b64(bytes)` / `unb64(str)` | base64 编解码 |
+| `deriveKey(password, saltB64, iter)` | PBKDF2-SHA256 → AES-256-GCM CryptoKey（不可导出） |
+| `encryptText/decryptText(text, key)` | 以密钥加解密，payload `{v,algo,iv,ct}` |
+| `encryptJson/decryptJson(obj, key)` | 同上，JSON 序列化 |
+| `encryptWithPassword(text, password)` | 自带 salt/iv 的 payload（`content/.admin-token` 用，`{v,kdf,iter,algo,salt,iv,ct}`） |
+| `fence(payload)` / `unfence(body)` | 生成/解析 ````rln-enc``` 围栏块 |
+| `createKeyFile(password)` | 生成 `private-key.json` 内容 + CryptoKey |
+| `unlockKey(file, password)` | 校验 verifier 并返回 CryptoKey，失败抛「密码不正确或数据损坏」 |
+
+- **仅 HTTPS/localhost 可用**（安全上下文要求）；不支持时界面直接提示，不静默降级。
+- 错误信息统一，避免区分"密码错"与"数据损坏"造成信息泄露。
 
 ## 7. 部署与运行
 
@@ -226,5 +266,7 @@ python3 -m http.server 8080 --directory .   # 仓库根目录
 - 搜索为运行时内存过滤（依赖索引内嵌 `content`），大索引体量有上限；独立 `search-index.json` 检索属待办（见 `requirements-analysis.md` R01）。
 - 评论依赖 GitHub Issues 页操作，无站内直接提交表单；@提及为 GitHub 原生行为，前台未额外解析渲染。
 - 无阅读量/访客统计（纯前端无法精确统计）。
+- 私密文章只保护**内容**：文章存在性/篇数、密文长度、正文引用的图片（`content/images/*` 公开）、Git 历史中的旧明文都不受保护；管理员凭证 = 密码，无法区分多人。
+- 私密文章不支持批量转草稿/批量发布（批量操作会跳过并提示），避免重建 frontmatter 时丢失密文。
 - 多管理员需服务端集中密钥（备选 Workers 形态，见 `system-design.md`）。
 - 空仓库初始化从「模板源仓库」复制，非"fork 自己"；初始化后仍需手动在 GitHub 开启 Pages（文档指引）。

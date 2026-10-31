@@ -70,7 +70,8 @@ real-life-notes/
 - `md.render(markdown) -> sanitizedHtml`：`marked` 渲染（GFM、自动断行）+ `DOMPurify` 消毒。
 - `md.parseFrontmatter(text) -> {meta, body}`：解析 `---` 包裹的最小 YAML 子集（title/tags/date/draft/updated）。
 - `md.buildFrontmatter(meta) -> string`：从元数据反向生成 frontmatter 文本。
-- `md.excerpt(text, maxChars=160) -> string`：提取纯文本摘要（剥离 frontmatter 与 Markdown 标记）。
+- `md.excerpt(text, maxChars=160) -> string`：提取纯文本摘要（剥离 frontmatter 与 Markdown 标记；`rln-enc` 密文块返回空串）。
+- `md.buildPrivateDoc(payloadJson) -> string`：生成私密文章文件（frontmatter 只有 `private: true` + 单个 `rln-enc` 围栏）。
 
 安全约定：**所有进入 innerHTML 的动态内容必须经过消毒**——正文走 DOMPurify；元数据/列表项走 `esc()` 纯文本转义。`md.js` 导出 `md.esc` 供全局使用。
 
@@ -81,8 +82,11 @@ real-life-notes/
 - 路由（MPA + query，无 hash）：`site.js` 按当前页面（`index.html` / `post.html`）自动进入列表或详情模式：
   - `index.html`：列表视图，`?cat=` 分类、`?q=` 关键词搜索、`?page=` 翻页、`?view=archive` 归档；筛选变化用 `history.replaceState` 同步 URL，监听 `popstate` 支持前进/后退。
   - `post.html?p=content/<分类>/<slug>.md`：文章详情（优先读 index.json 内嵌 `content`，旧索引回退 fetch raw）；页内锚点 `#heading` 原生可用；无 `p`/未知路径/草稿 → 404 提示。
+  - **准入收紧**：`p` 必须是 `content/<目录>/<文件>.md` 形态且**精确命中 index.json 中的某条**，否则一律 404（不再按任意路径 fetch）；raw 回退分支复核 frontmatter 的 `draft`。
+  - **私密文章**：index 条目带 `private: true` 且无任何元数据 → 不在任何列表/订阅中出现，只渲染解锁表单；输入后台解锁密码后在浏览器内派生密钥、AES-256-GCM 解密，再走正常渲染管线。私密页不输出 description/og/article/JSON-LD/评论/上下篇/相关，并置 `robots=noindex`。
 - 渲染：分类导航、文章卡片、文章正文、上一篇/下一篇（可选）、空态、归档。
 - 交互：分类切换、搜索防抖（IME 兼容）、点击进入详情（真实导航 `post.html?p=`）、返回列表。
+- 可见性统一入口：`isListed(p) = !p.draft && !p.private`，列表/归档/标签/随机/相关/上下篇/双链/反链全部据此过滤。
 - 对服务端无任何写操作；全部是读取 GitHub raw / same-origin 静态文件。
 
 ### 3.4 admin.js — 管理后台控制器
@@ -91,7 +95,8 @@ real-life-notes/
 - **连接区**：token 输入（密码管理器规范）、连接/断开、状态显示（当前用户、owner/repo、分支）。
 - **工作区视图**：
   - 文章列表（分类过滤、搜索、草稿标记、编辑/删除入口）
-  - 编辑器（新建/编辑）：标题、分类、标签、日期、草稿开关、正文、双栏预览、发布
+  - 编辑器（新建/编辑）：标题、分类、标签、日期、草稿开关、**私密开关**、正文、双栏预览、发布
+  - 私密文章的读取与保存：编辑前必须先用解锁密码派生密钥并解密；保存时整篇 JSON 加密（标题/标签/日期/封面/正文），索引条目只留 `{path, private:true}`
   - 分类管理：增删改分类元数据（写入 content/config.json）
   - 站点设置：标题/简介/分类图标等（写入 content/config.json）
 - **发布流程**：组装文件变更 → `gh.commitFiles()` → 展示 commit 链接。
@@ -131,6 +136,14 @@ real-life-notes/
        → 命中索引：直接用内嵌 content 渲染详情（无 fetch 正文）
        → 旧索引（无 content 字段）：GET <raw>/<path> 回退渲染
        → 草稿/未知路径/无 p 参数：404 提示
+
+私密文章：
+浏览器 → GET post.html?p=content/private/<随机slug>.md
+       → GET content/index.json → 命中 {path, private:true}（条目无任何元数据）
+       → GET content/private-key.json → 有会话密码则派生密钥并校验 verifier
+       → 未解锁：渲染解锁表单（标题固定「私密文章」）
+       → 已解锁：GET <path> → 取 rln-enc 密文 → AES-256-GCM 解密 → JSON {title,tags,date,cover,body}
+       → 正常渲染管线（md.render + DOMPurify），并跳过 description/og/JSON-LD/评论/上下篇/相关
 ```
 
 ### 5.3 管理员发布（新建/更新/删除）
@@ -185,6 +198,9 @@ admin 填表 → 组装 post 内容（frontmatter + body）
 | CSRF | 无 cookie 会话；写操作全部依赖 Authorization 头中的 token |
 | 仓库被误提交 token | 代码不将 token 值写入任何内容字段；editor 区域与 token 输入物理隔离 |
 | 分支破坏 | GitHub 端开启分支保护（文档指引） |
+| 私密文章被公开读取 | 整篇（标题/标签/日期/封面/正文）AES-256-GCM 加密后入库，索引只留 `{path, private:true}`；密钥由后台解锁密码经 PBKDF2-SHA256(120000) 派生，只存在内存/sessionStorage |
+| 私密文章被离线爆破 | 120k 次 PBKDF2（可提高到 210k）+ 建议强密码；verifier 提供已知明文，无法完全避免弱密码被爆破 |
+| 换密码导致私密文章失联 | 修改解锁密码时**原子重加密**全部私密文章 + 重写 `private-key.json`，一次 commit |
 
 ## 8. 移动端策略
 

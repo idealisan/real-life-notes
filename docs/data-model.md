@@ -10,6 +10,8 @@
 content/config.json   — 站点配置（站点元信息 + 分类元数据 + GitHub 源坐标）
 content/index.json   — 帖子索引（公开站点列表的唯一入口）
 content/<category>/<slug>.md  — 帖子正文（frontmatter + Markdown）
+content/private/<slug>.md  — 私密文章（frontmatter 只有 private: true，正文为密文块）
+content/private-key.json   — 私密文章内容密钥的 KDF 参数与校验值（无密钥本身）
 content/images/      — 编辑器上传的图片（<YYYYMMDD>-<rand>.<ext>）
 content/rss.xml / content/sitemap.xml / content/robots.txt  — 派生的 RSS/站点地图/robots（每次内容变更时随 commit 重建）
 ```
@@ -107,10 +109,13 @@ content/rss.xml / content/sitemap.xml / content/robots.txt  — 派生的 RSS/�
 | `posts[].excerpt` | string | 纯文本摘要，≤ 200 字符（服务端无关，由 admin 生成） |
 | `posts[].content` | string? | **可选**，帖子正文（不含 frontmatter）。由 admin 写入，用于：公开站点免请求直接渲染详情、RSS 全文输出；旧条目无此字段时两端自动回退（site 改为拉取 raw 文件，RSS 回退 excerpt） |
 | `posts[].draft` | boolean | **必填**。`true`=草稿（公开站点隐藏）；`false`=已发布 |
+| `posts[].private` | boolean? | 可选，缺省为公开。`true`=私密文章：**条目只允许包含 `path` 与 `private` 两个字段**，不得出现 `title/slug/category/tags/date/updated/excerpt/content`（index.json 是公开文件，任何明文元数据都会泄露） |
 
 > **排序约定**：index.json 中的顺序 = 展示顺序（按 date 降序）。公开站点不再自行排序，只渲染；同时**过滤 `draft: true`**。
 
 > **草稿约定**：草稿帖子**同样写入 index.json**，标记 `draft: true`。index.json 因此是内容唯一真相源——admin 直接从中列出草稿，无需遍历仓库文件。发布（去草稿）只需在同一次提交中把该条 `draft` 置为 `false`。
+
+> **私密约定**：私密文章的条目形如 `{"path":"content/private/<slug>.md","private":true}`，**没有任何元数据**，公开站点据此过滤掉该条，只在直链访问时提供解锁入口。`draft` 与 `private` 正交，`draft: true` 优先（直链同样 404）。私密条目不计入 RSS/sitemap，不参与分类、标签、搜索、归档、随机、上下篇、相关文章与反链。
 
 ---
 
@@ -161,6 +166,43 @@ updated: <ISO8601>\n  # 仅更新时
 2. 去掉 Markdown 语法：标题符 `#`、`*`/`_`、`` ` ``、`> `、列表 `- `、链接 `[t](u)` 提取文字、图片 `![a](b)` 提取 alt、行内代码 `` `x` `` 取内容。
 3. 折叠空白，截断 ≤ 160 字符；非末尾截断时追加 `…`。
 
+### 私密文章文件 `content/private/<slug>.md`
+
+私密文章**不写任何明文元数据**：frontmatter 只有一行 `private: true`，正文位置是一个 `rln-enc` 围栏块，里面是整篇内容（含标题、标签、日期、封面与正文）的密文。
+
+```markdown
+---
+private: true
+---
+
+```rln-enc
+{"v":1,"algo":"AES-256-GCM","iv":"<b64 12B>","ct":"<b64>"}
+```
+```
+
+- 明文 = `JSON.stringify({title, tags, date, updated, cover, body})`，`body` 为 Markdown 正文（不含 frontmatter）。
+- `ct` 用「内容密钥」+ 每次保存新生成的随机 IV 加密（AES-256-GCM）。
+- 围栏必须**锚定整个 body**：fence 之外不允许出现任何明文；解析不到围栏即视为文件损坏，拒绝渲染。
+- `md.excerpt` 对这类文件返回空串，永不为密文生成摘要。
+
+### 私密文章的内容密钥 `content/private-key.json`
+
+```jsonc
+{
+  "v": 1,
+  "kdf": "PBKDF2-SHA256",
+  "iter": 120000,
+  "salt": "<b64 16B>",
+  "verifierIv": "<b64 12B>",
+  "verifier": "<b64>"
+}
+```
+
+- 密钥 = `PBKDF2-SHA256(密码, salt, iter, 32B)`，密码即**后台解锁密码**（与 `content/.admin-token` 所用密码相同），不引入第二个密码。派生在浏览器内完成，密码不落盘。
+- `verifier` = AES-GCM 加密固定串 `rln-private-v1`，用于在不读取任何文章的情况下判断密码是否正确。
+- 文件名为**不带前导点**的 `private-key.json`：GitHub Pages 不保证提供 dotfile，公开站点需要能直接 fetch 它。
+- 该文件本身不含密钥，可公开；salt 公开不影响安全性（PBKDF2 的作用是提高离线爆破成本）。
+
 ---
 
 ## 5. slug 生成规则
@@ -171,6 +213,8 @@ updated: <ISO8601>\n  # 仅更新时
 - 标题 kebab-case：中文保留；字母数字转小写；连续非 [a-z0-9\u4e00-\u9fa5] 折叠为单个 `-`；去除首尾 `-`。
 - 标题为空 → 用 `YYYY-MM-DD-<HHMMSS>` 兜底，保证唯一。
 - 冲突（同目录已存在同 slug）→ 追加 `-2`、`-3`…（admin 检查 index.json + 仓库目录）。
+
+**私密文章例外**：`slug = <12 位随机 hex>`（如 `a1b2c3d4e5f6`），不使用标题——标题会泄露在文件路径里。编辑已有私密文章时**保持原 slug 不变**，避免每次保存都改写 URL；由私密转公开、或公开转私密时才重新生成。
 
 ---
 
@@ -187,7 +231,9 @@ updated: <ISO8601>\n  # 仅更新时
 - 一次发布 = **一个 commit**，其 tree 同时包含：
   - 帖子 md 文件（新增/更新/删除）
   - `content/index.json`（索引同步：新增/更新/删除条目、draft 翻转）
+  - `content/private-key.json`（首次使用私密文章、或修改解锁密码时）
   - `content/rss.xml`（按最新已发布列表重建；发布/删除/站点设置变更时都重建）
+- `rss.xml` / `sitemap.xml` **必须排除** `draft: true` 与 `private: true` 的条目。
 - 保证公开站点与 raw 内容永远一致，不会出现"有索引无文件"或"有文件无索引"。
 
 ---
@@ -195,4 +241,5 @@ updated: <ISO8601>\n  # 仅更新时
 ## 8. 版本与迁移
 
 - 所有 schema 字段固定为 `1`。升级 schema 时：admin 读取旧版本 → 转换 → 单次 commit 提交新版本文件。
+- `posts[].private`、frontmatter `private`、`content/private/`、`content/private-key.json` 都是**可选增量**，不改变 schema，旧仓库无需迁移。
 - 本文档变更需与实现同步；前后端（site.js / admin.js）共享 `data-model.md` 为唯一契约。
