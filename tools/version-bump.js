@@ -29,6 +29,7 @@ const OUT_PREFIX = 'assets/v';                       // 版本目录前缀 asset
 // 需要版本化的代码资源（相对仓库根）。纯静态代码；如需版本化某个静态 json 代码配置，加入即可。
 const SOURCES = [
   'assets/js/theme.js',
+  'assets/js/crypto.js',
   'assets/js/md.js',
   'assets/js/site.js',
   'assets/js/gh.js',

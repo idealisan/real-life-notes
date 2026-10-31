@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  var FRONTMETA_KEYS = ['title', 'tags', 'date', 'updated', 'draft', 'pinned', 'cover'];
+  var FRONTMETA_KEYS = ['title', 'tags', 'date', 'updated', 'draft', 'pinned', 'cover', 'private'];
 
   function md() {}
 
@@ -10,7 +10,7 @@
   }
 
   md.parseFrontmatter = function (text) {
-    var meta = { title: '', tags: [], date: '', updated: '', draft: false };
+    var meta = { title: '', tags: [], date: '', updated: '', draft: false, private: false };
     var body = String(text == null ? '' : text).replace(/^\uFEFF/, '');
     if (body.slice(0, 3) === '---') {
       var end = body.indexOf('\n---', 3);
@@ -29,6 +29,7 @@
           else if (key === 'draft') meta.draft = val === 'true';
           else if (key === 'pinned') meta.pinned = val === 'true';
           else if (key === 'cover') meta.cover = val;
+          else if (key === 'private') meta.private = val === 'true';
         });
       }
     }
@@ -47,8 +48,16 @@
     if (meta.cover) lines.push('cover: ' + meta.cover);
     if (meta.draft) lines.push('draft: true');
     if (meta.pinned) lines.push('pinned: true');
+    if (meta.private) lines.push('private: true');
     lines.push('---', '');
     return lines.join('\n');
+  };
+
+  /* 私密文章文件：frontmatter 只有 private: true，正文是一个 rln-enc 密文块。
+     绝不写入 title/tags/date 等明文元数据（index.json 与 md 都是公开可读的）。 */
+  md.buildPrivateDoc = function (payloadJson) {
+    var json = typeof payloadJson === 'string' ? payloadJson : JSON.stringify(payloadJson);
+    return '---\nprivate: true\n---\n\n' + '\u0060\u0060\u0060rln-enc\n' + json + '\n\u0060\u0060\u0060\n';
   };
 
   md.render = function (markdown) {
@@ -139,6 +148,7 @@
   md.excerpt = function (text, max) {
     max = max || 160;
     var body = md.stripFrontmatter(text);
+    if (/^\s*\u0060\u0060\u0060rln-enc\b/.test(body)) return '';
     body = body
       .replace(/```[\s\S]*?```/g, ' ')
       .replace(/\$\$[\s\S]*?\$\$/g, ' ')

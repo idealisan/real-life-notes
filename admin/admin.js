@@ -137,64 +137,15 @@
      密文结构：{ v, kdf, iter, algo, salt, iv, ct }（均为 base64）。 */
   var TOKEN_FILE = 'content/.admin-token';
 
-  function b64enc(bytes) {
-    var bin = '';
-    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
-  }
-  function b64dec(str) {
-    var bin = atob(str);
-    var bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  }
-  function encSupported() {
-    return !!(window.crypto && crypto.subtle && window.TextEncoder && window.btoa);
-  }
+  /* Token 加密复用 assets/js/crypto.js（rlnCrypto），payload 结构保持不变 */
+  function encSupported() { return !!(window.rlnCrypto && window.rlnCrypto.isSupported()); }
 
   function encryptToken(token, password) {
-    var enc = new TextEncoder();
-    var salt = crypto.getRandomValues(new Uint8Array(16));
-    var iv = crypto.getRandomValues(new Uint8Array(12));
-    return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey'])
-      .then(function (base) {
-        return crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt: salt, iterations: 120000, hash: 'SHA-256' },
-          base,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['encrypt']
-        );
-      })
-      .then(function (key) {
-        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, enc.encode(token));
-      })
-      .then(function (ct) {
-        return JSON.stringify({
-          v: 1, kdf: 'PBKDF2-SHA256', iter: 120000, algo: 'AES-256-GCM',
-          salt: b64enc(salt), iv: b64enc(iv), ct: b64enc(new Uint8Array(ct))
-        });
-      });
+    return window.rlnCrypto.encryptWithPassword(token, password);
   }
 
   function decryptToken(payload, password) {
-    var p;
-    try { p = JSON.parse(payload); } catch (e) { throw new Error('加密数据损坏'); }
-    if (!p || p.v !== 1 || !p.salt || !p.iv || !p.ct) throw new Error('不支持的加密数据');
-    return crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey'])
-      .then(function (base) {
-        return crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt: b64dec(p.salt), iterations: p.iter || 120000, hash: 'SHA-256' },
-          base,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['decrypt']
-        );
-      })
-      .then(function (key) {
-        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64dec(p.iv) }, key, b64dec(p.ct));
-      })
-      .then(function (pt) { return new TextDecoder().decode(pt); });
+    return window.rlnCrypto.decryptWithPassword(payload, password);
   }
 
   function saveEncryptedToken(password) {
