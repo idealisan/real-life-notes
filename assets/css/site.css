@@ -889,3 +889,95 @@ textarea:focus-visible, summary:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- 私密文章解锁卡片 ---------- */
+.private-unlock {
+  max-width: 520px;
+  margin: 48px auto 64px;
+  padding: 28px 24px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.private-lock {
+  font-size: 2.4rem;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.private-title {
+  font-size: 1.35rem;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.private-desc {
+  margin: 0 0 20px;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.private-field {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.private-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.private-field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.private-submit {
+  flex: 0 0 auto;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  color: var(--accent-text);
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.private-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.private-error {
+  margin-top: 12px;
+  color: #d70015;
+  font-size: 0.9rem;
+}
+
+.private-hint {
+  margin: 18px 0 0;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.cat-badge.cat-private {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .private-field { flex-direction: column; }
+  .private-unlock { margin: 24px auto 40px; padding: 22px 18px; }
+}
+

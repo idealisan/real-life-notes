@@ -30,7 +30,13 @@
     detailPost: null,
     detailCat: null,
     encryptedToken: null,
-    encTokenSaved: false
+    encTokenSaved: false,
+    privateKey: null,
+    privatePass: '',
+    privateMeta: {},
+    privateKeyFile: null,
+    privateKeyLoaded: false,
+    privateKeyDirty: false
   };
 
   var els = {
@@ -152,15 +158,21 @@
     if (!state.token) { toast('请先连接，再保存 Token', 'error'); return; }
     if (!encSupported()) { toast('当前环境不支持加密（需 HTTPS）', 'error'); return; }
     setBusy(true);
+    var createdKeyFile = null;
     encryptToken(state.token, password).then(function (payload) {
-      return gh.commitFiles({
-        message: '保存加密的登录 Token',
-        files: [{ path: TOKEN_FILE, content: payload }]
+      /* 同一密码顺手建立私密文章的密钥文件；已存在则沿用（不覆盖已有私密内容） */
+      return ensureKeyFileWithPassword(password).then(function (file) {
+        createdKeyFile = file;
+        var files = [{ path: TOKEN_FILE, content: payload }];
+        if (file) files.push({ path: PRIVATE_KEY_FILE, content: JSON.stringify(file, null, 2) + '\n' });
+        return gh.commitFiles({ message: '保存加密的登录 Token', files: files });
       });
     }).then(function () {
       setBusy(false);
       state.encTokenSaved = true;
-      toast('已加密保存到仓库 ✓ 之后输入密码即可解锁', 'ok');
+      toast(createdKeyFile
+        ? '已加密保存到仓库 ✓ 同一密码也可用于私密文章'
+        : '已加密保存到仓库 ✓ 之后输入密码即可解锁', 'ok');
       render();
     }).catch(function (err) {
       setBusy(false);
@@ -261,10 +273,15 @@
     return true;
   }
 
+  /* 可公开的条目：草稿与私密文章都不进 RSS/sitemap/bulk 重建 */
+  function isPublicPost(p) {
+    return !!p && !p.draft && !p.private;
+  }
+
   function buildRss(list) {
     var site = state.cfg.site || {};
     var base = siteBaseUrl();
-    var published = (list || state.index.posts || []).filter(function (p) { return !p.draft; })
+    var published = (list || state.index.posts || []).filter(isPublicPost)
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); })
       .slice(0, 20);
     var items = published.map(function (p) {
@@ -298,7 +315,7 @@
   }
 
   function buildSitemap(list) {
-    var published = (list || state.index.posts || []).filter(function (p) { return !p.draft; });
+    var published = (list || state.index.posts || []).filter(isPublicPost);
     var urls = published.map(function (p) {
       var lastmod = (p.updated || p.date || '').slice(0, 10);
       return '  <url>\n' +
@@ -434,6 +451,8 @@
       }
       updateRepoWarn();
       render();
+      /* 已持有解锁密码时顺手派生内容密钥，解锁私密文章元数据 */
+      initPrivate().then(function (changed) { if (changed) render(); });
     }).catch(function (err) {
       setBusy(false);
       gh.config({ token: null });
@@ -451,6 +470,131 @@
   }
   function clearSession() {
     try { sessionStorage.removeItem('adminToken'); sessionStorage.removeItem('adminRepo'); } catch (e) {}
+  }
+
+  /* ---------- 私密文章（内容密钥 = 后台解锁密码派生） ----------
+     密码只存在内存与 sessionStorage；内容密钥为不可导出的 CryptoKey。
+     密钥文件 content/private-key.json 只含 salt 与 verifier。 */
+  var PRIVATE_KEY_FILE = 'content/private-key.json';
+  var PRIVATE_PASS_KEY = 'rln-private';
+
+  function setPrivatePass(pass) {
+    state.privatePass = pass || '';
+    writeSession(PRIVATE_PASS_KEY, pass || '');
+  }
+
+  function privateCryptoReady() {
+    return !!(window.rlnCrypto && window.rlnCrypto.isSupported());
+  }
+
+  function loadPrivateKeyFile() {
+    if (state.privateKeyLoaded) return Promise.resolve(state.privateKeyFile);
+    return fetch('../content/private-key.json').then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).catch(function () {
+      var snap = gh.snapshot();
+      if (!snap.owner || !snap.repo) return null;
+      return gh.getContentPublic(snap.owner, snap.repo, PRIVATE_KEY_FILE).then(function (text) {
+        return text ? JSON.parse(text) : null;
+      }).catch(function () { return null; });
+    }).then(function (file) {
+      state.privateKeyLoaded = true;
+      state.privateKeyFile = file || null;
+      return state.privateKeyFile;
+    });
+  }
+
+  function askPrivatePass(message) {
+    var v = window.prompt(message);
+    return v == null ? null : v;
+  }
+
+  /* 确保内容密钥可用；createIfMissing 时允许用输入的密码新建 private-key.json */
+  function ensurePrivateKey(createIfMissing) {
+    if (state.privateKey) return Promise.resolve(state.privateKey);
+    if (!privateCryptoReady()) return Promise.reject(new Error('当前环境不支持加密（需 HTTPS）'));
+    var promptFile = function (file) {
+      var pass = askPrivatePass('请输入后台解锁密码（用于解密私密文章）');
+      if (pass == null) return Promise.reject({ cancelled: true });
+      return window.rlnCrypto.unlockKey(file, pass).then(function (key) {
+        state.privateKeyFile = file;
+        state.privateKeyLoaded = true;
+        state.privateKey = key;
+        setPrivatePass(pass);
+        return key;
+      });
+    };
+    return loadPrivateKeyFile().then(function (file) {
+      var remembered = state.privatePass || readSession(PRIVATE_PASS_KEY);
+      if (file) {
+        if (remembered) {
+          return window.rlnCrypto.unlockKey(file, remembered).catch(function () {
+            setPrivatePass('');
+            return promptFile(file);
+          });
+        }
+        return promptFile(file);
+      }
+      if (!createIfMissing) return Promise.reject(new Error('尚未设置私密文章密码'));
+      var pass = askPrivatePass('设置私密文章密码（建议与解锁后台的密码一致）');
+      if (pass == null) return Promise.reject({ cancelled: true });
+      if (pass.length < 6) return Promise.reject(new Error('密码至少 6 位'));
+      return window.rlnCrypto.createKeyFile(pass).then(function (res) {
+        state.privateKeyFile = res.file;
+        state.privateKeyLoaded = true;
+        state.privateKeyDirty = true;
+        state.privateKey = res.key;
+        setPrivatePass(pass);
+        return res.key;
+      });
+    });
+  }
+
+  function decryptPrivateDoc(text) {
+    var parsed = md.parseFrontmatter(text);
+    var payload = window.rlnCrypto ? window.rlnCrypto.unfence(parsed.body) : null;
+    if (!payload) return Promise.reject(new Error('私密文件已损坏'));
+    return window.rlnCrypto.decryptJson(payload, state.privateKey).then(function (data) {
+      return { parsed: parsed, data: data };
+    });
+  }
+
+  /* 批量解密私密条目元数据（只存内存，用于列表/详情展示） */
+  function loadPrivateMeta() {
+    if (!state.privateKey) return Promise.resolve(false);
+    var todo = state.index.posts.filter(function (p) { return p.private && !state.privateMeta[p.path]; });
+    if (!todo.length) return Promise.resolve(false);
+    return Promise.all(todo.map(function (p) {
+      return gh.getContent(p.path).then(function (text) {
+        return decryptPrivateDoc(text).then(function (res) {
+          state.privateMeta[p.path] = res.data;
+        });
+      }).catch(function () {});
+    })).then(function () { return true; });
+  }
+
+  /* 展示用元数据：私密条目在解锁前只有占位 */
+  function postMeta(p) {
+    if (!p.private) return p;
+    var m = state.privateMeta[p.path];
+    if (!m) return { path: p.path, private: true, title: '私密文章', date: '', tags: [] };
+    return Object.assign({}, p, m, { private: true, content: m.body });
+  }
+
+  function initPrivate() {
+    var pass = state.privatePass || readSession(PRIVATE_PASS_KEY);
+    if (!pass || !privateCryptoReady()) return Promise.resolve(false);
+    return loadPrivateKeyFile().then(function (file) {
+      if (!file) return false;
+      return window.rlnCrypto.unlockKey(file, pass).then(function (key) {
+        state.privateKey = key;
+        return loadPrivateMeta();
+      }).catch(function () {
+        setPrivatePass('');
+        return false;
+      });
+    }).catch(function () { return false; });
   }
 
   function storeCredential(token) {
@@ -512,6 +656,12 @@
     state.user = null;
     state.cfg = null;
     state.index = { posts: [] };
+    state.privateKey = null;
+    state.privateMeta = {};
+    state.privateKeyFile = null;
+    state.privateKeyLoaded = false;
+    state.privateKeyDirty = false;
+    setPrivatePass('');
     gh.config({ token: null });
     clearSession();
     showConnect();
@@ -538,6 +688,8 @@
     setBusy(true);
     decryptToken(state.encryptedToken, pass).then(function (token) {
       setBusy(false);
+      /* 复用同一个密码作为私密文章的内容密钥口令 */
+      setPrivatePass(pass);
       // 用解出的 Token 连接 sourceRepo（若用户填过仓库则优先用）
       var addr = els.connectForm.elements.adminRepo.value.trim();
       connect(token, addr);
@@ -653,7 +805,7 @@
   }
 
   function sortedPosts() {
-    return state.index.posts.slice().sort(function (a, b) {
+    return state.index.posts.slice().map(postMeta).sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
   }
@@ -727,11 +879,12 @@
     els.mainContent.textContent = '';
     var posts = sortedPosts().filter(function (p) {
       if (listFilter.cat && p.category !== listFilter.cat) return false;
-      if (listFilter.status === 'pub' && p.draft) return false;
+      if (listFilter.status === 'pub' && (p.draft || p.private)) return false;
       if (listFilter.status === 'draft' && !p.draft) return false;
+      if (listFilter.status === 'private' && !p.private) return false;
       if (listFilter.status === 'pin' && !p.pinned) return false;
       if (listFilter.q) {
-        var hay = (p.title + ' ' + (p.tags || []).join(' ') + ' ' + p.category).toLowerCase();
+        var hay = ((p.title || '') + ' ' + (p.tags || []).join(' ') + ' ' + (p.category || '')).toLowerCase();
         if (hay.indexOf(listFilter.q.toLowerCase()) === -1) return false;
       }
       return true;
@@ -856,7 +1009,7 @@
   }
 
   function openFilterSheet() {
-    var statuses = [['all', '全部状态'], ['pub', '已发布'], ['draft', '草稿'], ['pin', '置顶']];
+    var statuses = [['all', '全部状态'], ['pub', '已发布'], ['draft', '草稿'], ['private', '私密'], ['pin', '置顶']];
     var seg = el('div', { class: 'sheet-segment' }, statuses.map(function (s) {
       return el('button', {
         class: 'seg-btn' + (listFilter.status === s[0] ? ' active' : ''), type: 'button',
@@ -936,9 +1089,11 @@
   }
 
   function postCell(p) {
-    var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
+    var catLabel = p.private ? '私密' : ((state.cfg.categories[p.category] || {}).label || p.category);
     var sel = !!state.listSel[p.path];
-    var meta = [catLabel, md.formatDate(p.date)];
+    var meta = p.private && !state.privateMeta[p.path]
+      ? ['已加密 · 需解锁查看']
+      : [catLabel, md.formatDate(p.date)];
     if (typeof p.content === 'string' && p.content.trim()) meta.push(wordCount(p.content) + ' 字');
     return el('div', { class: 'post-cell' + (sel ? ' sel' : '') }, [
       el('label', { class: 'cell-check', 'aria-label': '选择《' + p.title + '》' }, [
@@ -960,7 +1115,8 @@
         el('div', { class: 'cell-title' }, [
           p.title,
           p.pinned ? el('span', { class: 'pin-badge', text: '置顶' }) : null,
-          p.draft ? el('span', { class: 'draft-badge', text: '草稿' }) : null
+          p.draft ? el('span', { class: 'draft-badge', text: '草稿' }) : null,
+          p.private ? el('span', { class: 'draft-badge private-badge', text: '私密' }) : null
         ]),
         el('div', { class: 'cell-sub', text: meta.join(' · ') })
       ]),
@@ -978,14 +1134,15 @@
   function renderPostDetail() {
     var p = state.detailPost;
     if (!p) { state.view = 'posts'; render(); return; }
-    var catLabel = (state.cfg.categories[p.category] || {}).label || p.category;
+    var catLabel = p.private ? '—（私密文章不使用分类）' : ((state.cfg.categories[p.category] || {}).label || p.category);
     var isDraft = !!p.draft;
+    var isPrivate = !!p.private;
     var previewUrl = publicUrl('post.html?p=' + encodeURIComponent(p.path));
     var wordCountStr = (typeof p.content === 'string' && p.content.trim()) ? wordCount(p.content) + ' 字' : '—';
 
     var meta = [
       iosCell('分类', el('span', { class: 'ios-value', text: catLabel })),
-      iosCell('状态', el('span', { class: 'ios-value ' + (isDraft ? 'status-draft' : 'status-pub'), text: isDraft ? '草稿（仅自己可见）' : '已发布' })),
+      iosCell('状态', el('span', { class: 'ios-value ' + (isDraft ? 'status-draft' : (isPrivate ? 'status-private' : 'status-pub')), text: isDraft ? '草稿（仅自己可见）' : (isPrivate ? '私密（整篇加密）' : '已发布') })),
       iosCell('日期', el('span', { class: 'ios-value', text: md.formatDate(p.date) + (p.updated ? ' · 更新 ' + md.formatDate(p.updated) : '') })),
       iosCell('字数', el('span', { class: 'ios-value', text: wordCountStr })),
       iosCell('标签', el('span', { class: 'ios-value', text: (p.tags || []).join('、') || '（无）' })),
@@ -1004,7 +1161,7 @@
       el('div', { class: 'detail-actions' }, [
         isDraft
           ? el('div', { class: 'detail-draft-hint', text: '草稿仅自己可见，无法预览' })
-          : el('a', { class: 'btn-ghost', href: previewUrl, target: '_blank', rel: 'noopener', text: '查看页面 ↗' }),
+          : el('a', { class: 'btn-ghost', href: previewUrl, target: '_blank', rel: 'noopener', text: isPrivate ? '查看页面（需密码）↗' : '查看页面 ↗' }),
         el('button', { class: 'btn-primary', text: '进入编辑', onClick: function () { startEditPost(p); } }),
         el('button', { class: 'btn-danger', text: '删除文章', onClick: function () {
           deletePost(p);
@@ -1029,8 +1186,8 @@
         'aria-label': '按状态过滤',
         value: listFilter.status,
         onChange: function (e) { listFilter.status = e.target.value; renderPosts(); }
-      }, ['all', 'pub', 'draft', 'pin'].map(function (s) {
-        var label = { all: '全部状态', pub: '已发布', draft: '草稿', pin: '置顶' }[s];
+      }, ['all', 'pub', 'draft', 'private', 'pin'].map(function (s) {
+        var label = { all: '全部状态', pub: '已发布', draft: '草稿', private: '私密', pin: '置顶' }[s];
         return el('option', { value: s, text: label, selected: listFilter.status === s ? '' : null });
       })),
       filterInputElement(),
@@ -1122,6 +1279,8 @@
     Promise.all(state.index.posts.map(function (p) {
       return gh.getContent(p.path).then(function (text) {
         // 顺带补全正文，供列表字数统计使用（草稿/旧索引缺少 content 时也能显示）
+        // 私密条目不能把密文当正文：解锁后的元数据由 state.privateMeta 提供
+        if (p.private) return null;
         var parsed = md.parseFrontmatter(text);
         p.content = parsed.body;
         return null;
@@ -1143,7 +1302,27 @@
     state.editing = {
       mode: 'new', path: null,
       title: '', category: Object.keys(state.cfg.categories)[0] || '',
-      date: md.isoNow(), tags: [], draft: false, pinned: false, cover: '', body: ''
+      date: md.isoNow(), tags: [], draft: false, pinned: false, cover: '', body: '',
+      private: false
+    };
+    state.view = 'editor';
+    render();
+  }
+
+  function openEditor(p, parsed, data, isPrivate) {
+    state.editing = {
+      mode: 'edit', path: p.path,
+      title: isPrivate ? (data.title || p.title || '') : (parsed.meta.title || p.title),
+      category: p.category || Object.keys(state.cfg.categories)[0] || '',
+      date: isPrivate ? (data.date || p.date) : (parsed.meta.date || p.date),
+      tags: isPrivate
+        ? (data.tags || [])
+        : (parsed.meta.tags.length ? parsed.meta.tags : (p.tags || [])),
+      draft: parsed.meta.draft !== undefined ? parsed.meta.draft : !!p.draft,
+      pinned: isPrivate ? false : (parsed.meta.pinned !== undefined ? parsed.meta.pinned : !!p.pinned),
+      cover: isPrivate ? (data.cover || '') : (parsed.meta.cover || p.cover || ''),
+      private: isPrivate,
+      body: isPrivate ? (data.body || '') : parsed.body
     };
     state.view = 'editor';
     render();
@@ -1152,19 +1331,22 @@
   function startEditPost(p) {
     gh.getContent(p.path).then(function (text) {
       var parsed = md.parseFrontmatter(text);
-      state.editing = {
-        mode: 'edit', path: p.path,
-        title: parsed.meta.title || p.title,
-        category: p.category,
-        date: parsed.meta.date || p.date,
-        tags: parsed.meta.tags.length ? parsed.meta.tags : (p.tags || []),
-        draft: parsed.meta.draft !== undefined ? parsed.meta.draft : !!p.draft,
-        pinned: parsed.meta.pinned !== undefined ? parsed.meta.pinned : !!p.pinned,
-        cover: parsed.meta.cover || p.cover || '',
-        body: parsed.body
-      };
-      state.view = 'editor';
-      render();
+      var isPrivate = !!(p.private || parsed.meta.private);
+      if (!isPrivate) { openEditor(p, parsed, null, false); return; }
+      var payload = window.rlnCrypto ? window.rlnCrypto.unfence(parsed.body) : null;
+      if (!payload) { toast('私密文件已损坏，无法编辑', 'error'); return; }
+      ensurePrivateKey(false)
+        .then(function () {
+          return window.rlnCrypto.decryptJson(payload, state.privateKey);
+        })
+        .then(function (data) {
+          state.privateMeta[p.path] = data;
+          openEditor(p, parsed, data, true);
+        })
+        .catch(function (err) {
+          if (err && err.cancelled) { toast('已取消解锁', 'ok'); return; }
+          toast('解锁失败：' + (err && err.message ? err.message : '密码不正确'), 'error');
+        });
     }).catch(function (err) {
       toast('读取文章失败：' + errMsg(err), 'error');
     });
@@ -1196,11 +1378,19 @@
       cover: editor.cover ? editor.cover.value : '',
       draft: !!(editor.draft && editor.draft.checked),
       pinned: !!(editor.pinned && editor.pinned.checked),
+      private: !!(editor.private && editor.private.checked),
       savedAt: Date.now()
     };
   }
   function persistEditorDraft() {
     if (!editor || !editor.dirty) return;
+    /* 私密文章的正文是明文，绝不允许写入 localStorage */
+    if (state.editing && state.editing.private) {
+      clearEditorDraft();
+      var hint = document.getElementById('edAutoSave');
+      if (hint) hint.textContent = '私密文章不自动保存';
+      return;
+    }
     var snap = editorDraftSnapshot();
     if (!snap) return;
     try { localStorage.setItem(ED_DRAFT_KEY, JSON.stringify(snap)); } catch (e) { return; }
@@ -1213,6 +1403,7 @@
   }
   function scheduleAutoSave() {
     if (!editor) return;
+    if (state.editing && state.editing.private) return;
     if (edDraftTimer) clearTimeout(edDraftTimer);
     edDraftTimer = setTimeout(persistEditorDraft, 800);
   }
@@ -1239,7 +1430,7 @@
 
   function renderEditor() {
     var ed = state.editing;
-    editor = { title: null, date: null, tags: null, body: null, draft: null, category: null, preview: null, slug: null };
+    editor = { title: null, date: null, tags: null, body: null, draft: null, private: null, category: null, preview: null, slug: null };
 
     var titleField = el('div', { class: 'field' }, [
       el('label', { for: 'edTitle', text: '标题' }),
@@ -1290,7 +1481,12 @@
       el('div', { class: 'ios-check-row' }, [
         el('span', { class: 'cell-label', text: '置顶（列表与归档优先展示）' }),
         iosToggle('edPinned', !!ed.pinned, markDirty, '置顶')
-      ])
+      ]),
+      el('div', { class: 'ios-check-row' }, [
+        el('span', { class: 'cell-label', text: '私密（整篇加密，凭链接 + 密码阅读）' }),
+        iosToggle('edPrivate', !!ed.private, markDirty, '私密')
+      ]),
+      el('div', { class: 'hint', text: '私密文章的标题/标签/日期/正文全部加密，不会出现在列表、搜索、归档、标签与 RSS 中；加密密码就是后台解锁密码。' })
     ]);
 
     var imageInput = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
@@ -1321,6 +1517,10 @@
     editor.cover = coverField.querySelector('#edCover');
     editor.draft = draftField.querySelector('#edDraft');
     editor.pinned = draftField.querySelector('#edPinned');
+    editor.private = draftField.querySelector('#edPrivate');
+    if (editor.private) {
+      editor.private.addEventListener('change', function () { ed.private = editor.private.checked; });
+    }
     editor.body = bodyField.querySelector('#edBody');
     editor.preview = preview;
     editor.slug = slugField.querySelector('#edSlug');
@@ -1384,12 +1584,13 @@
       var pristine = {
         title: ed.title || '', category: ed.category || '', date: ed.date ? fmtLocalInput(ed.date) : '',
         tags: (ed.tags || []).join(', '), body: ed.body || '',
-        cover: ed.cover || '', draft: !!ed.draft, pinned: !!ed.pinned
+        cover: ed.cover || '', draft: !!ed.draft, pinned: !!ed.pinned, private: !!ed.private
       };
       var changed = edDraft.title !== pristine.title || edDraft.body !== pristine.body
         || edDraft.tags !== pristine.tags || edDraft.category !== pristine.category
         || edDraft.date !== pristine.date || edDraft.cover !== pristine.cover
-        || !!edDraft.draft !== pristine.draft || !!edDraft.pinned !== pristine.pinned;
+        || !!edDraft.draft !== pristine.draft || !!edDraft.pinned !== pristine.pinned
+        || !!edDraft.private !== pristine.private;
       if (changed) {
         var when = new Date(edDraft.savedAt || Date.now());
         var stamp = ('0' + when.getMonth()).slice(-2) + '/' + ('0' + when.getDate()).slice(-2) + ' ' +
@@ -1406,6 +1607,8 @@
               editor.cover.value = edDraft.cover || '';
               editor.draft.checked = !!edDraft.draft;
               if (editor.pinned) editor.pinned.checked = !!edDraft.pinned;
+              if (editor.private) editor.private.checked = !!edDraft.private;
+              state.editing.private = !!edDraft.private;
               editor.dirty = true;
               autoGrowTextarea(editor.body);
               updateSlug();
@@ -1699,6 +1902,21 @@
     return md.isoNow(d);
   }
 
+  function randomPrivateSlug() {
+    var hex = '';
+    try {
+      var bytes = crypto.getRandomValues(new Uint8Array(6));
+      for (var i = 0; i < bytes.length; i++) hex += ('0' + bytes[i].toString(16)).slice(-2);
+    } catch (e) {
+      hex = Math.random().toString(16).slice(2, 14);
+    }
+    var taken = {};
+    state.index.posts.forEach(function (p) { taken[p.path] = true; });
+    var slug = hex, n = 2;
+    while (taken['content/private/' + slug + '.md']) { slug = hex + '-' + n++; }
+    return slug;
+  }
+
   function savePost(draft) {
     if (!assertRepoTargets()) return;
     var ed = state.editing;
@@ -1706,91 +1924,139 @@
     var category = editor.category.value;
     var body = editor.body.value;
     var tags = editor.tags.value.split(/[,，\s]+/).filter(Boolean);
+    var isPrivate = !!(editor.private && editor.private.checked);
 
     if (!title) { toast('请填写标题', 'error'); editor.title.focus(); return; }
-    if (!category) { toast('请选择分类', 'error'); return; }
     if (state.emptyRepo) { toast('请先在「设置」中一键初始化仓库', 'error'); return; }
-    if (!Object.prototype.hasOwnProperty.call(state.cfg.categories, category)) {
-      toast('分类不存在，请先在分类页添加', 'error'); return;
+    if (!isPrivate) {
+      if (!category) { toast('请选择分类', 'error'); return; }
+      if (!Object.prototype.hasOwnProperty.call(state.cfg.categories, category)) {
+        toast('分类不存在，请先在分类页添加', 'error'); return;
+      }
     }
 
     var dateIso = editor.date.value ? fmtToIso(editor.date.value) : md.isoNow();
     var pinned = !!(editor.pinned && editor.pinned.checked);
     var cover = editor.cover ? editor.cover.value.trim() : '';
+    var updatedIso = ed.mode === 'edit' ? md.isoNow() : null;
     var meta = {
       title: title,
       tags: tags,
       date: dateIso,
-      updated: ed.mode === 'edit' ? md.isoNow() : null,
+      updated: updatedIso,
       cover: cover,
       draft: draft,
       pinned: pinned
     };
 
-    var slug = computeSlug({ title: title, date: dateIso });
-    var contentPath = 'content/' + category + '/' + slug + '.md';
-    var content = md.buildFrontmatter(meta) + body;
+    var action = ed.mode === 'new'
+      ? (draft ? '保存草稿' : '发布')
+      : (draft ? '转为草稿' : '更新');
 
-    var posts = state.index.posts.slice();
-    var oldIndex = -1;
-    if (ed.mode === 'edit') {
-      oldIndex = posts.findIndex(function (p) { return p.path === ed.path; });
-    }
+    /* 私密：整篇（标题/标签/日期/封面/正文）加密后写入 content/private/<随机hex>.md */
+    var ready = isPrivate
+      ? ensurePrivateKey(true).then(function (key) {
+        return window.rlnCrypto.encryptJson({
+          title: title,
+          tags: tags,
+          date: dateIso,
+          updated: updatedIso || '',
+          cover: cover,
+          body: body
+        }, key);
+      }).then(function (payload) {
+        return md.buildPrivateDoc(payload);
+      })
+      : Promise.resolve(null);
 
-    var entry = {
-      path: contentPath,
-      slug: slug,
-      title: title,
-      category: category,
-      tags: tags,
-      date: dateIso,
-      updated: meta.updated || null,
-      excerpt: md.excerpt(content),
-      draft: draft,
-      pinned: pinned,
-      cover: cover
-    };
-    if (!draft) entry.content = body;
+    ready.then(function (privateDoc) {
+      var slug, contentPath, content, entry;
+      if (isPrivate) {
+        slug = (ed.mode === 'edit' && ed.private && ed.path)
+          ? String(ed.path).split('/').pop().replace(/\.md$/, '')
+          : randomPrivateSlug();
+        contentPath = 'content/private/' + slug + '.md';
+        content = privateDoc;
+        entry = { path: contentPath, private: true };
+      } else {
+        slug = computeSlug({ title: title, date: dateIso });
+        contentPath = 'content/' + category + '/' + slug + '.md';
+        content = md.buildFrontmatter(meta) + body;
+        entry = {
+          path: contentPath,
+          slug: slug,
+          title: title,
+          category: category,
+          tags: tags,
+          date: dateIso,
+          updated: updatedIso || null,
+          excerpt: md.excerpt(content),
+          draft: draft,
+          pinned: pinned,
+          cover: cover
+        };
+        if (!draft) entry.content = body;
+      }
 
-    var deletes = [];
-    if (ed.mode === 'edit' && ed.path !== contentPath) {
-      if (oldIndex !== -1) posts.splice(oldIndex, 1);
-      deletes.push(ed.path);
-      posts.push(entry);
-    } else if (oldIndex !== -1) {
-      posts[oldIndex] = entry;
-    } else {
-      posts.push(entry);
-    }
-    posts.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
+      var posts = state.index.posts.slice();
+      var oldIndex = -1;
+      if (ed.mode === 'edit') {
+        oldIndex = posts.findIndex(function (p) { return p.path === ed.path; });
+      }
 
-    var action = ed.mode === 'new' ? (draft ? '保存草稿' : '发布') : (draft ? '转为草稿' : '更新');
-    setBusy(true);
-    gh.commitFiles({
-      message: '[' + action + '] ' + title,
-      files: [
+      var deletes = [];
+      if (ed.mode === 'edit' && ed.path !== contentPath) {
+        if (oldIndex !== -1) posts.splice(oldIndex, 1);
+        deletes.push(ed.path);
+        posts.push(entry);
+      } else if (oldIndex !== -1) {
+        posts[oldIndex] = entry;
+      } else {
+        posts.push(entry);
+      }
+      posts.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
+
+      var files = [
         { path: contentPath, content: content },
         { path: 'content/index.json', content: newIndex },
         { path: 'content/rss.xml', content: buildRss(posts) },
         { path: 'content/sitemap.xml', content: buildSitemap(posts) },
         { path: 'content/robots.txt', content: buildRobots() }
-      ],
-      deletes: deletes
-    }).then(function (commit) {
-      setBusy(false);
-      state.index = { schema: 1, posts: posts };
-      if (edDraftTimer) clearTimeout(edDraftTimer);
-      clearEditorDraft();
-      toast(action + '成功 ✓' + (commit.sha ? '（' + commit.sha.slice(0, 7) + '）' : ''), 'ok');
-      state.view = 'posts';
-      render();
+      ];
+      if (isPrivate && state.privateKeyDirty && state.privateKeyFile) {
+        files.push({ path: PRIVATE_KEY_FILE, content: JSON.stringify(state.privateKeyFile, null, 2) + '\n' });
+      }
+
+      setBusy(true);
+      return gh.commitFiles({
+        message: '[' + action + '] ' + title,
+        files: files,
+        deletes: deletes
+      }).then(function (commit) {
+        setBusy(false);
+        state.index = { schema: 1, posts: posts };
+        if (ed.mode === 'edit' && ed.path && ed.path !== contentPath) delete state.privateMeta[ed.path];
+        if (isPrivate) {
+          state.privateMeta[contentPath] = {
+            title: title, tags: tags, date: dateIso, updated: updatedIso || '', cover: cover, body: body
+          };
+          state.privateKeyDirty = false;
+        } else {
+          delete state.privateMeta[contentPath];
+        }
+        if (edDraftTimer) clearTimeout(edDraftTimer);
+        clearEditorDraft();
+        toast(action + '成功 ✓' + (commit.sha ? '（' + commit.sha.slice(0, 7) + '）' : ''), 'ok');
+        state.view = 'posts';
+        render();
+      });
     }).catch(function (err) {
       setBusy(false);
-      toast('保存失败：' + errMsg(err), 'error');
+      if (err && err.cancelled) { toast('已取消保存', 'ok'); return; }
+      toast('保存失败：' + (err && err.message ? err.message : errMsg(err)), 'error');
     });
   }
-
   function deletePost(p) {
     if (!confirm('确定删除《' + p.title + '》吗？\n文件与索引都将被移除（Git 历史仍可找回）。')) return;
     deletePostByPath(p.path, p.title);
@@ -1827,14 +2093,22 @@
   }
 
   function bulkAction(paths, action) {
-    var selected = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    var picked = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    /* 私密条目没有可重建的明文元数据，批量转草稿/发布会破坏密文，一律跳过 */
+    var selected = picked.filter(function (p) { return !p.private; });
+    if (selected.length !== picked.length) {
+      toast('私密文章不支持批量操作，已跳过 ' + (picked.length - selected.length) + ' 篇', 'error');
+    }
     if (!selected.length) return;
+    paths = selected.map(function (p) { return p.path; });
     var label = action === 'delete' ? '删除' : (action === 'draft' ? '转为草稿' : '批量发布');
     if (!confirm('确定' + label + '所选 ' + selected.length + ' 篇文章吗？')) return;
 
     var ensureBody = function (p) {
       if (typeof p.content === 'string') return Promise.resolve(p.content);
-      return gh.getContent(p.path).catch(function () { return ''; });
+      return gh.getContent(p.path).then(function (text) {
+        return md.parseFrontmatter(text).body;
+      }).catch(function () { return ''; });
     };
 
     setBusy(true);
@@ -1844,14 +2118,19 @@
         if (i === -1) return p;
         if (action === 'delete') return null;
         var body = bodies[i] || '';
-        var meta = { title: p.title, tags: p.tags || [], date: p.date, updated: p.updated, draft: action === 'draft', pinned: !!p.pinned };
-        var content = md.buildFrontmatter(meta) + body;
-        return {
-          path: p.path, slug: p.slug, title: p.title, category: p.category, tags: p.tags || [],
-          date: p.date, updated: action === 'draft' ? p.updated : md.isoNow(),
-          excerpt: md.excerpt(content), draft: action === 'draft', pinned: !!p.pinned,
-          content: action === 'draft' ? undefined : body
+        var meta = {
+          title: p.title, tags: p.tags || [], date: p.date, updated: p.updated,
+          draft: action === 'draft', pinned: !!p.pinned, cover: p.cover || ''
         };
+        var content = md.buildFrontmatter(meta) + body;
+        var entry = Object.assign({}, p, {
+          updated: action === 'draft' ? p.updated : md.isoNow(),
+          excerpt: md.excerpt(content),
+          draft: action === 'draft'
+        });
+        if (action === 'draft') delete entry.content;
+        else entry.content = body;
+        return entry;
       }).filter(Boolean);
 
       var newIndex = JSON.stringify({ schema: 1, posts: posts }, null, 2) + '\n';
@@ -1880,8 +2159,13 @@
   }
 
   function bulkMoveCategory(paths, newCat) {
-    var selected = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    var picked = state.index.posts.filter(function (p) { return paths.indexOf(p.path) !== -1; });
+    var selected = picked.filter(function (p) { return !p.private; });
+    if (selected.length !== picked.length) {
+      toast('私密文章不使用分类，已跳过 ' + (picked.length - selected.length) + ' 篇', 'error');
+    }
     if (!selected.length) return;
+    paths = selected.map(function (p) { return p.path; });
     if (!Object.prototype.hasOwnProperty.call(state.cfg.categories, newCat)) {
       toast('目标分类不存在', 'error'); return;
     }
@@ -2378,7 +2662,7 @@
     ]);
     var securityGroup = iosGroup('安全', [
       el('div', { class: 'ios-cell' }, [tokRow]),
-      el('div', { class: 'ios-cell-desc', text: '把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。' })
+      el('div', { class: 'ios-cell-desc', text: '把当前 Token 用密码加密后存入仓库，之后打开后台只需输入密码解锁，无需再粘贴长 Token。这个密码同时用于加密私密文章。' })
     ]);
 
     els.mainContent.appendChild(el('div', { class: 'settings-page' }, [
@@ -2393,19 +2677,83 @@
   }
 
   /* 更新仓库密码：先用旧密码解密已有密文（验证当前密码），通过后再用新密码重加密保存 */
+  /* 用给定密码准备 private-key.json：已有则不动，没有则创建 */
+  function ensureKeyFileWithPassword(password) {
+    if (!privateCryptoReady()) return Promise.resolve(null);
+    return loadPrivateKeyFile().then(function (file) {
+      if (file) return null;
+      return window.rlnCrypto.createKeyFile(password).then(function (res) {
+        state.privateKeyFile = res.file;
+        state.privateKeyLoaded = true;
+        state.privateKey = res.key;
+        state.privateKeyDirty = false;
+        setPrivatePass(password);
+        return res.file;
+      });
+    });
+  }
+
+  /* 改密码 = 换 Token 密文 + 重加密全部私密文章（任何一步失败都整体不提交） */
   function updateEncryptedToken(oldPass, newPass) {
     if (!state.encryptedToken) { toast('未找到已保存的加密 Token', 'error'); return; }
     if (!encSupported()) { toast('当前环境不支持加密（需 HTTPS）', 'error'); return; }
     setBusy(true);
+    var tokenPayload = null;
+    var newKeyFile = null;
+    var newKey = null;
+    var reencrypted = [];
     decryptToken(state.encryptedToken, oldPass)
       .then(function (token) { return encryptToken(token, newPass); })
       .then(function (payload) {
-        return gh.commitFiles({ message: '更新加密的登录 Token', files: [{ path: TOKEN_FILE, content: payload }] });
+        tokenPayload = payload;
+        return loadPrivateKeyFile();
+      })
+      .then(function (file) {
+        if (!file) return null;
+        if (!privateCryptoReady()) throw new Error('当前环境不支持加密（需 HTTPS）');
+        return window.rlnCrypto.unlockKey(file, oldPass).then(function (oldKey) {
+          var privates = state.index.posts.filter(function (p) { return p.private; });
+          return window.rlnCrypto.createKeyFile(newPass).then(function (res) {
+            newKeyFile = res.file;
+            newKey = res.key;
+            return Promise.all(privates.map(function (p) {
+              return gh.getContent(p.path).then(function (text) {
+                var parsed = md.parseFrontmatter(text);
+                var payload = window.rlnCrypto.unfence(parsed.body);
+                if (!payload) throw new Error('私密文件已损坏：' + p.path);
+                return window.rlnCrypto.decryptJson(payload, oldKey).then(function (data) {
+                  return window.rlnCrypto.encryptJson(data, newKey).then(function (np) {
+                    reencrypted.push({ path: p.path, content: md.buildPrivateDoc(np) });
+                  });
+                });
+              });
+            }));
+          });
+        });
+      })
+      .then(function () {
+        var files = [{ path: TOKEN_FILE, content: tokenPayload }];
+        if (newKeyFile) {
+          files.push({ path: PRIVATE_KEY_FILE, content: JSON.stringify(newKeyFile, null, 2) + '\n' });
+          reencrypted.forEach(function (f) { files.push(f); });
+        }
+        return gh.commitFiles({
+          message: newKeyFile ? '更新登录密码并重加密私密文章' : '更新加密的登录 Token',
+          files: files
+        });
       })
       .then(function () {
         setBusy(false);
         state.encTokenSaved = true;
-        toast('已用新密码更新加密 Token ✓', 'ok');
+        if (newKeyFile) {
+          state.privateKeyFile = newKeyFile;
+          state.privateKey = newKey;
+          state.privateKeyDirty = false;
+          setPrivatePass(newPass);
+          toast('已用新密码更新 Token 并重加密 ' + reencrypted.length + ' 篇私密文章 ✓', 'ok');
+        } else {
+          toast('已用新密码更新加密 Token ✓', 'ok');
+        }
         render();
       })
       .catch(function (err) {
@@ -2478,7 +2826,7 @@
         }, [icon('back'), el('span', { text: '设置' })])
       ]),
       el('h1', { class: 'token-title', text: 'Token 加密存储' }),
-      el('div', { class: 'ios-stack-desc', text: '当前仓库 ' + g.owner + '/' + g.repo + ' 的 Token 会用下面的密码加密后写入仓库。解密仅在浏览器内进行，密码不会上传，也永不写入磁盘。' }),
+      el('div', { class: 'ios-stack-desc', text: '当前仓库 ' + g.owner + '/' + g.repo + ' 的 Token 会用下面的密码加密后写入仓库。解密仅在浏览器内进行，密码不会上传，也永不写入磁盘。该密码同时是私密文章的加密密码——修改时会一并重加密所有私密文章。' }),
       el('div', { class: 'ios-stack' }, [passGroup]),
       el('div', { class: 'detail-actions' }, [saveEncBtn, clearEncBtn])
     ]));
