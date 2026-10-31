@@ -258,6 +258,7 @@ python3 -m http.server 8080 --directory .   # 仓库根目录
 
 - **语法检查**：`node --check <file>`。
 - **集成测试（jsdom）**：`/tmp/opencode/jstest/`，覆盖：
+  - 私密文章：加解密（test-private-crypto）、前台隐藏与解锁（test-private-site）、后台加密发布/转换/换密码（test-private-admin/test-private-admin2）、公共站点回归（test-public-smoke）。
   - 站点渲染/路由/主题（test-site）、过滤/搜索/IME/归档/popstate（test-site2）、种子帖渲染+灯箱（test-welcome）、草稿拦截（test-draft）、空仓库连接（test-empty/test-empty409）、后台连接/发布（test-admin）、草稿/编辑/删除/409（test-admin2）、图片上传（test-img）、分页（test-pager）、评论（test-comments）、空仓库初始化（test-init）、索引内嵌/raw 回退（test-index-content）、详情/404/单行代码（test-post）、仓库地址解析（test-repourl）、置顶排序（test-pinned）、批量操作（test-bulk）。
 - **端到端**：真实 token 发布 → raw 即时可见 → Pages 自动构建。
 

@@ -1276,3 +1276,15 @@ html { overflow-y: scroll; }
   /* 编辑器菜单栏在窄屏允许换行，原生 select 不会被挤变形 */
   .editor-menubar { gap: var(--space-2); }
 }
+
+/* ---------- 私密文章徽标 ---------- */
+.post-cell .private-badge,
+.mobile-post-row .private-badge {
+  background: var(--accent-soft, #e3f0ff);
+  color: var(--accent, #007aff);
+}
+
+.status-private {
+  color: var(--accent, #007aff);
+}
+

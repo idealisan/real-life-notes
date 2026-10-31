@@ -7,7 +7,6 @@
 ## 已规划/待办
 
 - **R14 管理后台 PWA（仅后台）**：`admin/manifest.webmanifest` + `admin/sw.js` + `admin/pwa-register.js`，后台可安装、离线可开；公共站点（首页/阅读页/404）保持普通 HTML，不注册 SW。详见 `docs/requirements-analysis.md`。**布局约束：不得改动前后台样式，PC 浏览器后台外观须与普通 HTML 一致。**
-- **R15 私密文章（整篇端侧加密）**：文章可标记「私密」，标题/标签/日期/封面/正文全部 AES-256-GCM 加密后入库，index.json 只留 `{path, private:true}`；公开站点所有列表与订阅出口均不可见，直链只显示解锁表单。解密复用**后台解锁密码**（与 `content/.admin-token` 同一密码），不新增第二个密码。详见 `docs/requirements-analysis.md` R15 与 `docs/data-model.md` §4。
 - **决策（2026-08-09）**：原 R01–R13、R15–R28 等其余待规划需求**全部删除、不再实现**，后续迭代仅聚焦 R14。
 
 ## 已知问题（待修 Bug）
@@ -17,6 +16,17 @@
 3. **首页顶部分类导航激活态样式不刷新**：在首页（`index.html`）点击顶部「分类」标签后，筛选功能正常，但激活项高亮样式不跟随实际选中的分类刷新（停留在页面初次加载时 URL 对应的分类）。正文阅读页（`post.html`）无此问题（导航点击为整页跳转，每次加载重建导航）。**根因**：`catLink()` 的 `onClick` 只调用 `render()`，而 `render()` 从未重新渲染分类导航（`renderCats()` 只在 boot 与 popstate 时执行），`.cat-nav a.active` 停留在初次渲染值。**修复**：在 `render()` 开头调用 `renderCats()`，使任何 `state.cat` 变化都同步到导航激活态。测试：`test-site2.js` 断言点击「生活」分类后 `#catNav a.active` 为该分类。
 
 ## 已完成功能决策（历史，勿回退）
+
+### 私密文章（R15，整篇端侧加密）
+- **加密范围**：`{title,tags,date,updated,cover,body}` 整体 JSON → AES-256-GCM；仓库里没有任何明文元数据。文件固定为 `content/private/<12位hex>.md`，frontmatter 只有 `private: true`，正文是一个 ````rln-enc``` 密文块。
+- **索引**：`content/index.json` 条目只允许 `{"path": "...", "private": true}`，不得带 title/date/tags/category/excerpt/content（索引是公开文件）。
+- **密钥**：由**后台解锁密码**经 PBKDF2-SHA256(120000) 派生一次，得到全站唯一内容密钥；salt 与 verifier 存在 `content/private-key.json`（无前导点，前台要能 fetch）。不新增第二个密码。密码只存内存与 `sessionStorage['rln-private']`。
+- **前台**：`isListed(p)=!p.draft&&!p.private` 统一过滤列表/归档/标签/搜索/随机/上下篇/相关/双链/反链；私密页 `robots=noindex`，不输出 description/og/JSON-LD/评论/分享/上下篇/相关；标题固定显示「私密文章」。直链需输入密码，在本机解密后渲染。
+- **后台**：编辑器「私密」开关；编辑前须解锁；私密模式禁用 localStorage 自动保存；列表显示锁徽标与「已加密 · 需解锁查看」；`bulkAction`/`bulkMoveCategory` 跳过私密条目；RSS/sitemap 排除私密。
+- **改密码**：`updateEncryptedToken` 在换 Token 密码时原子重加密全部私密文章并重写 `private-key.json`（一次 commit，失败则整体不提交）。
+- **顺带修复**：`post.html?p=./content/x.md` 曾可绕过索引直接读取任意同源文本；现在 `p` 必须是 `content/<目录>/*.md` 且精确命中 index，raw 回退分支复核 `draft`/`private`。
+- **复用**：新增 `assets/js/crypto.js`（`window.rlnCrypto`），后台 Token 加密改为薄封装，payload 结构不变、旧 `.admin-token` 无需迁移。
+- **测试**：`test-private-crypto`、`test-private-site`、`test-private-admin`、`test-private-admin2`、`test-public-smoke`。
 
 ### MPA 重构（公开站点 SPA/hash 路由 → 传统多页面 + query 参数路由）
 - 列表：`index.html`；分类/搜索/翻页/归档：`index.html?cat=…&q=…&page=2&view=archive`（全部查询参数，不用 hash）。

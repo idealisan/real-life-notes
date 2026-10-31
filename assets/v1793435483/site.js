@@ -113,6 +113,28 @@
     node.textContent = JSON.stringify(data);
   }
 
+  function setRobots(content) {
+    var node = document.querySelector('meta[name="robots"]');
+    if (!node) {
+      node = document.createElement('meta');
+      node.setAttribute('name', 'robots');
+      document.head.appendChild(node);
+    }
+    node.setAttribute('content', content);
+  }
+
+  /* 可见性统一判断：草稿与私密文章都不出现在列表/归档/标签/搜索/随机/上下篇/相关/双链 */
+  function isListed(p) {
+    return !!p && !p.draft && !p.private;
+  }
+
+  /* 只接受 content/<目录>/<文件>.md；配合「必须精确命中 index」堵住 ?p=./content/x.md 旁路 */
+  var POST_PATH_RE = /^content\/[a-z0-9][a-z0-9_-]*\/[^\/\\?#]+\.md$/;
+  function isValidPostPath(path) {
+    return typeof path === 'string' && path.length <= 512 &&
+      path.indexOf('..') === -1 && POST_PATH_RE.test(path);
+  }
+
   function sharePost() {
     var url = location.href;
     var title = document.title || '分享';
@@ -288,7 +310,7 @@
   function filteredPosts() {
     var q = state.q ? state.q.toLowerCase() : '';
     var posts = state.posts.filter(function (p) {
-      if (p.draft) return false;
+      if (!isListed(p)) return false;
       if (state.cat && p.category !== state.cat) return false;
       if (q) {
         var catLabel = (state.config.categories[p.category] || {}).label || p.category;
@@ -518,7 +540,7 @@
     state.wikiByTitle = {};
     state.wikiBySlug = {};
     state.posts.forEach(function (p) {
-      if (p.draft) return;
+      if (!isListed(p)) return;
       state.wikiByPath[String(p.path).toLowerCase()] = p;
       if (p.title) state.wikiByTitle[String(p.title).toLowerCase()] = p;
       var slug = p.path.split('/').pop().replace(/\.md$/, '');
@@ -589,7 +611,7 @@
     if (!names.length) return [];
     var out = [];
     state.posts.forEach(function (p) {
-      if (p.draft || p.path === path) return;
+      if (!isListed(p) || p.path === path) return;
       if (typeof p.content !== 'string' || !p.content) return;
       var c = p.content.toLowerCase();
       if (names.some(function (name) { return c.indexOf('[[' + name + ']]') !== -1; })) out.push(p);
@@ -597,16 +619,142 @@
     return out;
   }
 
+  function showNotFound() {
+    els.view.textContent = '';
+    els.view.appendChild(notFoundView());
+    setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
+    setOgImage('');
+    setStructuredData(null);
+    var crumb = document.getElementById('jsonld-breadcrumb');
+    if (crumb) crumb.remove();
+    setRobots('noindex, nofollow');
+  }
+
+  /* ---------- 私密文章（浏览器内解密，不依赖后端） ---------- */
+  var PRIVATE_KEY_FILE = 'content/private-key.json';
+  var PRIVATE_PASS_KEY = 'rln-private';
+
+  function readPrivatePass() {
+    try { return sessionStorage.getItem(PRIVATE_PASS_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function writePrivatePass(pass) {
+    try {
+      if (pass) sessionStorage.setItem(PRIVATE_PASS_KEY, pass);
+      else sessionStorage.removeItem(PRIVATE_PASS_KEY);
+    } catch (e) {}
+  }
+
+  function cryptoReady() {
+    return !!(window.rlnCrypto && window.rlnCrypto.isSupported());
+  }
+
+  function loadPrivateKeyFile() {
+    return fetch(PRIVATE_KEY_FILE).then(function (res) {
+      return res.ok ? res.json() : null;
+    }).catch(function () { return null; });
+  }
+
+  function privateMetaError(text) {
+    els.view.textContent = '';
+    els.view.appendChild(el('div', { class: 'notice notice-error' }, [text]));
+  }
+
+  function unlockPanel(path, keyFile, payload, wrong) {
+    var pass = el('input', {
+      id: 'privPass', type: 'password', autocomplete: 'current-password',
+      maxlength: 128, placeholder: '后台解锁密码', 'aria-label': '解锁密码'
+    });
+    var btn = el('button', { class: 'btn-primary priv-submit', type: 'submit', text: '解锁阅读' });
+    var form = el('form', {
+      class: 'private-unlock', onSubmit: function (e) {
+        e.preventDefault();
+        var value = pass.value;
+        if (!value) { pass.focus(); return; }
+        btn.disabled = true;
+        btn.textContent = '解密中…';
+        window.rlnCrypto.unlockKey(keyFile, value).then(function (key) {
+          return window.rlnCrypto.decryptJson(payload, key);
+        }).then(function (data) {
+          writePrivatePass(value);
+          renderPrivateBody(path, data);
+        }).catch(function () {
+          els.view.textContent = '';
+          els.view.appendChild(unlockPanel(path, keyFile, payload, true));
+          var again = document.getElementById('privPass');
+          if (again) again.focus();
+        });
+      }
+    }, [
+      el('div', { class: 'private-lock', 'aria-hidden': 'true', text: '🔒' }),
+      el('h1', { class: 'private-title', text: '私密文章' }),
+      el('p', { class: 'private-desc', text: '这篇文章已加密，输入后台解锁密码后在本机解密阅读。' }),
+      el('div', { class: 'private-field' }, [pass, btn]),
+      wrong ? el('div', { class: 'private-error', role: 'alert', text: '密码不正确，请重试' }) : null,
+      el('p', { class: 'private-hint', text: '密码只在本标签页内保留，关闭标签即失效；解密过程不会把密码上传到任何服务器。' })
+    ]);
+    return form;
+  }
+
+  function renderPrivateBody(path, data) {
+    renderDetailBody(path, {
+      meta: {
+        title: data.title || '私密文章',
+        date: data.date || '',
+        updated: data.updated || '',
+        tags: data.tags || [],
+        cover: data.cover || ''
+      },
+      body: data.body || ''
+    }, { private: true });
+  }
+
+  function renderPrivateDetail(entry) {
+    var path = entry.path;
+    setPageMeta('私密文章 · ' + state.config.site.title, '');
+    setOgImage('');
+    setStructuredData(null);
+    setRobots('noindex, nofollow');
+
+    els.view.textContent = '';
+    els.view.appendChild(skeletonDetail());
+
+    fetch(path).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }).then(function (text) {
+      var parsed = md.parseFrontmatter(text);
+      var payload = window.rlnCrypto ? window.rlnCrypto.unfence(parsed.body) : null;
+      if (!payload) throw new Error('私密文件已损坏');
+      return loadPrivateKeyFile().then(function (keyFile) {
+        if (!keyFile) throw new Error('缺少私密文章密钥文件（content/private-key.json）');
+        if (!cryptoReady()) throw new Error('当前环境不支持解密（需 HTTPS）');
+        els.view.textContent = '';
+        els.view.appendChild(unlockPanel(path, keyFile, payload, false));
+        var pass = readPrivatePass();
+        if (!pass) return null;
+        /* 本标签页内已解锁过：自动尝试，失败则静默回到解锁面板 */
+        return window.rlnCrypto.unlockKey(keyFile, pass).then(function (key) {
+          return window.rlnCrypto.decryptJson(payload, key);
+        }).then(function (data) {
+          renderPrivateBody(path, data);
+        }).catch(function () {
+          writePrivatePass('');
+          return null;
+        });
+      });
+    }).catch(function (err) {
+      if (err && err.message === 'HTTP 404') { showNotFound(); return; }
+      privateMetaError('无法打开私密文章：' + md.esc(err && err.message ? err.message : '未知错误'));
+    });
+  }
+
   function renderDetail(path) {
     var inIndex = null;
     state.posts.forEach(function (p) { if (p.path === path) inIndex = p; });
-    if (inIndex && inIndex.draft) {
-      els.view.textContent = '';
-      els.view.appendChild(notFoundView());
-      setPageMeta(state.config.site.title, state.config.site.subtitle || state.config.site.title);
-      setOgImage('');
-      return;
-    }
+    /* 准入：路径必须合法且精确命中索引；草稿与私密互斥，草稿优先 */
+    if (!isValidPostPath(path) || !inIndex || inIndex.draft) { showNotFound(); return; }
+    if (inIndex.private) { renderPrivateDetail(inIndex); return; }
     els.view.textContent = '';
     if (inIndex && typeof inIndex.content === 'string') {
       var idxMeta = {
@@ -616,6 +764,7 @@
         tags: inIndex.tags || []
       };
       setPageMeta(idxMeta.title + ' · ' + state.config.site.title, '');
+      setRobots('index, follow');
       renderDetailBody(path, { meta: idxMeta, body: inIndex.content });
       return;
     }
@@ -626,8 +775,11 @@
     }).then(function (text) {
       var parsed = md.parseFrontmatter(text);
       var meta = parsed.meta;
+      /* raw 回退分支必须复核可见性，否则 ?p= 直链可绕过索引 */
+      if (meta.draft || meta.private) { showNotFound(); return; }
       if (!meta.title) meta.title = path.split('/').pop().replace(/\.md$/, '');
       setPageMeta(meta.title + ' · ' + state.config.site.title, '');
+      setRobots('index, follow');
       renderDetailBody(path, parsed);
     }).catch(function (err) {
       els.view.textContent = '';
@@ -677,8 +829,10 @@
     return el('nav', { class: 'breadcrumb', 'aria-label': '面包屑导航' }, items);
   }
 
-  function renderDetailBody(path, parsed) {    var meta = parsed.meta;
-    var catKey = (path.split('/')[1] || '') in (state.config.categories || {}) ? path.split('/')[1] : '';
+  function renderDetailBody(path, parsed, opts) {
+    var meta = parsed.meta;
+    var isPrivate = !!(opts && opts.private);
+    var catKey = !isPrivate && (path.split('/')[1] || '') in (state.config.categories || {}) ? path.split('/')[1] : '';
     var cat = state.config.categories[catKey] || {};
     var tags = (meta.tags && meta.tags.length) ? el('div', { class: 'post-card-tags' }, meta.tags.map(tagLink)) : null;
 
@@ -689,35 +843,41 @@
     attachLightbox(body);
     attachCodeCopy(body);
     addCodeLines(body);
-    var firstImg = body.querySelector('img');
-    var firstImgSrc = firstImg ? firstImg.getAttribute('src') : '';
-    setOgImage(firstImgSrc);
+
     var plain = body.textContent.replace(/\s+/g, ' ').trim();
     var counts = wordCounts(plain);
-    if (plain) {
-      setMetaDescription(plain.slice(0, 150));
-      setMetaProperty('description', plain.slice(0, 150));
-    }
+    var firstImg = body.querySelector('img');
+    var firstImgSrc = firstImg ? firstImg.getAttribute('src') : '';
     var resolvedImg;
     if (firstImgSrc) {
       try { resolvedImg = new URL(firstImgSrc, location.href).href; } catch (e) { resolvedImg = firstImgSrc; }
     }
-    var apt = document.querySelector('meta[property="article:published_time"]');
-    if (apt) apt.setAttribute('content', meta.date || '');
-    var amt = document.querySelector('meta[property="article:modified_time"]');
-    if (amt) amt.setAttribute('content', meta.updated || meta.date || '');
-    setStructuredData({
-      '@context': 'https://schema.org',
-      '@type': 'BlogPosting',
-      mainEntityOfPage: { '@type': 'WebPage', '@id': location.href },
-      headline: meta.title,
-      image: resolvedImg || undefined,
-      datePublished: meta.date || undefined,
-      dateModified: meta.updated || meta.date || undefined,
-      description: plain.slice(0, 200),
-      author: { '@type': 'Person', name: state.config.site.author || state.config.site.title },
-      publisher: { '@type': 'Organization', name: state.config.site.title }
-    });
+
+    /* 私密文章不向搜索引擎、社交卡片与结构化数据暴露任何内容 */
+    if (!isPrivate) {
+      setOgImage(firstImgSrc);
+      if (plain) {
+        setMetaDescription(plain.slice(0, 150));
+        setMetaProperty('description', plain.slice(0, 150));
+      }
+      var apt = document.querySelector('meta[property="article:published_time"]');
+      if (apt) apt.setAttribute('content', meta.date || '');
+      var amt = document.querySelector('meta[property="article:modified_time"]');
+      if (amt) amt.setAttribute('content', meta.updated || meta.date || '');
+      setStructuredData({
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        mainEntityOfPage: { '@type': 'WebPage', '@id': location.href },
+        headline: meta.title,
+        image: resolvedImg || undefined,
+        datePublished: meta.date || undefined,
+        dateModified: meta.updated || meta.date || undefined,
+        description: plain.slice(0, 200),
+        author: { '@type': 'Person', name: state.config.site.author || state.config.site.title },
+        publisher: { '@type': 'Organization', name: state.config.site.title }
+      });
+    }
+
     var toc = buildToc(body);
     if (toc) {
       body.insertBefore(toc, body.firstChild);
@@ -727,8 +887,9 @@
       var coverImg = el('img', { class: 'detail-cover', src: meta.cover, alt: '', loading: 'lazy', decoding: 'async' });
       body.insertBefore(coverImg, toc || body.firstChild);
     }
-    var sourceLink;
-    if (state.config.github && state.config.github.owner) {
+
+    var sourceLink = null;
+    if (!isPrivate && state.config.github && state.config.github.owner) {
       sourceLink = el('a', {
         href: 'https://github.com/' + encodeURIComponent(state.config.github.owner) + '/' +
           encodeURIComponent(state.config.github.repo) + '/blob/' +
@@ -739,13 +900,15 @@
 
     var fontCtl = renderFontCtl(body);
     els.view.textContent = '';
-    els.view.appendChild(buildBreadcrumb(catKey, cat, meta.title));
+    if (!isPrivate) els.view.appendChild(buildBreadcrumb(catKey, cat, meta.title));
     els.view.appendChild(el('div', { class: 'detail-head' }, [
       el('h1', { class: 'detail-title', text: meta.title }),
       el('div', { class: 'detail-meta' }, [
-        catKey ? el('a', { class: 'cat-badge', href: 'index.html?cat=' + encodeURIComponent(catKey), text: cat.label || catKey || '未分类' })
-          : el('span', { class: 'cat-badge', text: '未分类' }),
-        el('time', { datetime: meta.date, text: md.formatDate(meta.date) }),
+        isPrivate
+          ? el('span', { class: 'cat-badge cat-private', text: '私密' })
+          : (catKey ? el('a', { class: 'cat-badge', href: 'index.html?cat=' + encodeURIComponent(catKey), text: cat.label || catKey || '未分类' })
+            : el('span', { class: 'cat-badge', text: '未分类' })),
+        meta.date ? el('time', { datetime: meta.date, text: md.formatDate(meta.date) }) : null,
         meta.updated ? el('span', { text: '· 更新于 ' + md.fullDate(meta.updated) }) : null,
         counts.words ? el('span', { text: '· ' + counts.words + ' 字 · 约 ' + counts.minutes + ' 分钟' }) : null,
         fontCtl.btn
@@ -754,22 +917,26 @@
     ]));
     els.view.appendChild(fontCtl.row);
     els.view.appendChild(body);
-    els.view.appendChild(renderDetailNav(path));
-    var related = relatedPosts(path);
-    if (related) els.view.appendChild(related);
-    var bl = backlinksOf(path);
-    if (bl.length) {
-      els.view.appendChild(el('section', { class: 'backlinks' }, [
-        el('h2', { class: 'backlinks-title', text: '反向链接' }),
-        el('ul', { class: 'backlinks-list' }, bl.map(function (p) {
-          return         el('li', {}, [el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title || p.path })]);
-        }))
-      ]));
+
+    if (!isPrivate) {
+      els.view.appendChild(renderDetailNav(path));
+      var related = relatedPosts(path);
+      if (related) els.view.appendChild(related);
+      var bl = backlinksOf(path);
+      if (bl.length) {
+        els.view.appendChild(el('section', { class: 'backlinks' }, [
+          el('h2', { class: 'backlinks-title', text: '反向链接' }),
+          el('ul', { class: 'backlinks-list' }, bl.map(function (p) {
+            return el('li', {}, [el('a', { href: 'post.html?p=' + encodeURIComponent(p.path), text: p.title || p.path })]);
+          }))
+        ]));
+      }
     }
-    els.view.appendChild(el('div', { class: 'detail-foot' }, [
-      el('a', { href: 'index.html', text: '← 返回列表' }),
-      renderShareRow(meta.title, location.href),
-      el('span', { class: 'detail-foot-actions' }, [
+
+    var footActions = [];
+    if (!isPrivate) {
+      footActions.push(renderShareRow(meta.title, location.href));
+      footActions.push(el('span', { class: 'detail-foot-actions' }, [
         el('button', { type: 'button', class: 'link-copy', text: '分享', onClick: function (e) {
           e.preventDefault();
           sharePost();
@@ -791,9 +958,13 @@
           }).catch(function () {});
         } }),
         sourceLink
-      ])
-    ]));
-    renderComments();
+      ]));
+    }
+    els.view.appendChild(el('div', { class: 'detail-foot' }, [
+      el('a', { href: 'index.html', text: '← 返回列表' })
+    ].concat(footActions)));
+
+    if (!isPrivate) renderComments();
   }
 
   /* ---------- 评论（GitHub Issues，config 门控，默认关闭） ---------- */
@@ -1011,7 +1182,7 @@
   }
 
   function renderDetailNav(path) {
-    var published = state.posts.filter(function (p) { return !p.draft; })
+    var published = state.posts.filter(isListed)
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var idx = -1;
     published.forEach(function (p, i) { if (p.path === path) idx = i; });
@@ -1229,7 +1400,7 @@
     if (!cur) return null;
     var tags = cur.tags || [];
     var rel = state.posts.filter(function (p) {
-      return p.path !== path && !p.draft && (p.tags || []).some(function (t) { return tags.indexOf(t) !== -1; });
+      return p.path !== path && isListed(p) && (p.tags || []).some(function (t) { return tags.indexOf(t) !== -1; });
     }).map(function (p) {
       var share = (p.tags || []).filter(function (t) { return tags.indexOf(t) !== -1; }).length;
       return { p: p, share: share };
@@ -1311,7 +1482,7 @@
   if (randomLink) {
     randomLink.addEventListener('click', function (e) {
       e.preventDefault();
-      var pub = state.posts.filter(function (p) { return !p.draft; });
+      var pub = state.posts.filter(isListed);
       if (!pub.length) return;
       var p = pub[Math.floor(Math.random() * pub.length)];
       window.location.href = 'post.html?p=' + encodeURIComponent(p.path);
@@ -1386,7 +1557,7 @@
   }
 
   function renderArchive() {
-    var posts = state.posts.filter(function (p) { return !p.draft && (!state.cat || p.category === state.cat); })
+    var posts = state.posts.filter(function (p) { return isListed(p) && (!state.cat || p.category === state.cat); })
       .slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var groups = {};
     posts.forEach(function (p) {
@@ -1431,7 +1602,7 @@
   function renderTags() {
     var counts = {};
     state.posts.forEach(function (p) {
-      if (p.draft) return;
+      if (!isListed(p)) return;
       (p.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; });
     });
     var keys = Object.keys(counts).sort(function (a, b) {
