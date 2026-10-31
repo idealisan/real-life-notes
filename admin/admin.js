@@ -505,47 +505,36 @@
     });
   }
 
-  function askPrivatePass(message) {
-    var v = window.prompt(message);
-    return v == null ? null : v;
+  /* 私密文章的内容密钥完全复用「后台解锁密码」：
+     - 用密码解锁后台时，登录过程就已拿到密码，这里静默派生，绝不再弹框；
+     - 首次发布私密文章时用同一密码自动创建 private-key.json（随那次提交一起写入）；
+     - 用 Token 直接登录（没有密码）时无法派生，给出明确指引而不是要求再设一个密码。 */
+  function privatePass() {
+    return state.privatePass || readSession(PRIVATE_PASS_KEY);
   }
 
-  /* 确保内容密钥可用；createIfMissing 时允许用输入的密码新建 private-key.json */
   function ensurePrivateKey(createIfMissing) {
     if (state.privateKey) return Promise.resolve(state.privateKey);
     if (!privateCryptoReady()) return Promise.reject(new Error('当前环境不支持加密（需 HTTPS）'));
-    var promptFile = function (file) {
-      var pass = askPrivatePass('请输入后台解锁密码（用于解密私密文章）');
-      if (pass == null) return Promise.reject({ cancelled: true });
-      return window.rlnCrypto.unlockKey(file, pass).then(function (key) {
-        state.privateKeyFile = file;
-        state.privateKeyLoaded = true;
-        state.privateKey = key;
-        setPrivatePass(pass);
-        return key;
-      });
-    };
+    var pass = privatePass();
+    if (!pass) {
+      return Promise.reject(new Error('私密文章沿用后台解锁密码：请改用「密码解锁」登录后再操作'));
+    }
     return loadPrivateKeyFile().then(function (file) {
-      var remembered = state.privatePass || readSession(PRIVATE_PASS_KEY);
       if (file) {
-        if (remembered) {
-          return window.rlnCrypto.unlockKey(file, remembered).catch(function () {
-            setPrivatePass('');
-            return promptFile(file);
-          });
-        }
-        return promptFile(file);
+        return window.rlnCrypto.unlockKey(file, pass).then(function (key) {
+          state.privateKeyFile = file;
+          state.privateKeyLoaded = true;
+          state.privateKey = key;
+          return key;
+        });
       }
-      if (!createIfMissing) return Promise.reject(new Error('尚未设置私密文章密码'));
-      var pass = askPrivatePass('设置私密文章密码（建议与解锁后台的密码一致）');
-      if (pass == null) return Promise.reject({ cancelled: true });
-      if (pass.length < 6) return Promise.reject(new Error('密码至少 6 位'));
+      if (!createIfMissing) return Promise.reject(new Error('尚未创建私密文章密钥（发布第一篇私密文章时会自动创建）'));
       return window.rlnCrypto.createKeyFile(pass).then(function (res) {
         state.privateKeyFile = res.file;
         state.privateKeyLoaded = true;
         state.privateKeyDirty = true;
         state.privateKey = res.key;
-        setPrivatePass(pass);
         return res.key;
       });
     });
@@ -793,6 +782,7 @@
     else if (state.view === 'settings') renderSettings();
     else if (state.view === 'token') renderTokenPage();
     else if (state.view === 'post-detail') renderPostDetail();
+    else if (state.view === 'post-read') renderPostRead();
     else if (state.view === 'cat-detail') renderCategoryDetail();
     updateRepoWarn();
     // 切换视图后回到顶部：否则从长页面底部（如设置页）进入子页时，
@@ -1161,12 +1151,32 @@
       el('div', { class: 'detail-actions' }, [
         isDraft
           ? el('div', { class: 'detail-draft-hint', text: '草稿仅自己可见，无法预览' })
-          : el('a', { class: 'btn-ghost', href: previewUrl, target: '_blank', rel: 'noopener', text: isPrivate ? '查看页面（需密码）↗' : '查看页面 ↗' }),
+          : (isPrivate
+            ? el('button', { class: 'btn-ghost', text: '阅读全文', onClick: function () { state.view = 'post-read'; render(); } })
+            : el('a', { class: 'btn-ghost', href: previewUrl, target: '_blank', rel: 'noopener', text: '查看页面 ↗' })),
         el('button', { class: 'btn-primary', text: '进入编辑', onClick: function () { startEditPost(p); } }),
         el('button', { class: 'btn-danger', text: '删除文章', onClick: function () {
           deletePost(p);
         } })
       ])
+    ]));
+  }
+
+  /* 私密文章在后台直接阅读：内容已解密在内存里，不跳前台、不再要密码 */
+  function renderPostRead() {
+    var p = postMeta(state.detailPost || {});
+    var data = state.privateMeta[p.path] || {};
+    var body = data.body || p.content || '';
+    els.mainContent.appendChild(el('section', { class: 'ios-page settings-page' }, [
+      el('div', { class: 'token-nav' }, [
+        el('button', {
+          class: 'ios-back', type: 'button', 'aria-label': '返回文章详情', title: '返回文章详情',
+          onClick: function () { state.view = 'post-detail'; render(); }
+        }, [icon('back'), el('span', { text: '文章' })])
+      ]),
+      el('h1', { class: 'token-title', text: p.title || '私密文章' }),
+      el('div', { class: 'ios-stack-desc', text: (p.date ? md.formatDate(p.date) + ' · ' : '') + '私密文章（仅登录后可见）' }),
+      el('div', { class: 'preview-pane detail-body', html: md.render(body) })
     ]));
   }
 
@@ -1344,7 +1354,6 @@
           openEditor(p, parsed, data, true);
         })
         .catch(function (err) {
-          if (err && err.cancelled) { toast('已取消解锁', 'ok'); return; }
           toast('解锁失败：' + (err && err.message ? err.message : '密码不正确'), 'error');
         });
     }).catch(function (err) {
@@ -1483,10 +1492,10 @@
         iosToggle('edPinned', !!ed.pinned, markDirty, '置顶')
       ]),
       el('div', { class: 'ios-check-row' }, [
-        el('span', { class: 'cell-label', text: '私密（整篇加密，凭链接 + 密码阅读）' }),
+        el('span', { class: 'cell-label', text: '私密（整篇加密，用后台解锁密码阅读）' }),
         iosToggle('edPrivate', !!ed.private, markDirty, '私密')
       ]),
-      el('div', { class: 'hint', text: '私密文章的标题/标签/日期/正文全部加密，不会出现在列表、搜索、归档、标签与 RSS 中；加密密码就是后台解锁密码。' })
+      el('div', { class: 'hint', text: '私密文章的标题/标签/日期/正文全部加密，不会出现在公开列表、搜索、归档、标签与 RSS 中。加密密码就是后台解锁密码——你登录时输入过，之后自动解密，不用再输一次。' })
     ]);
 
     var imageInput = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
@@ -2053,7 +2062,6 @@
       });
     }).catch(function (err) {
       setBusy(false);
-      if (err && err.cancelled) { toast('已取消保存', 'ok'); return; }
       toast('保存失败：' + (err && err.message ? err.message : errMsg(err)), 'error');
     });
   }

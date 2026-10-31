@@ -20,7 +20,7 @@
 ### 私密文章（R15，整篇端侧加密）
 - **加密范围**：`{title,tags,date,updated,cover,body}` 整体 JSON → AES-256-GCM；仓库里没有任何明文元数据。文件固定为 `content/private/<12位hex>.md`，frontmatter 只有 `private: true`，正文是一个 ````rln-enc``` 密文块。
 - **索引**：`content/index.json` 条目只允许 `{"path": "...", "private": true}`，不得带 title/date/tags/category/excerpt/content（索引是公开文件）。
-- **密钥**：由**后台解锁密码**经 PBKDF2-SHA256(120000) 派生一次，得到全站唯一内容密钥；salt 与 verifier 存在 `content/private-key.json`（无前导点，前台要能 fetch）。不新增第二个密码。密码只存内存与 `sessionStorage['rln-private']`。
+- **密钥**：由**后台解锁密码**经 PBKDF2-SHA256(120000) 派生一次，得到全站唯一内容密钥；salt 与 verifier 存在 `content/private-key.json`（无前导点，前台要能 fetch）。**不新增第二个密码、也不弹"设置私密密码"**：登录解锁后台时静默派生，密钥文件在首次发布私密文章的同一次提交里自动创建；用 Token 直接登录（未输入密码）时私密条目显示为锁定并提示改用密码登录。密码只存内存与 `sessionStorage['rln-private']`。
 - **前台**：`isListed(p)=!p.draft&&!p.private` 统一过滤列表/归档/标签/搜索/随机/上下篇/相关/双链/反链；私密页 `robots=noindex`，不输出 description/og/JSON-LD/评论/分享/上下篇/相关；标题固定显示「私密文章」。直链需输入密码，在本机解密后渲染。
 - **后台**：编辑器「私密」开关；编辑前须解锁；私密模式禁用 localStorage 自动保存；列表显示锁徽标与「已加密 · 需解锁查看」；`bulkAction`/`bulkMoveCategory` 跳过私密条目；RSS/sitemap 排除私密。
 - **改密码**：`updateEncryptedToken` 在换 Token 密码时原子重加密全部私密文章并重写 `private-key.json`（一次 commit，失败则整体不提交）。

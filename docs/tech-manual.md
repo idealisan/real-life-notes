@@ -154,7 +154,7 @@ docs/                 设计文档
 - 编辑器 `renderEditor`：标题、分类、标签、日期、草稿/置顶开关、正文（textarea）+ 双栏实时预览；`markDirty` 未保存提醒（beforeunload）；工具栏（`lineAction`/`wrapSelection`/`attachEditorKeys` 加粗斜体等）；公式/代码高亮预览复用 `md.render`。
 - 图片上传 `uploadImage`：粘贴/拖拽/选择文件 → 前端校验类型与大小 → 转 Base64 → 随保存 commit 写入 `content/images/<YYYYMMDD>-<rand>.<ext>`。
 - 发布 `savePost`：计算 slug（`YYYY-MM-DD-<kebab-case>`，冲突加 `-2`）→ 组装 md + frontmatter → 计算新 index.json → 同 commit 原子更新（md + index + content/rss.xml）；删除 `deletePost` 同理（tree `sha:null`）。
-- 私密文章：编辑器「私密」开关 → 加密 `{title,tags,date,updated,cover,body}` → 写 `content/private/<12位hex>.md` + index 条目 `{path, private:true}`；编辑前须解锁（`state.privateKey`），自动保存草稿对私密禁用；修改解锁密码时重加密全部私密文章。
+- 私密文章：编辑器「私密」开关 → 加密 `{title,tags,date,updated,cover,body}` → 写 `content/private/<12位hex>.md` + index 条目 `{path, private:true}`；`state.privateKey` 在**密码解锁后台时自动派生**（Token 直接登录则无密钥，给出提示），编辑/发布全程无密码弹框；自动保存草稿对私密禁用；修改解锁密码时重加密全部私密文章。
 - 批量 `bulkAction`：勾选多篇 → 批量发布/存草稿/删除（一次 commit）；`bulkMoveCategory`：批量移动分类。
 - 分类管理 `renderCategories`：增删改（写入 content/config.json，校验重名/非法 key）。
 - 站点设置 `renderSettings`：标题/副标题/作者/站点地址/评论开关与标签、「重新生成 RSS/sitemap/robots」（`regeneratePublishFiles`，`buildRss/buildSitemap/buildRobots` 纯生成）。
@@ -191,7 +191,7 @@ post.html?p=… → parseParams 取 p → fetch content/index.json
 
 **私密文章（写）**：
 ```
-编辑器勾选「私密」→ 需要 state.privateKey（由解锁密码派生；无则先输入密码并校验 private-key.json）
+编辑器勾选「私密」→ 直接用登录时派生的 state.privateKey（无密钥 = 本次是 Token 登录，提示改用密码登录，绝不另设密码）
   → rlnCrypto.encryptJson({title,tags,date,updated,cover,body}, key)
   → md.buildPrivateDoc(payload)  →  content/private/<12位hex>.md
   → index 条目 {path, private:true}
